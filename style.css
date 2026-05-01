@@ -1294,6 +1294,10 @@ main { padding: 0 20px 120px; }   /* bottom space clears tab-bar + raised mic */
   grid-template-columns: repeat(4, 1fr);
   align-items: center;
   z-index: 90;
+  /* Critical: prevent any oversized child from blowing out the bar layout. */
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .tab-btn {
@@ -1304,24 +1308,44 @@ main { padding: 0 20px 120px; }   /* bottom space clears tab-bar + raised mic */
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 4px 0;
+  padding: 4px 4px;
   color: var(--label-tertiary);
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   transition: color 0.18s var(--ease), transform 0.15s var(--ease);
+  /* Each button is one grid column. min-width:0 lets flex/grid actually
+     respect the column width when text is long — without this, a wide
+     label pushes the whole row beyond the viewport. */
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 .tab-btn:active { transform: scale(0.92); }
-.tab-btn .tab-icon { width: 24px; height: 24px; }
+.tab-btn .tab-icon { width: 24px; height: 24px; flex-shrink: 0; }
 .tab-btn .tab-label {
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  /* Single-line, ellipsis on overflow. Without this the Workout button's
+     "End · 23:41" label widens its column and pushes Profile off-screen
+     on narrow viewports. */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tab-btn.active { color: var(--blue); }
 
 /* The Workout button has special states for active session */
 .tab-workout.session-active { color: var(--red); }
 .tab-workout.session-active .tab-icon { color: var(--red); }
+/* Slightly tighter font on the workout label when active so the elapsed
+   time fits on most phones without ellipsis kicking in. */
+.tab-workout.session-active .tab-label {
+  font-size: 0.6rem;
+  letter-spacing: 0;
+  font-feature-settings: "tnum";
+}
 
 /* ==========================================================================
    Screens (single-page tab system)

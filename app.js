@@ -2605,7 +2605,13 @@ function updateWorkoutTabUI() {
         btn.classList.add('session-active');
         // Stop icon
         icon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="1.5"/>';
-        label.textContent = 'End · ' + formatElapsed(Date.now() - activeSession.startedAt);
+        // Compact mm or h:mm format so the label fits in a 25%-width column
+        // on narrow phones. The full session card on Home shows precise time.
+        const totalSec = Math.floor((Date.now() - activeSession.startedAt) / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const compact = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}m`;
+        label.textContent = compact;
     } else {
         btn.classList.remove('session-active');
         // Play icon
