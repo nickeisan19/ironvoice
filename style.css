@@ -1170,10 +1170,10 @@ main { padding: 0 20px 120px; }   /* bottom space clears tab-bar + raised mic */
      Then we need to subtract half the mic's own height (32) so its center
      lands at that point. So bottom = 70 - 32 = 38, plus safe-area. */
   bottom: calc(34px + env(safe-area-inset-bottom));
-  /* 4-column tab bar: columns are at 12.5%, 37.5%, 62.5%, 87.5% (centers).
-     The mic sits at the boundary between History (col 3) and Workout (col 4),
-     which is 75% across. */
-  left: 75%;
+  /* 5-column tab bar: columns are at 10%, 30%, 50%, 70%, 90% (centers).
+     The mic sits at the boundary between History (col 3, center 50%)
+     and Workout (col 4, center 70%), which is 60% across. */
+  left: 60%;
   transform: translateX(-50%);
   width: 64px; height: 64px;
   border-radius: 50%;
@@ -1291,7 +1291,7 @@ main { padding: 0 20px 120px; }   /* bottom space clears tab-bar + raised mic */
   backdrop-filter: blur(20px) saturate(180%);
   border-top: 0.5px solid var(--hairline-strong);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   align-items: center;
   z-index: 90;
   /* Critical: prevent any oversized child from blowing out the bar layout. */
