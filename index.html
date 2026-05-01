@@ -55,7 +55,7 @@
                 <input type="text" id="first-name" placeholder="First name" autocomplete="given-name">
                 <input type="text" id="last-name" placeholder="Last name" autocomplete="family-name">
             </div>
-            <input type="email" id="user-email" placeholder="Email (for backup sync)" autocomplete="email">
+            <input type="email" id="user-email" placeholder="Email (used to sync across devices)" autocomplete="email">
             <button class="primary-btn" data-action="saveProfile">Start training</button>
         </div>
     </div>
@@ -79,9 +79,9 @@
                 <div class="settings-section">
                     <div class="section-label">Sync</div>
                     <div class="grouped-list">
-                        <label class="row-input"><span>API token</span><input type="password" id="settings-token" placeholder="Bearer token" autocomplete="off"></label>
+                        <label class="row-input"><span>Access key</span><input type="password" id="settings-token" placeholder="Paste your access key" autocomplete="off"></label>
                         <button class="row-action" data-action="testConnection"><span>Test connection</span><span id="ping-state" class="row-trailing">—</span></button>
-                        <button class="row-action" data-action="restoreFromNAS"><span>Restore from NAS</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+                        <button class="row-action" data-action="restoreFromNAS"><span>Restore from cloud</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
                     </div>
                     <div class="section-foot" id="sync-meta">No sync activity yet.</div>
                 </div>
@@ -170,7 +170,7 @@
                     <div class="section-foot">Health export uses CSV importable via Health Auto Export, Shortcuts, or any HealthKit utility.</div>
                 </div>
 
-                <div class="settings-foot">IronVoice Pro · v5</div>
+                <div class="settings-foot">IronVoice Pro · v7</div>
             </div>
         </div>
     </div>
@@ -359,6 +359,11 @@
                 <span class="subtitle-line" id="header-subtitle">Ready to lift</span>
             </div>
             <div class="header-actions">
+                <button class="icon-btn" data-screen-target="home" aria-label="Home">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2V11z"/>
+                    </svg>
+                </button>
                 <button class="icon-btn" data-action="openHelp" aria-label="Voice commands">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 4"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
                 </button>
@@ -523,12 +528,6 @@
          so its breath animation can scale freely without affecting the
          bar layout. -->
     <nav class="tab-bar" id="tab-bar" aria-label="Primary">
-        <button class="tab-btn" data-screen-target="home" aria-label="Home">
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2V11z"/>
-            </svg>
-            <span class="tab-label">Home</span>
-        </button>
         <button class="tab-btn" data-screen-target="prs" aria-label="Personal records">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 4H2v2a4 4 0 0 0 5 4M19 4h3v2a4 4 0 0 1-5 4"/>

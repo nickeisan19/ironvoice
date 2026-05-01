@@ -1820,7 +1820,7 @@ async function testConnection() {
 }
 
 function logoutFromSettings() {
-    if (!confirm("Sign out? Local lift history stays on this device.")) return;
+    if (!confirm("Sign out of this device? Cloud history is preserved — sign back in with the same email to restore.")) return;
     localStorage.removeItem('ironUser');
     localStorage.removeItem('ironToken');
     location.reload();
@@ -3046,7 +3046,7 @@ function initJournalDelegationFor(container) {
 // PRs with whatever it returns. serverSyncedAt persists across reloads.
 async function syncToNAS() {
     if (!userProfile?.email) { setStatus('Add email in settings', 'error'); return; }
-    if (!getToken()) { setStatus('Add token in settings', 'error'); return; }
+    if (!getToken()) { setStatus('Add access key in Profile', 'error'); return; }
 
     setStatus('Syncing…', 'listening');
     try {
@@ -3152,8 +3152,8 @@ async function syncToNAS() {
 
 async function restoreFromNAS() {
     if (!userProfile?.email) { alert('Add email first'); return; }
-    if (!getToken()) { alert('Add API token first'); return; }
-    if (!confirm("Pull from NAS and merge with local? Local is kept; remote-only is added; deletes win on either side.")) return;
+    if (!getToken()) { alert('Add your access key first'); return; }
+    if (!confirm("Pull from the cloud and merge with local? Local is kept; remote-only is added; deletes win on either side.")) return;
 
     setStatus('Restoring…', 'listening');
     try {
@@ -3166,7 +3166,7 @@ async function restoreFromNAS() {
         // Item 9: 404 means no backup exists for this email. Most often a typo.
         if (res.status === 404) {
             setStatus('No backup found', 'error');
-            alert(`No backup found on the NAS for ${userProfile.email}.\n\nIf this was a typo, fix the email in Settings and try again. Your local data is untouched.`);
+            alert(`No backup found in the cloud for ${userProfile.email}.\n\nIf this was a typo, fix the email in Profile and try again. Your local data is untouched.`);
             return;
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
