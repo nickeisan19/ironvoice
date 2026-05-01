@@ -1,8 +1,8 @@
 {
-  "id": "/ironvoice/",
+  "id": "/",
   "short_name": "IronVoice",
   "name": "IronVoice Pro",
-  "description": "Voice-controlled weightlifting tracker. Hands-free logging, PR tracking, and incremental NAS backup.",
+  "description": "Voice-controlled weightlifting tracker. Hands-free logging, PR tracking, and incremental cloud backup.",
   "lang": "en-US",
   "categories": ["fitness", "health", "lifestyle"],
   "start_url": "./",

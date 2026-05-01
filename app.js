@@ -164,6 +164,18 @@ let selectedExercise = "";
 let userProfile = JSON.parse(localStorage.getItem('ironUser') || 'null');
 let recognition = null;
 let isListening = false;
+
+// ---------------------------------------------------------------------------
+// Backend endpoint
+//
+// The frontend lives on Cloudflare Pages, the backend is a separate Worker.
+// Cross-origin fetches require the absolute URL. To migrate to a different
+// backend (custom domain, second region, etc.), change this single constant.
+//
+// CSP must include this origin in connect-src — see index.html.
+// ---------------------------------------------------------------------------
+const API_URL = 'https://ironvoice-api.nickeisan19.workers.dev';
+
 let activeTemplate = null;
 let editingTemplate = null;
 let restDuration = parseInt(localStorage.getItem('ironRest') || '90', 10);
@@ -1784,7 +1796,7 @@ async function testConnection() {
     $('ping-state').textContent = '…';
     $('ping-state').className = 'row-trailing';
     try {
-        const res = await fetch('backup.php', {
+        const res = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ action: 'ping' })
@@ -3068,7 +3080,7 @@ async function syncToNAS() {
             syncedAt: Date.now(),
         });
 
-        const res = await fetch('backup.php', {
+        const res = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
             body
@@ -3139,7 +3151,7 @@ async function restoreFromNAS() {
 
     setStatus('Restoring…', 'listening');
     try {
-        const res = await fetch('backup.php', {
+        const res = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
             body: JSON.stringify({ action: 'restore', user: userProfile })

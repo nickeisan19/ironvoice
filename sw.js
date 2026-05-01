@@ -1,12 +1,17 @@
 // ============================================================================
 // IronVoice Pro — Service Worker
 // - Cache-first for app shell
-// - Network-only for backup.php
+// - Network-only for the Worker API (different origin)
 // - Background Sync API for retry-on-reconnect (where supported)
 // - Update prompt: holds new SW until page asks to skipWaiting
 // ============================================================================
 
-const CACHE_VERSION = 'ironvoice-v6';
+// The Worker API origin. Any cross-origin POST goes through unmodified —
+// the SW never caches it. Update this here AND in app.js (API_URL) AND in
+// index.html's CSP if you migrate to a custom domain.
+const API_ORIGIN = 'https://ironvoice-api.nickeisan19.workers.dev';
+
+const CACHE_VERSION = 'ironvoice-v7';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.json'];
 
 self.addEventListener('install', e => {
@@ -24,7 +29,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
-    if (url.pathname.endsWith('backup.php')) { e.respondWith(fetch(e.request)); return; }
+    // API calls bypass cache entirely — always hit the Worker.
+    if (url.origin === API_ORIGIN) { e.respondWith(fetch(e.request)); return; }
+    // Anything else not from our origin: let the browser handle it natively.
     if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
     e.respondWith(
@@ -68,7 +75,7 @@ async function replayQueuedSync() {
         db.close();
         if (!queued) return;
 
-        const res = await fetch('backup.php', {
+        const res = await fetch(API_ORIGIN, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${queued.token}` },
             body: queued.body

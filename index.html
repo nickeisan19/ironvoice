@@ -8,8 +8,11 @@
     <!-- Item 1: Content-Security-Policy. script-src is now strict — no
          'unsafe-inline' — because every handler is wired via addEventListener
          using data-action attributes. style-src still needs 'unsafe-inline'
-         for the dynamic muscle-color swatches sprinkled through the renderers. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'">
+         for the dynamic muscle-color swatches sprinkled through the renderers.
+         connect-src includes the Cloudflare Worker so sync/restore POSTs
+         clear the policy. Update the Worker URL here AND in app.js (API_URL)
+         if you ever migrate to a custom domain. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' https://ironvoice-api.nickeisan19.workers.dev; base-uri 'none'; frame-ancestors 'none'; form-action 'none'">
 
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
