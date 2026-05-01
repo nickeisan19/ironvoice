@@ -128,3 +128,6 @@ DRAFT-*.md
 _scratch*
 _test*
 _tmp*
+
+.dev.vars*
+!.dev.vars.example
