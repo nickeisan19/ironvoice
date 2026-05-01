@@ -1,0 +1,130 @@
+# ============================================================================
+# IronVoice .gitignore
+#
+# Goal: keep secrets, OS junk, editor config, and build artifacts out of git.
+# Everything not matched here gets committed. When in doubt, add a pattern —
+# it's much easier to commit something later than to scrub it from git history.
+# ============================================================================
+
+# --- Secrets & credentials --------------------------------------------------
+# These should NEVER be committed. The Cloudflare Worker reads its token and
+# salt from environment variables set in the dashboard — they don't live in
+# source control. If you ever store them in a local file for testing, name
+# the file according to one of these patterns and it'll be ignored.
+.env
+.env.*
+!.env.example
+*.local
+secrets.json
+secrets/
+**/credentials.json
+ironvoice-token.txt
+ironvoice-salt.txt
+
+# --- Cloudflare Wrangler ----------------------------------------------------
+# Wrangler caches state, secrets, and build outputs in these dirs. Don't ship.
+.wrangler/
+.dev.vars
+.dev.vars.*
+wrangler.toml.bak
+
+# --- Node / npm / package managers ------------------------------------------
+# IronVoice itself doesn't need npm, but Wrangler does. node_modules is
+# always huge, always reproducible from package.json, and never in git.
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json.bak
+
+# --- Build & deploy artifacts -----------------------------------------------
+# If you ever introduce a build step (bundler, minifier, TypeScript), output
+# goes here. Don't commit generated files — generate them at deploy time.
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+*.bundle.js
+*.min.js.map
+*.min.css.map
+
+# --- IronVoice-specific runtime junk ----------------------------------------
+# JSON snapshots from the old QNAP backups directory. If you ever pull a
+# backup down for inspection, name it with one of these and it stays local.
+backups/
+*.backup.json
+history-*.json
+
+# --- Editor & IDE config ----------------------------------------------------
+# Personal editor settings shouldn't drift between machines via git.
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# --- OS-generated files -----------------------------------------------------
+# macOS, Windows, Linux all litter folders with these. Filtered globally.
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Logs -------------------------------------------------------------------
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# --- Image generation scratch -----------------------------------------------
+# The Python scripts that generate icons/splash screens are in git, but
+# their outputs land in the project root and are committed (icon-*.png,
+# splash-*.png). Anything else generated for local testing stays out.
+gen_*.py.bak
+icon-1024.png
+favicon-test.png
+*.icon-test.png
+
+# --- Testing & local-only files ---------------------------------------------
+test_*.js
+test_*.html
+*.test.html
+scratch/
+tmp/
+temp/
+
+# --- Documentation drafts ---------------------------------------------------
+# Real docs (README.md, etc.) get committed. WIP drafts stay local.
+NOTES.md
+TODO.md
+DRAFT-*.md
+*.draft.md
+
+# --- Archive / backup files -------------------------------------------------
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.bak
+*.old
+
+# --- Anything starting with an underscore (personal scratch convention) -----
+# Useful when you want to drop a quick test file without picking a unique
+# name — prefix with underscore and it's auto-ignored.
+_scratch*
+_test*
+_tmp*
