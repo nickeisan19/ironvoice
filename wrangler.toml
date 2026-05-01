@@ -1,0 +1,44 @@
+# ============================================================================
+# Cloudflare Worker config for IronVoice's API backend.
+#
+# This file tells `wrangler deploy` what to ship and how. Secrets like the
+# bearer token and salt are NOT defined here — they're set separately via
+# `wrangler secret put` so they never end up in git.
+#
+# Reference: https://developers.cloudflare.com/workers/wrangler/configuration/
+# ============================================================================
+
+name = "ironvoice-api"
+main = "worker.js"
+compatibility_date = "2025-01-15"
+
+# ----------------------------------------------------------------------------
+# R2 bucket binding
+#
+# Inside worker.js, this bucket is accessible as `env.BUCKET`. The bucket
+# itself must be created once via:
+#     wrangler r2 bucket create ironvoice-data
+# ----------------------------------------------------------------------------
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "ironvoice-data"
+
+# ----------------------------------------------------------------------------
+# Environment variables (non-secret)
+#
+# ALLOWED_ORIGIN is the origin that's permitted to make CORS requests to
+# this Worker — i.e. the URL where your IronVoice frontend is hosted.
+# Update this if your Pages URL changes (custom domain, etc.).
+#
+# TOMBSTONE_DAYS controls how long deleted records hang around before
+# garbage collection drops them. 90 is a sensible default for a
+# multi-device sync system; lower values reclaim storage faster.
+# ----------------------------------------------------------------------------
+[vars]
+ALLOWED_ORIGIN = "https://ironvoice.pages.dev"
+TOMBSTONE_DAYS = "90"
+
+# Observability gives you free request logs in the Cloudflare dashboard.
+# Useful for debugging "did my phone actually call the Worker?" questions.
+[observability]
+enabled = true

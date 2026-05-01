@@ -1,0 +1,16 @@
+{
+  "name": "ironvoice-api",
+  "version": "1.0.0",
+  "description": "IronVoice backend — Cloudflare Worker rewrite of backup.php",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "secret-token": "wrangler secret put IRONVOICE_TOKEN",
+    "secret-salt": "wrangler secret put IRONVOICE_SALT"
+  },
+  "devDependencies": {
+    "wrangler": "^4.87.0"
+  }
+}
