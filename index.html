@@ -412,57 +412,63 @@
                 </div>
             </section>
 
-            <div id="template-chips" class="template-chips"></div>
-            <div id="template-progress" class="template-progress"></div>
+            <!-- v8: shown only DURING a workout — set list grouped by exercise. -->
+            <div id="session-sets" class="session-sets" style="display:none"></div>
 
-            <div class="card-row">
-                <div class="card">
-                    <h3>Current</h3>
-                    <div id="last-lift">—</div>
-                </div>
-                <div class="card pr" id="pr-card" data-action="goPRs">
-                    <h3>Latest PR</h3>
-                    <div id="pr-display">—</div>
-                </div>
-                <div class="card status-card" id="strain-card">
-                    <h3>Status</h3>
-                    <div id="strain-text">—</div>
-                    <div id="strain-sub" class="strain-sub">—</div>
-                </div>
-            </div>
+            <!-- v8: everything below shows only when NO workout is active. -->
+            <div id="home-idle-content">
+                <div id="template-chips" class="template-chips"></div>
+                <div id="template-progress" class="template-progress"></div>
 
-            <div id="insights-card" class="insight-card" style="display:none">
-                <div class="insight-icon">⚡</div>
-                <div class="insight-body">
-                    <div class="insight-title" id="insight-title">—</div>
-                    <div class="insight-text" id="insight-text">—</div>
+                <div class="card-row">
+                    <div class="card">
+                        <h3>Current</h3>
+                        <div id="last-lift">—</div>
+                    </div>
+                    <div class="card pr" id="pr-card" data-action="goPRs">
+                        <h3>Latest PR</h3>
+                        <div id="pr-display">—</div>
+                    </div>
+                    <div class="card status-card" id="strain-card">
+                        <h3>Status</h3>
+                        <div id="strain-text">—</div>
+                        <div id="strain-sub" class="strain-sub">—</div>
+                    </div>
                 </div>
-            </div>
 
-            <section class="chart-card card">
-                <div class="chart-header">
-                    <h3>Volume</h3>
-                    <span class="chart-meta-text" id="chart-total">—</span>
+                <div id="insights-card" class="insight-card" style="display:none">
+                    <div class="insight-icon">⚡</div>
+                    <div class="insight-body">
+                        <div class="insight-title" id="insight-title">—</div>
+                        <div class="insight-text" id="insight-text">—</div>
+                    </div>
                 </div>
-                <div class="chart-filters">
-                    <button class="filter-chip active" data-mode="volume">Volume</button>
-                    <button class="filter-chip" data-mode="sets">Sets</button>
-                </div>
-                <div class="volume-chart" id="volume-chart"></div>
-                <div class="chart-axis">
-                    <span>14d ago</span>
-                    <span>Today</span>
-                </div>
-            </section>
 
-            <section class="chart-card card">
-                <div class="chart-header">
-                    <h3>By muscle group</h3>
+                <section class="chart-card card">
+                    <div class="chart-header">
+                        <h3>Volume</h3>
+                        <span class="chart-meta-text" id="chart-total">—</span>
+                    </div>
+                    <div class="chart-filters">
+                        <button class="filter-chip active" data-mode="volume">Volume</button>
+                        <button class="filter-chip" data-mode="sets">Sets</button>
+                    </div>
+                    <div class="volume-chart" id="volume-chart"></div>
+                    <div class="chart-axis">
+                        <span>14d ago</span>
+                        <span>Today</span>
+                    </div>
+                </section>
+
+                <section class="chart-card card">
+                    <div class="chart-header">
+                        <h3>By muscle group</h3>
                     <span class="chart-meta-text">7d</span>
                 </div>
                 <div class="muscle-bar" id="muscle-bar"></div>
                 <div class="muscle-legend" id="muscle-legend"></div>
             </section>
+            </div><!-- /#home-idle-content -->
         </section>
 
         <!-- ============================================================

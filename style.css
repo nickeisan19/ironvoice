@@ -438,7 +438,16 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   border-radius: 9px;
   padding: 2px;
   border: 0.5px solid var(--hairline);
+  /* When iOS Dynamic Type bumps text larger, segmented buttons can grow
+     wider than their container. flex-wrap lets them break to a second row
+     instead of clipping the rightmost option ("Core" in muscle picker)
+     off-screen. The min-width: 0 lets each button shrink below its
+     intrinsic content size when many fit on a row. */
+  flex-wrap: wrap;
+  row-gap: 2px;
+  min-width: 0;
 }
+
 .segmented button {
   background: transparent; border: none;
   color: var(--label-secondary);
@@ -446,6 +455,11 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   font-size: 0.78rem; font-weight: 600;
   border-radius: 7px;
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
+  /* Allow buttons to shrink below intrinsic width when squeezed; let them
+     grow to fill row when there's space. flex-basis: 0 + flex-grow: 1
+     produces equal-width children that all share the row evenly. */
+  flex: 1 1 0;
+  min-width: 0;
 }
 .segmented button.active {
   background: var(--surface-4);
@@ -1165,6 +1179,24 @@ main {
 .search-results div:last-child { border-bottom: none; }
 .search-results div:active { background: var(--blue-tint); }
 
+/* v8: section headers in the search dropdown ("This workout", "All exercises").
+   Visually distinct from list items: smaller, uppercase, no hover, no muscle
+   tag. Should not be tappable. */
+.search-results .search-section-header {
+  padding: 8px 16px 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--label-tertiary);
+  background: transparent;
+  border-bottom: none;
+  cursor: default;
+  pointer-events: none;
+  display: block;
+}
+.search-results .search-section-header:active { background: transparent; }
+
 /* ==========================================================================
    Mic FAB + rest timer pill
    ========================================================================== */
@@ -1450,6 +1482,82 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 1px;
+}
+
+/* ==========================================================================
+   Active session set list (v8)
+
+   Shown only during a workout. Each group is one exercise; pills list each
+   set's weight × reps in chronological order so reading left-to-right
+   matches the order you actually performed them.
+   ========================================================================== */
+
+.session-sets {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 18px 0 12px;
+}
+
+.session-set-group {
+  background: var(--surface-2);
+  border: 0.5px solid var(--hairline);
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+}
+
+.session-set-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.session-set-group-header .muscle-tag {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.session-set-group-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--label);
+  flex: 1;
+  /* Truncate gracefully if exercise name is unusually long */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-set-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--label-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.session-set-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.session-set-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 5px 10px;
+  background: var(--surface-3);
+  border: 0.5px solid var(--hairline);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--label);
+  font-feature-settings: "tnum";
+}
+.session-set-pill .set-reps {
+  font-weight: 500;
+  color: var(--label-secondary);
 }
 
 /* ==========================================================================

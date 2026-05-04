@@ -200,6 +200,8 @@ let lastSyncMeta = JSON.parse(localStorage.getItem('ironSyncMeta') || 'null');
 let pendingSWUpdate = null;
 let lastSyncFailed = false;
 let currentExerciseSheet = null; // data for the currently open exercise modal
+// v8: auto-sync — track whether local data has changed since last successful sync
+let hasUnsyncedChanges = localStorage.getItem('ironHasUnsynced') === '1';
 
 // ----- helpers -----
 const $ = id => document.getElementById(id);
@@ -250,6 +252,12 @@ window.addEventListener('load', () => {
     initActionDispatcher();
     maybeShowInstallHint();
     showScreen('home');   // mark Home tab active on first load
+    // v8: auto-sync triggers
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    // Boot-time catch-up: if the page was killed before a previous sync
+    // completed, the unsynced flag is still set in localStorage. Fire one
+    // best-effort sync now. Delay 1.5s so initial render is smooth.
+    setTimeout(() => autoSync('boot-catchup'), 1500);
 });
 
 function applyTheme(next) {
@@ -436,6 +444,10 @@ function initDB() {
         renderAll();
         // First-run voice tip — needs the store available.
         maybeShowVoiceTip();
+        // v8: launch prompt — ask if the user wants to start a workout.
+        // Delayed so the home screen renders first and the prompt feels
+        // like a follow-up question, not an intercept on app launch.
+        setTimeout(() => maybePromptStartOnLaunch(), 800);
     };
 }
 
@@ -548,6 +560,15 @@ function filterExercises() {
     const dropdown = $('ex-dropdown');
     dropdown.innerHTML = "";
 
+    // v8: when a workout is active, inject a "This workout" section at the
+    // top with the exercises already logged in this session (most recent
+    // first). Helps logging consecutive sets of the same lift without
+    // re-typing. Only shows when search is empty so it doesn't interfere
+    // with normal search behavior.
+    if (activeSession && !input) {
+        renderSessionSearchSection(dropdown);
+    }
+
     let pool = exerciseLibrary;
     if (activeTemplate) {
         const names = activeTemplate.exercises.map(e => e.name);
@@ -557,7 +578,7 @@ function filterExercises() {
         !input || ex.name.includes(input) || ex.synonyms.some(s => s.includes(input))
     ).sort((a, b) => a.name.localeCompare(b.name));
 
-    if (!matches.length) {
+    if (!matches.length && dropdown.children.length === 0) {
         const div = document.createElement('div');
         div.style.color = 'var(--label-tertiary)';
         div.textContent = activeTemplate ? `No matches in "${activeTemplate.name}"` : 'No matches';
@@ -565,12 +586,57 @@ function filterExercises() {
         return;
     }
 
-    matches.forEach(ex => {
+    if (matches.length) {
+        // If we already added a session header above, render an "All
+        // exercises" divider before the full library so the two groups
+        // are visually distinct.
+        if (dropdown.children.length > 0) {
+            const divider = document.createElement('div');
+            divider.className = 'search-section-header';
+            divider.textContent = 'All exercises';
+            dropdown.appendChild(divider);
+        }
+        matches.forEach(ex => {
+            const div = document.createElement('div');
+            div.innerHTML = `<span class="muscle-tag" style="background:${muscleColor[ex.muscle]}"></span>${titleCase(ex.name)}`;
+            div.onclick = () => selectExercise(ex.name);
+            dropdown.appendChild(div);
+        });
+    }
+}
+
+// v8: render the "This workout" section at the top of the search dropdown.
+// Walks sets in the active session, dedupes exercises preserving most-recent
+// order, and renders one row per unique exercise.
+async function renderSessionSearchSection(dropdown) {
+    if (!activeSession) return;
+    const setsInSession = (await performDB('workouts', 'getAll'))
+        .filter(w => w.sessionId === activeSession.id && !w.deleted)
+        .sort((a, b) => b.id - a.id);   // most recent first
+    if (!setsInSession.length) return;
+
+    // Dedupe by exercise name, preserving the order (most recent first)
+    const seen = new Set();
+    const exercisesInSession = [];
+    for (const set of setsInSession) {
+        if (seen.has(set.exercise)) continue;
+        seen.add(set.exercise);
+        exercisesInSession.push(set.exercise);
+    }
+
+    const header = document.createElement('div');
+    header.className = 'search-section-header';
+    header.textContent = 'This workout';
+    dropdown.appendChild(header);
+
+    for (const exName of exercisesInSession) {
+        const lib = exerciseLibrary.find(ex => ex.name === exName);
+        const muscle = lib?.muscle || 'core';
         const div = document.createElement('div');
-        div.innerHTML = `<span class="muscle-tag" style="background:${muscleColor[ex.muscle]}"></span>${titleCase(ex.name)}`;
-        div.onclick = () => selectExercise(ex.name);
+        div.innerHTML = `<span class="muscle-tag" style="background:${muscleColor[muscle]}"></span>${titleCase(exName)}`;
+        div.onclick = () => selectExercise(exName);
         dropdown.appendChild(div);
-    });
+    }
 }
 
 function selectExercise(name) {
@@ -629,6 +695,7 @@ async function saveAndSyncUI(entry) {
         if (isNewPR) {
             await performDB('prs', 'put', { exercise: entry.exercise, maxWeight: entry.weight, max1RM: entry.oneRM, achievedAt: entry.id });
         }
+        markUnsynced();   // v8: flag for auto-sync triggers (background, end-of-workout)
         await updateUI(entry, isNewPR);
         await renderHistory();
         await renderChart();
@@ -639,6 +706,12 @@ async function saveAndSyncUI(entry) {
         // v6: keep the live session card in sync if a session is active.
         await refreshSessionCard();
         if (restDuration > 0) startRestTimer(restDuration);
+        // v8: if no session is active and we haven't recently asked, offer
+        // to start one. Defer slightly so the new set has visibly rendered
+        // before the prompt appears — feels reactive rather than blocking.
+        if (!activeSession) {
+            setTimeout(() => maybePromptStartOnFirstSet(), 400);
+        }
     } catch (err) {
         console.error('Save failed:', err);
         setStatus('Save failed', 'error');
@@ -1641,6 +1714,7 @@ async function deleteEntry(id, silent = false) {
         entry.deleted = true;
         entry.modifiedAt = Date.now();
         await performDB('workouts', 'put', entry);
+        markUnsynced();   // v8
         await recomputePR(entry.exercise);
         await renderHistory();
         await renderChart();
@@ -1648,6 +1722,7 @@ async function deleteEntry(id, silent = false) {
         await renderStrain();
         await renderInsights();
         await refreshLatestStats();
+        await refreshSessionCard();   // v8: keep workout dashboard in sync if a session set was removed
         if (!silent) {
             haptic(20);
             // Stage the entry for one-tap undo; snackbar dismisses itself
@@ -2021,6 +2096,7 @@ async function saveTemplate() {
     editingTemplate.name = name;
     editingTemplate.modifiedAt = Date.now();
     await performDB('templates', 'put', editingTemplate);
+    markUnsynced();   // v8
     if (activeTemplate?.id === editingTemplate.id) activeTemplate = editingTemplate;
     $('tpl-overlay').classList.remove('active');
     await renderTemplateChips();
@@ -2034,6 +2110,7 @@ async function deleteTemplate() {
     editingTemplate.deleted = true;
     editingTemplate.modifiedAt = Date.now();
     await performDB('templates', 'put', editingTemplate);
+    markUnsynced();   // v8
     if (activeTemplate?.id === editingTemplate.id) activeTemplate = null;
     $('tpl-overlay').classList.remove('active');
     await renderTemplateChips();
@@ -2121,6 +2198,7 @@ async function saveCustomExercise() {
     editingCustomExercise.modifiedAt = Date.now();
     delete editingCustomExercise.deleted;
     await performDB('customExercises', 'put', editingCustomExercise);
+    markUnsynced();   // v8
 
     // Mutate the in-memory library so search/voice immediately picks it up.
     let lib = exerciseLibrary.find(ex => ex.name === name);
@@ -2146,6 +2224,7 @@ async function deleteCustomExercise() {
     editingCustomExercise.deleted = true;
     editingCustomExercise.modifiedAt = Date.now();
     await performDB('customExercises', 'put', editingCustomExercise);
+    markUnsynced();   // v8
 
     const idx = exerciseLibrary.findIndex(ex => ex.name === editingCustomExercise.name && ex.custom);
     if (idx >= 0) exerciseLibrary.splice(idx, 1);
@@ -2499,6 +2578,7 @@ async function startWorkoutSession() {
     };
     localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession));
     await performDB('sessions', 'put', activeSession);
+    markUnsynced();   // v8
     startSessionTicker();
     await refreshSessionCard();
     updateWorkoutTabUI();
@@ -2529,11 +2609,15 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     }
 
     await performDB('sessions', 'put', session);
+    markUnsynced();   // v8
     activeSession = null;
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     stopSessionTicker();
     await refreshSessionCard();
     updateWorkoutTabUI();
+    // v8: auto-sync the completed workout. Fire-and-forget — the user shouldn't
+    // wait for network to see "workout ended". Errors will retry on next trigger.
+    autoSync('workout-end');
     if (!silent) {
         const mins = Math.round(session.durationMs / 60000);
         showSnackbar(`Workout ended · ${mins}m · ${setsInSession.length} sets`, { duration: 4000 });
@@ -2580,12 +2664,22 @@ function renderSessionCardTime() {
 
 async function refreshSessionCard() {
     const card = $('session-card');
+    const sessionSets = $('session-sets');
+    const idleContent = $('home-idle-content');
     if (!card) return;
+
     if (!activeSession) {
         card.style.display = 'none';
+        if (sessionSets) sessionSets.style.display = 'none';
+        if (idleContent) idleContent.style.display = '';
         return;
     }
+
     card.style.display = '';
+    // v8: hide the regular home content (templates, charts, status cards)
+    // during a workout. The home screen becomes a focused workout dashboard.
+    if (idleContent) idleContent.style.display = 'none';
+
     renderSessionCardTime();
     const setsInSession = (await performDB('workouts', 'getAll'))
         .filter(w => w.sessionId === activeSession.id && !w.deleted);
@@ -2594,6 +2688,51 @@ async function refreshSessionCard() {
     $('session-card-vol').textContent = totalVol >= 1000
         ? `${(totalVol / 1000).toFixed(1)}k`
         : String(Math.round(totalVol));
+
+    // v8: render the in-session set list grouped by exercise
+    if (sessionSets) renderSessionSets(sessionSets, setsInSession);
+}
+
+// v8: render the session set list, grouped by exercise (most recently
+// performed first), each with a horizontal row of "weight × reps" pills.
+function renderSessionSets(container, sets) {
+    if (!sets.length) {
+        container.style.display = 'none';
+        return;
+    }
+    container.style.display = '';
+
+    // Group by exercise, preserving order of first appearance (most recent
+    // first since the input is reverse-chronological).
+    const sortedSets = [...sets].sort((a, b) => b.id - a.id);
+    const groups = new Map();   // exercise → [sets]
+    for (const set of sortedSets) {
+        if (!groups.has(set.exercise)) groups.set(set.exercise, []);
+        groups.get(set.exercise).push(set);
+    }
+
+    let html = '';
+    for (const [exercise, exSets] of groups) {
+        const lib = exerciseLibrary.find(ex => ex.name === exercise);
+        const muscle = lib?.muscle || 'core';
+        const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
+        // Order within an exercise: chronological (oldest first) so reading
+        // left to right matches the order you actually did the sets in.
+        const orderedSets = [...exSets].sort((a, b) => a.id - b.id);
+        const setPills = orderedSets.map(s =>
+            `<span class="session-set-pill">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span></span>`
+        ).join('');
+        html += `
+            <div class="session-set-group">
+                <div class="session-set-group-header">
+                    <span class="muscle-tag" style="background:${muscleBg}"></span>
+                    <span class="session-set-group-name">${escapeHtml(titleCase(exercise))}</span>
+                    <span class="session-set-count">${orderedSets.length} set${orderedSets.length === 1 ? '' : 's'}</span>
+                </div>
+                <div class="session-set-pills">${setPills}</div>
+            </div>`;
+    }
+    container.innerHTML = html;
 }
 
 function updateWorkoutTabUI() {
@@ -2647,6 +2786,7 @@ async function resumeOrPromptSession() {
     // Forgotten session — prompt to end at the last set's timestamp,
     // or resume if user is genuinely back. Default to "End at last set"
     // because that's the most likely correct answer.
+    _forgottenPromptDidFire = true;   // v8: suppress launch prompt this load
     const lastWhen = new Date(lastSetAt);
     const lastTimeLabel = lastWhen.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const endAtLast = confirm(
@@ -2744,6 +2884,7 @@ function showScreen(name) {
     // Lazy-render the screen we just landed on so it's always fresh.
     if (name === 'prs') renderPRsScreen();
     if (name === 'history') renderHistoryScreen();
+    if (name === 'home') refreshSessionCard();   // v8: ensure home reflects session state
     // Scroll to top so the new screen always starts at the top.
     window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -3044,6 +3185,179 @@ function initJournalDelegationFor(container) {
 // baseline; otherwise sends a full payload. customExercises ride along.
 // The server is authoritative for PRs after each merge — we replace local
 // PRs with whatever it returns. serverSyncedAt persists across reloads.
+// ============================================================================
+// Workout-start prompts (v8)
+//
+// Two automatic triggers reduce the friction of remembering to tap "Start":
+//
+//   1. App launch — if it's been >12 hours since last activity AND no
+//      session is currently active AND no forgotten-session prompt fired
+//      already this load, ask "Start a workout now?"
+//
+//   2. First set logged — if no session is active when a set lands, ask
+//      "Start the session timer?"
+//
+// Throttling: once either prompt has fired in the last 6 hours (declined
+// or accepted), neither fires again until the throttle window passes.
+// The "Don't ask again today" option pushes the throttle to end-of-day.
+//
+// Coordination with the forgotten-session prompt (already exists from v6):
+// the forgotten prompt runs FIRST during boot. If it fires, the launch
+// prompt is suppressed for this session — one prompt at a time.
+// ============================================================================
+
+const PROMPT_THROTTLE_KEY = 'ironPromptThrottleUntil';
+const LAUNCH_PROMPT_THRESHOLD_MS = 12 * 60 * 60 * 1000;   // 12h since last activity
+const PROMPT_THROTTLE_MS = 6 * 60 * 60 * 1000;            // 6h cooldown between prompts
+
+let _forgottenPromptDidFire = false;   // set by resumeOrPromptSession when it asks
+
+function isPromptThrottled() {
+    const until = parseInt(localStorage.getItem(PROMPT_THROTTLE_KEY) || '0', 10);
+    return Date.now() < until;
+}
+
+function throttlePrompts(durationMs = PROMPT_THROTTLE_MS) {
+    localStorage.setItem(PROMPT_THROTTLE_KEY, String(Date.now() + durationMs));
+}
+
+// Push throttle to end of today (local time) — used when the user says
+// "Don't ask again today."
+function throttleUntilEndOfDay() {
+    const eod = new Date();
+    eod.setHours(23, 59, 59, 999);
+    localStorage.setItem(PROMPT_THROTTLE_KEY, String(eod.getTime()));
+}
+
+// Find the most recent activity timestamp across all data. Used to decide
+// whether enough time has passed to warrant "want to start a workout?"
+async function lastActivityTimestamp() {
+    const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
+    if (!all.length) return 0;
+    return Math.max(...all.map(w => w.id));
+}
+
+// Launch prompt — call this AFTER resumeOrPromptSession (so the forgotten
+// case takes precedence) and only if no session ended up active.
+async function maybePromptStartOnLaunch() {
+    if (activeSession) return;                  // already in a workout
+    if (_forgottenPromptDidFire) return;        // user just dealt with one prompt
+    if (isPromptThrottled()) return;            // recently asked, don't pester
+    const lastAt = await lastActivityTimestamp();
+    if (lastAt === 0) return;                   // brand new user — don't prompt
+    if (Date.now() - lastAt < LAUNCH_PROMPT_THRESHOLD_MS) return;  // too recent
+
+    // Ask. Plain confirm() — works on every platform, no extra UI.
+    const ok = confirm(
+        "Start a workout now?\n\n" +
+        "OK — start the session timer\n" +
+        "Cancel — keep just logging sets without a session"
+    );
+    throttlePrompts();   // either way, don't re-ask for 6h
+    if (ok) {
+        await startWorkoutSession();
+        showSnackbar('Workout started', { duration: 2500 });
+    }
+}
+
+// First-set prompt — call this when a set is logged with no active session.
+// Throttled the same way so a single workout doesn't get pestered repeatedly.
+async function maybePromptStartOnFirstSet() {
+    if (activeSession) return;                  // already in a session
+    if (isPromptThrottled()) return;
+    const ok = confirm(
+        "You just logged a set. Start a workout to track session time?\n\n" +
+        "OK — start the timer (this set will be included)\n" +
+        "Cancel — just keep logging without a session"
+    );
+    throttlePrompts();
+    if (!ok) return;
+    // Backdate the session to just before the set we just logged so the
+    // set is captured in the session.
+    const sessionStart = Date.now() - 5000;   // 5s ago
+    activeSession = {
+        id: sessionStart,
+        startedAt: sessionStart,
+        endedAt: null,
+        durationMs: 0,
+        modifiedAt: Date.now(),
+    };
+    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession));
+    await performDB('sessions', 'put', activeSession);
+    markUnsynced();
+    // Tag the most recent set with this session so it's part of the workout.
+    const all = (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted)
+        .sort((a, b) => b.id - a.id);
+    if (all.length && !all[0].sessionId) {
+        all[0].sessionId = activeSession.id;
+        all[0].modifiedAt = Date.now();
+        await performDB('workouts', 'put', all[0]);
+    }
+    startSessionTicker();
+    await refreshSessionCard();
+    updateWorkoutTabUI();
+    showSnackbar('Workout started', { duration: 2500 });
+}
+
+
+//
+// Sync fires automatically without user action in three situations:
+//   1. A workout session ends (after a real workout, push the batch)
+//   2. The app goes to background mid-workout or with unsynced data
+//      (visibilitychange — safety net for "phone dies" / iOS app suspension)
+//   3. App boots with the unsynced flag still set (catch-up from a missed
+//      previous sync — e.g., the page was killed before background-sync fired)
+//
+// Per-set syncing is intentionally NOT done — it would generate one network
+// request per logged set, drain battery, and hammer the Worker on long
+// workouts. Workout-level granularity is the right tradeoff.
+//
+// Manual sync (header button) always remains available regardless of these.
+// ============================================================================
+
+const UNSYNCED_KEY = 'ironHasUnsynced';
+
+function markUnsynced() {
+    if (!hasUnsyncedChanges) {
+        hasUnsyncedChanges = true;
+        localStorage.setItem(UNSYNCED_KEY, '1');
+    }
+}
+
+function clearUnsynced() {
+    if (hasUnsyncedChanges) {
+        hasUnsyncedChanges = false;
+        localStorage.removeItem(UNSYNCED_KEY);
+    }
+}
+
+// Fire a sync silently if conditions are met. Used by every auto-trigger so
+// they don't all need to know the eligibility rules.
+async function autoSync(reason) {
+    if (!userProfile?.email || !getToken()) return;     // unconfigured: nothing to sync to
+    if (!hasUnsyncedChanges) return;                    // nothing pending
+    if (!navigator.onLine) return;                      // offline: SW queue handles it
+    console.log(`[autoSync] firing — reason: ${reason}`);
+    try {
+        await syncToNAS();
+        // syncToNAS clears `hasUnsyncedChanges` only on success. If it
+        // failed and queued, the next trigger (background, launch) will retry.
+    } catch (err) {
+        console.warn('[autoSync] failed:', err);
+    }
+}
+
+// Background / page-hide handler — best-effort sync when the user leaves.
+// On iOS, switching apps suspends the page within seconds; the request may
+// not complete. The SW queue and the on-launch retry both cover this.
+function onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+        autoSync('page-hidden');
+    }
+}
+
+
 async function syncToNAS() {
     if (!userProfile?.email) { setStatus('Add email in settings', 'error'); return; }
     if (!getToken()) { setStatus('Add access key in Profile', 'error'); return; }
@@ -3068,6 +3382,7 @@ async function syncToNAS() {
 
         if (useDelta && !dataToSend.length && !tplsToSend.length && !customsToSend.length && !sessionsToSend.length) {
             setStatus('Up to date', 'synced');
+            clearUnsynced();   // v8: nothing to send means we're already in sync
             lastSyncMeta = { at: Date.now(), error: false, sent: 0, mode: 'delta' };
             localStorage.setItem('ironSyncMeta', JSON.stringify(lastSyncMeta));
             renderSyncMeta();
@@ -3108,6 +3423,7 @@ async function syncToNAS() {
 
         await performDB('syncQueue', 'delete', 'pending');
         lastSyncFailed = false;
+        clearUnsynced();   // v8: success — local data now matches server
         lastSyncMeta = {
             at: Date.now(),
             error: false,
