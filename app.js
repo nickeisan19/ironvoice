@@ -1608,7 +1608,11 @@ async function renderStrain() {
     const dates7 = new Set(w.filter(x => x.date >= isoForOffset(6)).map(x => x.date));
 
     let label, subtext, cls;
-    if (dsl >= 4 && dates7.size === 0) {
+    // Rested: whenever the user has been 4+ days since their last lift,
+    // regardless of whether they had earlier sessions in the rolling 7-day
+    // window. Previously required dates7.size === 0, which incorrectly
+    // skipped "Rested" if you had a Monday session and it was now Friday.
+    if (dsl >= 4) {
         label = 'Rested'; subtext = `${dsl}d off`; cls = 'recovery';
     } else if (prev7 === 0 && last7 > 0) {
         label = 'Ramping'; subtext = `${dates7.size} session${dates7.size === 1 ? '' : 's'}`; cls = 'steady';
@@ -3359,7 +3363,7 @@ function onVisibilityChange() {
 
 
 async function syncToNAS() {
-    if (!userProfile?.email) { setStatus('Add email in settings', 'error'); return; }
+    if (!userProfile?.email) { setStatus('Add email in Profile', 'error'); return; }
     if (!getToken()) { setStatus('Add access key in Profile', 'error'); return; }
 
     setStatus('Syncing…', 'listening');
