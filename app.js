@@ -935,7 +935,94 @@ function endSession(statusText = 'Ready') {
     const mic = $('mic-btn');
     mic.classList.remove('listening');
     mic.setAttribute('aria-pressed', 'false');
+    stopMicLevelMeter();        // v9.0: tear down the audio analyser
     setStatus(statusText);
+}
+
+// ============================================================================
+// v9.0 — Mic audio-level meter
+//
+// Web Speech API doesn't expose audio levels, so we run a parallel
+// getUserMedia stream into an AnalyserNode while the recognizer is
+// listening. Five frequency-band averages drive --mic-level-N CSS vars on
+// the FAB, which scale the heights of the EQ bars in real time. This is
+// purely cosmetic — recognition works regardless — but it transforms the
+// perceived responsiveness from "static circle" to "yes, I'm hearing you".
+//
+// Mic permission is already granted to the recognizer, so getUserMedia
+// resolves without re-prompting in browsers that share the permission
+// (Chrome / Edge). On browsers that don't, we silently skip the meter.
+// ============================================================================
+
+let _micAudioCtx = null;
+let _micAnalyser = null;
+let _micStream = null;
+let _micAnimFrame = null;
+
+async function startMicLevelMeter() {
+    // Skip if Audio APIs aren't available (Safari sometimes restricts).
+    if (!window.AudioContext && !window.webkitAudioContext) return;
+    if (_micAudioCtx) return;   // already running
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+            video: false,
+        });
+        _micStream = stream;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        _micAudioCtx = new Ctx();
+        const source = _micAudioCtx.createMediaStreamSource(stream);
+        _micAnalyser = _micAudioCtx.createAnalyser();
+        _micAnalyser.fftSize = 64;       // small bin count, fast updates
+        _micAnalyser.smoothingTimeConstant = 0.6;
+        source.connect(_micAnalyser);
+        const data = new Uint8Array(_micAnalyser.frequencyBinCount);
+
+        const mic = $('mic-btn');
+        // Map 32 frequency bins into 5 perceptual bands. Each tick averages
+        // its band, normalizes to [0,1], and writes the CSS var that the
+        // EQ bars react to. requestAnimationFrame keeps it cheap.
+        const tick = () => {
+            if (!isListening || !_micAnalyser) return;
+            _micAnalyser.getByteFrequencyData(data);
+            const bins = data.length;
+            const bandSize = Math.floor(bins / 5);
+            for (let band = 0; band < 5; band++) {
+                let sum = 0;
+                for (let i = 0; i < bandSize; i++) {
+                    sum += data[band * bandSize + i];
+                }
+                const avg = sum / bandSize / 255;       // 0..1
+                // Boost low signals so quiet speech still moves the bars.
+                const boosted = Math.min(1, Math.pow(avg, 0.6) * 1.2);
+                mic.style.setProperty(`--mic-level-${band + 1}`, boosted.toFixed(3));
+            }
+            _micAnimFrame = requestAnimationFrame(tick);
+        };
+        tick();
+    } catch (err) {
+        // Mic denied or AudioContext blocked — silently no-op. The user
+        // still has the existing breathing animation as feedback.
+        console.warn('Mic level meter unavailable:', err?.name || err);
+    }
+}
+
+function stopMicLevelMeter() {
+    if (_micAnimFrame) { cancelAnimationFrame(_micAnimFrame); _micAnimFrame = null; }
+    if (_micStream) {
+        try { _micStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        _micStream = null;
+    }
+    if (_micAudioCtx) {
+        try { _micAudioCtx.close(); } catch (_) {}
+        _micAudioCtx = null;
+    }
+    _micAnalyser = null;
+    // Reset the bars so they collapse smoothly when the mic closes.
+    const mic = $('mic-btn');
+    if (mic) {
+        for (let i = 1; i <= 5; i++) mic.style.setProperty(`--mic-level-${i}`, '0');
+    }
 }
 
 function initSpeech() {
@@ -1060,6 +1147,10 @@ function toggleListening() {
         mic.setAttribute('aria-pressed', 'true');
         setStatus(workoutMode ? 'Workout mode on' : 'Listening', 'listening');
         haptic(20);
+        // v9.0: kick off the live audio meter so the mic FAB shows reactive
+        // EQ bars while listening. Best-effort — recognition is unaffected
+        // by failure here.
+        startMicLevelMeter();
         // Single-tap mode: bound the session. Workout mode is unbounded.
         if (_sessionTimer) clearTimeout(_sessionTimer);
         if (!workoutMode) {
@@ -1369,6 +1460,8 @@ async function renderAll() {
     await refreshSessionCard();    // v6
     await renderTemplateChips();
     await renderTemplateProgress();
+    await renderLastWorkoutCard(); // v9.0: workout-screen idle summary
+    await renderHomeEmptyState();  // v9.0: first-launch hint on home
     renderSyncMeta();
     updateWorkoutTabUI();          // v6: tab button reflects active state
 }
@@ -1398,6 +1491,10 @@ async function updateUI(entry, isNewPR) {
         setStatus('New PR!', 'synced');
         speak("New personal record!");
         haptic([30, 50, 30, 50, 60]);
+        // v9.0: PRs deserve a moment. Auto-present the celebration sheet
+        // with the same canvas the share flow already produces. Defer
+        // briefly so the snackbar/PR-flash on the card register first.
+        setTimeout(() => presentPRCelebration(entry), 600);
     }
 }
 
@@ -1631,6 +1728,8 @@ function initActionDispatcher() {
         undoLastDelete,
         // v6 additions
         goPRs, toggleWorkoutSession,
+        // v9.0 — PR celebration sheet (auto-presented on new PR)
+        closePRCelebrate, downloadCelebrate, shareCelebrate,
         // a11y: surfaces an explanatory snackbar on browsers without
         // SpeechRecognition (iOS Safari, etc.). The mic's data-action is
         // rewritten to this in initSpeech() when SR is unavailable.
@@ -2005,10 +2104,19 @@ function saveProfile() {
 }
 
 // ============================================================================
-// Settings sheet
+// Profile screen (v9.0)
+//
+// v8 had this content in a sheet (settings-overlay) opened from the Profile
+// tab. v9.0 promotes it to a real screen. The same input IDs are reused so
+// the existing functions (testConnection, restoreFromNAS, exportJSON, etc.)
+// continue to work without modification.
+//
+// Field saves used to happen on sheet-dismiss (closeSettings); now they
+// happen on tab-switch via saveProfileFromScreen, which showScreen() calls
+// when navigating away from the Profile screen.
 // ============================================================================
 
-function openSettings() {
+function renderProfileScreen() {
     $('settings-first').value = userProfile?.first || '';
     $('settings-email').value = userProfile?.email || '';
     $('settings-token').value = getToken();
@@ -2026,10 +2134,11 @@ function openSettings() {
     renderTemplatesList();
     renderCustomsList();
     renderSyncMeta();
-    $('settings-overlay').classList.add('active');
+    renderVersionFooter();   // re-render version string in case of bump
 }
 
-function closeSettings() {
+function saveProfileFromScreen() {
+    if (!$('settings-first')) return;   // screen not in the DOM (early boot)
     const first = $('settings-first').value.trim();
     const email = $('settings-email').value.trim();
     if (userProfile) {
@@ -2041,8 +2150,12 @@ function closeSettings() {
     const token = $('settings-token').value.trim();
     if (token) localStorage.setItem('ironToken', token);
     else localStorage.removeItem('ironToken');
-    $('settings-overlay').classList.remove('active');
 }
+
+// Compatibility shims — internal callers (e.g. the welcome flow) used to
+// call these names. Map them onto the new screen-based equivalents.
+function openSettings() { showScreen('profile'); }
+function closeSettings() { saveProfileFromScreen(); }
 
 function renderSyncMeta() {
     const el = $('sync-meta');
@@ -2634,14 +2747,69 @@ function renderTrendChart(sets) {
 
 function sharePR() {
     if (!currentExerciseSheet) return;
-    drawPRCanvas(currentExerciseSheet.exercise);
+    drawPRCanvas('pr-canvas', currentExerciseSheet.exercise);
     $('share-overlay').classList.add('active');
 }
 
 function closeShare() { $('share-overlay').classList.remove('active'); }
 
-async function drawPRCanvas(exerciseName) {
-    const c = $('pr-canvas');
+// v9.0: PR celebration — auto-presented from updateUI when a set sets a new
+// PR. Same canvas as the share preview, framed as the moment-of-celebration.
+let _celebratingExercise = null;
+async function presentPRCelebration(entry) {
+    _celebratingExercise = entry.exercise;
+    await drawPRCanvas('pr-celebrate-canvas', entry.exercise);
+    const sub = $('pr-celebrate-sub');
+    if (sub) {
+        sub.textContent = `${titleCase(entry.exercise)} — ${entry.weight} × ${entry.reps} (est. 1RM ${Math.round(entry.oneRM)} lb)`;
+    }
+    $('pr-celebrate-overlay').classList.add('active');
+    haptic([20, 60, 20, 60, 80]);
+}
+function closePRCelebrate() {
+    $('pr-celebrate-overlay').classList.remove('active');
+    _celebratingExercise = null;
+}
+function downloadCelebrate() {
+    if (!_celebratingExercise) return;
+    $('pr-celebrate-canvas').toBlob(blob => {
+        if (!blob) return;
+        triggerDownload(blob, `pr-${_celebratingExercise.replace(/\s+/g, '-')}-${todayISO()}.png`);
+    }, 'image/png');
+}
+async function shareCelebrate() {
+    const c = $('pr-celebrate-canvas');
+    if (!navigator.canShare) { downloadCelebrate(); return; }
+    c.toBlob(async blob => {
+        if (!blob) return;
+        const file = new File([blob], 'ironvoice-pr.png', { type: 'image/png' });
+        try {
+            if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'New PR',
+                    text: `New ${titleCase(_celebratingExercise || '')} PR via IronVoice`,
+                });
+            } else {
+                downloadCelebrate();
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') console.warn('Share failed', err);
+        }
+    }, 'image/png');
+}
+
+async function drawPRCanvas(canvasId, exerciseName) {
+    // v9.0: accepts an explicit canvas id so the same renderer powers both
+    // the share preview ('pr-canvas') and the celebration sheet
+    // ('pr-celebrate-canvas'). Older callers that omit the id fall back to
+    // the original share canvas for backward compatibility.
+    if (typeof exerciseName === 'undefined') {
+        exerciseName = canvasId;
+        canvasId = 'pr-canvas';
+    }
+    const c = $(canvasId);
+    if (!c) return;
     const ctx = c.getContext('2d');
     const W = c.width, H = c.height;
 
@@ -2852,20 +3020,24 @@ function renderSessionCardTime() {
 async function refreshSessionCard() {
     const card = $('session-card');
     const sessionSets = $('session-sets');
-    const idleContent = $('home-idle-content');
+    const workoutIdle = $('workout-idle');
+    const workoutActions = $('workout-active-actions');
     if (!card) return;
 
     if (!activeSession) {
+        // No session: hide the active-state pieces of the Workout screen and
+        // show the idle pieces (Start CTA, recent templates, last workout).
         card.style.display = 'none';
         if (sessionSets) sessionSets.style.display = 'none';
-        if (idleContent) idleContent.style.display = '';
+        if (workoutIdle) workoutIdle.style.display = '';
+        if (workoutActions) workoutActions.style.display = 'none';
         return;
     }
 
+    // Session active: flip the Workout screen into active mode.
     card.style.display = '';
-    // v8: hide the regular home content (templates, charts, status cards)
-    // during a workout. The home screen becomes a focused workout dashboard.
-    if (idleContent) idleContent.style.display = 'none';
+    if (workoutIdle) workoutIdle.style.display = 'none';
+    if (workoutActions) workoutActions.style.display = '';
 
     renderSessionCardTime();
     const setsInSession = (await performDB('workouts', 'getAll'))
@@ -2878,6 +3050,58 @@ async function refreshSessionCard() {
 
     // v8: render the in-session set list grouped by exercise
     if (sessionSets) renderSessionSets(sessionSets, setsInSession);
+}
+
+// v9.0: Render the Workout screen idle surface — recent templates and the
+// "Last workout" summary card. Active-state UI is handled by refreshSessionCard.
+async function renderWorkoutScreen() {
+    await refreshSessionCard();
+    if (activeSession) return;   // active state: nothing else to render here
+    await renderTemplateChips();
+    await renderTemplateProgress();
+    await renderLastWorkoutCard();
+}
+
+async function renderLastWorkoutCard() {
+    const el = $('last-workout-card');
+    if (!el) return;
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => s.endedAt)
+        .sort((a, b) => b.endedAt - a.endedAt);
+    if (!sessions.length) {
+        el.innerHTML = `<div class="last-workout-empty">No workouts yet — tap Start to begin.</div>`;
+        return;
+    }
+    const last = sessions[0];
+    const sets = (await performDB('workouts', 'getAll'))
+        .filter(w => w.sessionId === last.id && !w.deleted);
+    if (!sets.length) {
+        el.innerHTML = `<div class="last-workout-empty">No workouts yet — tap Start to begin.</div>`;
+        return;
+    }
+    const totalVol = sets.reduce((s, w) => s + w.weight * w.reps, 0);
+    const mins = Math.max(1, Math.round(last.durationMs / 60000));
+    const dateLabel = formatDate(new Date(last.endedAt).toISOString().slice(0, 10));
+    // Surface the heaviest single set as the "headline" lift.
+    const top = sets.slice().sort((a, b) => b.weight - a.weight)[0];
+    el.innerHTML = `
+        <div class="last-workout-summary">
+            <span class="lw-date">${escapeHtml(dateLabel)}</span>
+            <span class="lw-stats">${mins}m · ${sets.length} sets · ${Math.round(totalVol).toLocaleString()} lb</span>
+        </div>
+        <div class="last-workout-top">Top: ${escapeHtml(titleCase(top.exercise))} ${escapeHtml(String(top.weight))} × ${escapeHtml(String(top.reps))}</div>
+    `;
+}
+
+// v9.0: Show the welcome hint on Home when the user has zero workouts logged.
+// Once any data exists, the hint is hidden and the dashboard cards take over.
+async function renderHomeEmptyState() {
+    const el = $('home-empty');
+    if (!el) return;
+    try {
+        const all = await getActiveWorkouts();
+        el.style.display = all.length ? 'none' : '';
+    } catch (_) { el.style.display = 'none'; }
 }
 
 // v8: render the session set list, grouped by exercise (most recently
@@ -2923,29 +3147,22 @@ function renderSessionSets(container, sets) {
 }
 
 function updateWorkoutTabUI() {
+    // v9.0: the Workout button is a navigation tab now (data-screen-target),
+    // not a state-changing action. So we no longer overload the icon/label
+    // with start-vs-end signaling — the tab always reads "Workout". A subtle
+    // .session-active class colors the icon/label red while a session runs,
+    // mirroring the same affordance other apps use to signal "live."
     const btn = $('tab-workout');
     const icon = $('tab-workout-icon');
     const label = $('tab-workout-label');
     if (!btn) return;
     if (activeSession) {
         btn.classList.add('session-active');
-        btn.setAttribute('aria-pressed', 'true');
-        // Stop icon
-        icon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="1.5"/>';
-        // Compact mm or h:mm format so the label fits in a 25%-width column
-        // on narrow phones. The full session card on Home shows precise time.
-        const totalSec = Math.floor((Date.now() - activeSession.startedAt) / 1000);
-        const h = Math.floor(totalSec / 3600);
-        const m = Math.floor((totalSec % 3600) / 60);
-        const compact = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}m`;
-        label.textContent = compact;
     } else {
         btn.classList.remove('session-active');
-        btn.setAttribute('aria-pressed', 'false');
-        // Play icon
-        icon.innerHTML = '<polygon points="6 4 20 12 6 20 6 4"/>';
-        label.textContent = 'Start';
     }
+    if (icon) icon.innerHTML = '<polygon points="6 4 20 12 6 20 6 4"/>';
+    if (label) label.textContent = 'Workout';
 }
 
 // --- recovery on app boot ---
@@ -3048,21 +3265,26 @@ async function backfillHistoricalSessions() {
 }
 
 // ============================================================================
-// Screen router  (v6)
+// Screen router  (v9.0)
 //
-// Three top-level screens (home / prs / history) plus the Profile button
-// which opens the existing Settings modal rather than a full screen.
+// Five screens now: home, prs, history, workout, profile. Workout was a
+// tab-action in v8; promoting it to a real screen separates navigation from
+// state-changing actions (the screen contains the Start/End buttons).
+// Profile was a sheet; promoting it to a screen restores normal back-nav
+// muscle memory and pairs with the inline grouped-list content in markup.
 // ============================================================================
 
 let currentScreen = 'home';
+const VALID_SCREENS = ['home', 'prs', 'history', 'workout', 'profile'];
 
 function showScreen(name) {
-    if (name === 'profile') {
-        // Profile is the existing Settings sheet, not a screen.
-        openSettings();
-        return;
+    // Save profile-screen field edits before navigating away. closeSettings
+    // used to do this on sheet-dismiss; the equivalent here runs whenever
+    // the Profile screen loses focus.
+    if (currentScreen === 'profile' && name !== 'profile') {
+        saveProfileFromScreen();
     }
-    if (!['home', 'prs', 'history'].includes(name)) name = 'home';
+    if (!VALID_SCREENS.includes(name)) name = 'home';
     currentScreen = name;
     document.querySelectorAll('main > .screen').forEach(s => {
         s.hidden = s.dataset.screen !== name;
@@ -3076,7 +3298,12 @@ function showScreen(name) {
     // Lazy-render the screen we just landed on so it's always fresh.
     if (name === 'prs') renderPRsScreen();
     if (name === 'history') renderHistoryScreen();
-    if (name === 'home') refreshSessionCard();   // v8: ensure home reflects session state
+    if (name === 'home') {
+        refreshSessionCard();          // keep workout-screen state in sync too
+        renderHomeEmptyState();        // first-launch empty hint
+    }
+    if (name === 'workout') renderWorkoutScreen();
+    if (name === 'profile') renderProfileScreen();
     // Scroll to top so the new screen always starts at the top.
     window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -3231,25 +3458,55 @@ async function renderHistoryScreen() {
             : isoForLocalDate(days[6]);
     }
 
-    // Index workout dates so we can mark days that have data.
+    // Index workout data per-day so we can paint a glanceable volume bar
+    // (replacing the v8 dot). Bar height scales to the week's max-volume
+    // day; bar color is the dominant muscle worked that day.
     const allWorkouts = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
-    const datesWithSets = new Set(allWorkouts.map(w => w.date));
+    const dayStats = new Map();   // iso → { volume, dominantMuscle }
+    for (const w of allWorkouts) {
+        const stat = dayStats.get(w.date) || { volume: 0, byMuscle: {} };
+        const vol = w.weight * w.reps;
+        stat.volume += vol;
+        const m = muscleOf(w.exercise);
+        stat.byMuscle[m] = (stat.byMuscle[m] || 0) + vol;
+        dayStats.set(w.date, stat);
+    }
+    // Pick the dominant muscle per day for color signal.
+    for (const stat of dayStats.values()) {
+        let topM = 'arms', topV = -1;
+        for (const [m, v] of Object.entries(stat.byMuscle)) {
+            if (v > topV) { topV = v; topM = m; }
+        }
+        stat.dominantMuscle = topM;
+    }
+    // Compute this week's max volume so the bar heights are relative.
+    const weekIsoSet = days.map(d => isoForLocalDate(d));
+    const weekVolumes = weekIsoSet.map(iso => dayStats.get(iso)?.volume || 0);
+    const maxVol = Math.max(1, ...weekVolumes);
 
     // Render strip
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     stripEl.innerHTML = days.map((d, i) => {
         const iso = isoForLocalDate(d);
-        const has = datesWithSets.has(iso);
+        const stat = dayStats.get(iso);
         const classes = [
             'week-day',
             iso === todayISOStr ? 'today' : '',
             iso === historySelectedDate ? 'active' : '',
         ].filter(Boolean).join(' ');
+        let barHtml;
+        if (stat && stat.volume > 0) {
+            const heightPx = Math.max(4, Math.round((stat.volume / maxVol) * 22));
+            const color = muscleColor[stat.dominantMuscle] || 'var(--blue)';
+            barHtml = `<span class="week-day-bar" style="height:${heightPx}px;background:${color}"></span>`;
+        } else {
+            barHtml = `<span class="week-day-bar empty"></span>`;
+        }
         return `
             <button class="${classes}" data-date="${iso}">
                 <span class="week-day-name">${dayNames[i]}</span>
                 <span class="week-day-num">${d.getDate()}</span>
-                <span class="week-day-dot ${has ? '' : 'empty'}"></span>
+                ${barHtml}
             </button>`;
     }).join('');
 

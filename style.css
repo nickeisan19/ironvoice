@@ -730,8 +730,10 @@ main {
 .tp-item.done .tp-check { background: var(--green); border-color: var(--green); }
 .tp-item.done .tp-check::before { content: "✓"; color: white; font-size: 0.65rem; font-weight: 800; }
 
-/* Stat cards (3 wide) */
+/* Stat cards. .card-row defaults to a 3-up flex; .card-row-2 is the v9.0
+   secondary row beneath the Hero Load card (Current + Latest PR). */
 .card-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.card-row-2 { gap: 10px; }
 
 .card {
   flex: 1;
@@ -753,12 +755,101 @@ main {
   letter-spacing: 0.08em;
 }
 
-#last-lift, #pr-display, #strain-text {
-  font-size: 1.25rem; font-weight: 700; letter-spacing: -0.025em;
+#last-lift, #pr-display {
+  font-size: 1.1rem; font-weight: 700; letter-spacing: -0.025em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* v9.0: Mini-card variant — used in the secondary row beneath Hero Load.
+   Tighter padding, smaller hero number — these are reference figures, not
+   the decision metric. */
+.card.card-mini { padding: 12px 14px; }
+.card.card-mini h3 { font-size: 0.62rem; margin-bottom: 4px; }
+
+/* ==========================================================================
+   v9.0: Hero Load card
+
+   The single most important question walking into the gym is "am I ready?".
+   Load now occupies a full-width hero slot at the top of Home, with a
+   color-coded state band on the left edge and a 2.4rem value. The status
+   classes (.recovery / .steady / .high / .over) are still applied by JS
+   via renderStrain(); the hero card layers different visuals on top of
+   those classes than the old mini card did.
+   ========================================================================== */
+
+.hero-load {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;          /* not actionable; tap does nothing yet */
+  padding: 18px 20px 18px 24px;
+  margin-bottom: 14px;
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+/* Color band running down the left edge — the readiness signal. */
+.hero-load::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--label-tertiary);
+  transition: background 0.4s var(--ease);
+}
+.hero-load-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.hero-load-head h3 {
+  font-size: 0.66rem;
+  color: var(--label-secondary);
+  margin: 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.hero-load-pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--label-tertiary);
+  box-shadow: 0 0 0 0 transparent;
+  transition: background 0.3s var(--ease);
+}
+.hero-load-value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--label);
+  font-feature-settings: "tnum", "ss01";
+}
+.hero-load-sub {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--label-secondary);
+  font-weight: 500;
+}
+/* State variants: re-use existing .recovery/.steady/.high/.over classes.
+   Color the band and the pulse dot; leave the card body neutral so the
+   color signal is read at a glance without overpowering. */
+.hero-load.recovery::before { background: var(--green); }
+.hero-load.recovery .hero-load-pulse { background: var(--green); box-shadow: 0 0 12px var(--green); }
+.hero-load.recovery .hero-load-value { color: var(--green); }
+.hero-load.steady::before { background: var(--blue); }
+.hero-load.steady .hero-load-pulse { background: var(--blue); box-shadow: 0 0 12px var(--blue); }
+.hero-load.high::before { background: var(--orange); }
+.hero-load.high .hero-load-pulse { background: var(--orange); box-shadow: 0 0 12px var(--orange); }
+.hero-load.high .hero-load-value { color: var(--orange); }
+.hero-load.over::before { background: var(--red); }
+.hero-load.over .hero-load-pulse { background: var(--red); box-shadow: 0 0 12px var(--red); animation: pulse-dot 1.5s var(--ease) infinite; }
+.hero-load.over .hero-load-value { color: var(--red); }
 
 .strain-sub {
   font-size: 0.7rem;
@@ -1768,3 +1859,228 @@ button.card-button:focus-visible {
 
 .history-day-detail .day-group { margin-bottom: 4px; }
 .history-day-detail .day-header { display: none; }   /* week strip is the date */
+
+/* ==========================================================================
+   v9.0 — UX modernization pass
+   Hero Load (above), mic audio-level equalizer, Workout screen, Profile
+   screen, week-strip volume bar, PR celebration sheet, richer empty states.
+   Grouped together so the v9.0 surface area is easy to audit in one place.
+   ========================================================================== */
+
+/* --- Mic audio-level equalizer ----------------------------------------------
+   Five vertical bars rendered on top of the mic FAB while listening. JS sets
+   --mic-level-N (1..5) on the button to drive heights from a live audio
+   analyser. Static SVG icon fades out so the EQ is the dominant visual when
+   the mic is alive. Replaces the previous static "blue circle that breathes"
+   appearance with something that reacts to actual sound. */
+.mic-eq {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+}
+.mic-eq-bar {
+  width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: white;
+  transform-origin: center;
+  transition: height 80ms linear;
+}
+#mic-btn.listening .mic-icon { opacity: 0; transition: opacity 0.2s var(--ease); }
+#mic-btn.listening .mic-eq { opacity: 1; }
+#mic-btn.listening .mic-eq-bar:nth-child(1) { height: calc(8px + var(--mic-level-1, 0) * 22px); }
+#mic-btn.listening .mic-eq-bar:nth-child(2) { height: calc(8px + var(--mic-level-2, 0) * 26px); }
+#mic-btn.listening .mic-eq-bar:nth-child(3) { height: calc(8px + var(--mic-level-3, 0) * 30px); }
+#mic-btn.listening .mic-eq-bar:nth-child(4) { height: calc(8px + var(--mic-level-4, 0) * 26px); }
+#mic-btn.listening .mic-eq-bar:nth-child(5) { height: calc(8px + var(--mic-level-5, 0) * 22px); }
+
+/* --- Workout screen --------------------------------------------------------
+   Idle state: large "Start workout" CTA, recent templates, last workout card.
+   Active state: session card + quick-add + set list + end-workout button. */
+
+.workout-start-cta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 20px;
+  background: var(--blue-grad);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  letter-spacing: -0.01em;
+  box-shadow: 0 6px 18px rgba(10, 132, 255, 0.32);
+  transition: transform 0.15s var(--ease);
+}
+.workout-start-cta:active { transform: scale(0.98); }
+.workout-start-cta svg { width: 28px; height: 28px; flex-shrink: 0; }
+.workout-start-cta-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.workout-start-cta-title { font-size: 1.15rem; font-weight: 700; }
+.workout-start-cta-sub { font-size: 0.82rem; opacity: 0.85; font-weight: 500; }
+
+.end-workout-btn {
+  width: 100%;
+  padding: 16px;
+  margin-top: 18px;
+  background: rgba(255, 69, 58, 0.14);
+  color: var(--red);
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+.end-workout-btn:active { background: rgba(255, 69, 58, 0.22); }
+
+.last-workout-card {
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.last-workout-empty {
+  color: var(--label-tertiary);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 4px 0;
+}
+.last-workout-summary {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+}
+.last-workout-summary .lw-date {
+  font-size: 0.85rem; font-weight: 600; color: var(--label);
+}
+.last-workout-summary .lw-stats {
+  font-size: 0.82rem; color: var(--label-secondary);
+  font-feature-settings: "tnum"; font-weight: 500;
+}
+.last-workout-top {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--label-secondary);
+  font-feature-settings: "tnum";
+}
+
+/* --- Profile screen ---------------------------------------------------------
+   Same grouped-list visuals as the old sheet, just inline on a screen. The
+   sheet-body padding/scroll is no longer needed because the screen scrolls
+   normally. */
+.profile-screen-body { padding: 4px 0 24px; }
+.profile-screen-body .settings-section:first-child { margin-top: 4px; }
+
+/* --- Week-strip volume bar (replaces the dot) -------------------------------
+   Each day tile gets a thin vertical bar whose height is proportional to
+   that day's volume relative to the week's max. Empty days show a flat 1px
+   placeholder so the row stays visually anchored. The bar color is the
+   dominant muscle group worked that day, giving the strip a glanceable
+   "what kind of week" signal. */
+.week-day-bar {
+  display: block;
+  width: 22px;
+  height: 14px;
+  border-radius: 3px;
+  margin-top: 3px;
+  background: var(--blue);
+  transition: height 0.4s var(--spring), background 0.2s var(--ease);
+  align-self: end;
+}
+.week-day-bar.empty { background: var(--hairline-strong); height: 2px; }
+/* On the active (selected) day, force the bar to white so it reads on the
+   blue background. */
+.week-day.active .week-day-bar { background: rgba(255, 255, 255, 0.9); }
+.week-day.active .week-day-bar.empty { background: rgba(255, 255, 255, 0.35); }
+
+/* --- PR celebration sheet ---------------------------------------------------
+   Same canvas as the share preview, but framed as a celebration moment.
+   Auto-presented on a new PR. Bigger canvas preview, congratulatory header. */
+.pr-celebrate-modal { background: linear-gradient(180deg, rgba(255, 214, 10, 0.12), var(--surface-2) 30%); }
+.pr-celebrate-sub { text-align: center; color: var(--label-secondary); margin: 0 0 14px; font-size: 0.95rem; }
+.pr-canvas-large { max-width: 280px; }
+
+/* --- Richer empty states ----------------------------------------------------
+   Single icon + title + description, centered. Used on the PRs screen when
+   the user has no records yet, and elsewhere as needed. */
+.empty-state-rich {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 56px 28px;
+  color: var(--label-secondary);
+}
+.empty-state-rich .empty-state-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 0.5px solid var(--hairline);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--label-tertiary);
+  margin-bottom: 16px;
+}
+.empty-state-rich .empty-state-icon svg { width: 26px; height: 26px; }
+.empty-state-rich .empty-state-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--label);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.empty-state-rich p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--label-secondary);
+  line-height: 1.45;
+  max-width: 280px;
+}
+
+.home-empty {
+  padding: 36px 24px 12px;
+  text-align: center;
+  color: var(--label-secondary);
+}
+.home-empty-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--blue-tint);
+  color: #4ba3ff;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.home-empty-icon svg { width: 30px; height: 30px; }
+.home-empty-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--label);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.home-empty-text {
+  font-size: 0.92rem;
+  margin: 0 0 8px;
+  line-height: 1.5;
+  color: var(--label-secondary);
+}
+.home-empty-text strong { color: var(--label); font-weight: 700; }
+.home-empty-text-sub {
+  font-size: 0.82rem;
+  color: var(--label-tertiary);
+  margin: 0;
+}
+
+/* --- Header status pill — slimmer, less prominent ---------------------------
+   The status pill was visually competing with the title. Slimming it down
+   keeps the signal (dot color) but stops the pill from dominating. */
+#status {
+  font-size: 0.72rem;
+  padding: 3px 9px;
+  background: transparent;
+  border: 0.5px solid var(--hairline);
+}

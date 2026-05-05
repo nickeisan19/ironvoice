@@ -68,117 +68,27 @@
         </div>
     </div>
 
-    <!-- Settings sheet -->
-    <div id="settings-overlay" class="overlay" aria-hidden="true">
-        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <!-- v9.0: Profile is now a real screen (see <section data-screen="profile">
+         below). The old settings-overlay sheet was removed; sub-flows (template
+         editor, custom exercise editor) remain as sheets since they're transient
+         editor surfaces. -->
+
+    <!-- v9.0: PR celebration sheet — auto-presented on a new PR. Same canvas
+         as the existing share sheet but framed as the moment-of-celebration
+         rather than a passive share preview. -->
+    <div id="pr-celebrate-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet pr-celebrate-modal" role="dialog" aria-modal="true" aria-labelledby="pr-celebrate-title">
             <div class="sheet-header">
-                <h2 id="settings-title">Profile</h2>
-                <button class="sheet-close" data-action="closeSettings">Done</button>
+                <h2 id="pr-celebrate-title">New PR! 🏆</h2>
+                <button class="sheet-close" data-action="closePRCelebrate">Done</button>
             </div>
             <div class="sheet-body">
-                <div class="settings-section">
-                    <div class="section-label">Profile</div>
-                    <div class="grouped-list">
-                        <label class="row-input"><span>First name</span><input type="text" id="settings-first" placeholder="—" enterkeyhint="next" autocomplete="given-name"></label>
-                        <label class="row-input"><span>Email</span><input type="email" id="settings-email" placeholder="—" enterkeyhint="done" autocomplete="email"></label>
-                    </div>
+                <p class="subtitle pr-celebrate-sub" id="pr-celebrate-sub">—</p>
+                <canvas id="pr-celebrate-canvas" width="1080" height="1920" class="pr-canvas-preview pr-canvas-large"></canvas>
+                <div class="share-actions">
+                    <button class="primary-btn" data-action="downloadCelebrate">Save image</button>
+                    <button class="row-action" data-action="shareCelebrate" style="background:var(--surface-3);border-radius:14px;border:0.5px solid var(--hairline);margin-top:8px"><span>Share…</span></button>
                 </div>
-
-                <div class="settings-section">
-                    <div class="section-label">Sync</div>
-                    <div class="grouped-list">
-                        <label class="row-input"><span>Access key</span><input type="password" id="settings-token" placeholder="Paste your access key" autocomplete="off" enterkeyhint="done"></label>
-                        <button class="row-action" data-action="testConnection"><span>Test connection</span><span id="ping-state" class="row-trailing">—</span></button>
-                        <button class="row-action" data-action="restoreFromNAS"><span>Restore from cloud</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
-                    </div>
-                    <div class="section-foot" id="sync-meta">No sync activity yet.</div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="section-label">Appearance</div>
-                    <div class="grouped-list">
-                        <div class="row-segmented">
-                            <span id="theme-segment-label">Theme</span>
-                            <div class="segmented" id="theme-segment" role="tablist" aria-labelledby="theme-segment-label">
-                                <button role="tab" aria-selected="false" data-val="dark">Dark</button>
-                                <button role="tab" aria-selected="false" data-val="light">Light</button>
-                                <button role="tab" aria-selected="false" data-val="auto">Auto</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="section-foot">Auto follows your system setting.</div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="section-label">Rest timer</div>
-                    <div class="grouped-list">
-                        <div class="row-segmented">
-                            <span id="rest-segment-label">Duration</span>
-                            <div class="segmented" id="rest-segment" role="tablist" aria-labelledby="rest-segment-label">
-                                <button role="tab" aria-selected="false" data-val="60">60s</button>
-                                <button role="tab" aria-selected="false" data-val="90">90s</button>
-                                <button role="tab" aria-selected="false" data-val="120">2m</button>
-                                <button role="tab" aria-selected="false" data-val="180">3m</button>
-                                <button role="tab" aria-selected="false" data-val="0">Off</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="section-label">
-                        <span>Templates</span>
-                        <button class="section-add" data-action="newTemplate">+ New</button>
-                    </div>
-                    <div class="grouped-list" id="templates-list"></div>
-                    <div class="section-foot">Templates filter the picker, set per-exercise targets, and track progress.</div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="section-label">
-                        <span>Custom exercises</span>
-                        <button class="section-add" data-action="newCustomExercise">+ New</button>
-                    </div>
-                    <div class="grouped-list" id="customs-list"></div>
-                    <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate.</div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="section-label">Voice</div>
-                    <div class="grouped-list">
-                        <div class="row-segmented">
-                            <span id="workout-mode-label">Workout mode</span>
-                            <div class="segmented" id="workout-mode-segment" role="tablist" aria-labelledby="workout-mode-label">
-                                <button role="tab" aria-selected="false" data-val="off">Off</button>
-                                <button role="tab" aria-selected="false" data-val="on">On</button>
-                            </div>
-                        </div>
-                        <label class="row-select">
-                            <span>Voice</span>
-                            <select id="voice-picker" aria-label="Speech voice"></select>
-                        </label>
-                        <div class="row-slider">
-                            <span>Speed</span>
-                            <input type="range" id="voice-rate" min="0.5" max="2" step="0.05" value="1.05" aria-label="Speech rate" aria-valuetext="1.05 times speed">
-                            <span class="row-trailing" id="voice-rate-label" aria-hidden="true">1.05×</span>
-                        </div>
-                        <button class="row-action" data-action="testVoice"><span>Test voice</span></button>
-                    </div>
-                    <div class="section-foot">When workout mode is on, the mic stays open between sets. Tap the mic to stop. On iOS, additional voices can be downloaded in Settings → Accessibility → Spoken Content → Voices.</div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="section-label">Data</div>
-                    <div class="grouped-list">
-                        <button class="row-action" data-action="exportJSON"><span>Export JSON</span></button>
-                        <button class="row-action" data-action="exportHealthCSV"><span>Export for Apple Health</span></button>
-                        <button class="row-action danger" data-action="logoutFromSettings"><span>Sign out</span></button>
-                        <button class="row-action danger" data-action="wipeFromSettings"><span>Wipe all data</span></button>
-                    </div>
-                    <div class="section-foot">CSV format. Importable into Excel, Sheets, or any HealthKit-compatible utility (Health Auto Export, Shortcuts, etc).</div>
-                </div>
-
-                <div class="settings-foot" id="app-version-footer">IronVoice Pro</div>
             </div>
         </div>
     </div>
@@ -394,11 +304,96 @@
              HOME SCREEN
              ============================================================ -->
         <section class="screen" data-screen="home">
-            <!-- Active session card (visible only while a workout is in progress) -->
+            <!-- v9.0: Hero Load card. The single most important question
+                 walking into the gym is "am I ready?", so Load gets the
+                 dominant slot. Color band reflects the current state
+                 (recovery / steady / high / over). -->
+            <div class="hero-load card status-card" id="strain-card" role="group" aria-label="Training load and readiness">
+                <div class="hero-load-head">
+                    <h3>Load</h3>
+                    <span class="hero-load-pulse" aria-hidden="true"></span>
+                </div>
+                <div class="hero-load-value" id="strain-text">—</div>
+                <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
+            </div>
+
+            <!-- Secondary row: Current + Latest PR. Demoted from equal
+                 weight with Load — these are useful but not decision-driving. -->
+            <div class="card-row card-row-2">
+                <div class="card card-mini">
+                    <h3>Current</h3>
+                    <div id="last-lift">—</div>
+                </div>
+                <button type="button" class="card pr card-mini card-button" id="pr-card" data-action="goPRs" aria-label="View all personal records">
+                    <h3>Latest PR</h3>
+                    <div id="pr-display">—</div>
+                </button>
+            </div>
+
+            <div id="insights-card" class="insight-card" style="display:none">
+                <div class="insight-icon">⚡</div>
+                <div class="insight-body">
+                    <div class="insight-title" id="insight-title">—</div>
+                    <div class="insight-text" id="insight-text">—</div>
+                </div>
+            </div>
+
+            <section class="chart-card card">
+                <div class="chart-header">
+                    <h3>Volume</h3>
+                    <span class="chart-meta-text" id="chart-total">—</span>
+                </div>
+                <div class="chart-filters">
+                    <button class="filter-chip active" data-mode="volume">Volume</button>
+                    <button class="filter-chip" data-mode="sets">Sets</button>
+                </div>
+                <div class="volume-chart" id="volume-chart"></div>
+                <div class="chart-axis">
+                    <span>14d ago</span>
+                    <span>Today</span>
+                </div>
+            </section>
+
+            <section class="chart-card card">
+                <div class="chart-header">
+                    <h3>By muscle group</h3>
+                    <span class="chart-meta-text">7d</span>
+                </div>
+                <div class="muscle-bar" id="muscle-bar"></div>
+                <div class="muscle-legend" id="muscle-legend"></div>
+            </section>
+
+            <!-- First-launch empty hint. Hidden once any data exists. -->
+            <div id="home-empty" class="home-empty" style="display:none">
+                <div class="home-empty-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5"/>
+                        <path d="M12 19v3"/>
+                    </svg>
+                </div>
+                <div class="home-empty-title">Welcome to IronVoice</div>
+                <p class="home-empty-text">Tap the mic and try saying<br><strong>&ldquo;bench two twenty-five for five.&rdquo;</strong></p>
+                <p class="home-empty-text-sub">Or head to the Workout tab to log a set manually.</p>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             WORKOUT SCREEN (v9.0)
+             Hosts the active-session UI when a workout is running, and a
+             Start-CTA + recent-templates surface when idle. Quick-add
+             input lives here so logging is contextual to a workout.
+             ============================================================ -->
+        <section class="screen" data-screen="workout" hidden>
+            <div class="screen-header">
+                <h2>Workout</h2>
+            </div>
+
+            <!-- Active session: visible only while a workout is running. -->
             <div id="session-card" class="session-card" style="display:none">
                 <div class="session-card-row">
                     <div class="session-card-meta">
-                        <div class="session-card-label">Workout in progress</div>
+                        <div class="session-card-label">In progress</div>
                         <div class="session-card-time" id="session-card-time">0:00</div>
                     </div>
                     <div class="session-card-stats">
@@ -408,6 +403,8 @@
                 </div>
             </div>
 
+            <!-- Quick-add: search, weight, reps. Same logic as the old home
+                 manual-entry block, just now scoped to the Workout screen. -->
             <section class="manual-entry">
                 <div class="search-container">
                     <input type="text" id="ex-search" placeholder="Search exercise…" data-on-input="filterExercises" data-on-focus="showExercises" autocomplete="off" enterkeyhint="search" aria-label="Search exercise" aria-autocomplete="list" aria-controls="ex-dropdown" role="combobox" aria-expanded="false">
@@ -420,63 +417,155 @@
                 </div>
             </section>
 
-            <!-- v8: shown only DURING a workout — set list grouped by exercise. -->
+            <!-- Active set list — grouped by exercise, populated by
+                 renderSessionSets(). Hidden when no session is active. -->
             <div id="session-sets" class="session-sets" style="display:none"></div>
 
-            <!-- v8: everything below shows only when NO workout is active. -->
-            <div id="home-idle-content">
+            <!-- Idle state: shown only when NO session is active. -->
+            <div id="workout-idle">
+                <button type="button" class="workout-start-cta" data-action="toggleWorkoutSession">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <polygon points="6 4 20 12 6 20 6 4"/>
+                    </svg>
+                    <span class="workout-start-cta-text">
+                        <span class="workout-start-cta-title">Start workout</span>
+                        <span class="workout-start-cta-sub">Track time, sets, and volume</span>
+                    </span>
+                </button>
+
+                <div class="section-label" style="margin-top:22px">Templates</div>
                 <div id="template-chips" class="template-chips"></div>
                 <div id="template-progress" class="template-progress"></div>
 
-                <div class="card-row">
-                    <div class="card">
-                        <h3>Current</h3>
-                        <div id="last-lift">—</div>
-                    </div>
-                    <button type="button" class="card pr card-button" id="pr-card" data-action="goPRs" aria-label="View all personal records">
-                        <h3>Latest PR</h3>
-                        <div id="pr-display">—</div>
-                    </button>
-                    <div class="card status-card" id="strain-card">
-                        <h3>Load</h3>
-                        <div id="strain-text">—</div>
-                        <div id="strain-sub" class="strain-sub">—</div>
+                <div class="section-label" style="margin-top:22px">Last workout</div>
+                <div id="last-workout-card" class="last-workout-card">
+                    <div class="last-workout-empty">No workouts yet — tap Start to begin.</div>
+                </div>
+            </div>
+
+            <!-- Active state: end-button at the bottom. -->
+            <div id="workout-active-actions" style="display:none">
+                <button type="button" class="end-workout-btn" data-action="toggleWorkoutSession">
+                    End workout
+                </button>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             PROFILE SCREEN (v9.0) — was a sheet, now a full screen.
+             Same grouped-list content as the old settings sheet; sub-flows
+             (template editor, custom exercise editor) remain as sheets
+             since they're transient editor surfaces.
+             ============================================================ -->
+        <section class="screen" data-screen="profile" hidden>
+            <div class="screen-header">
+                <h2>Profile</h2>
+            </div>
+            <div class="profile-screen-body">
+                <div class="settings-section">
+                    <div class="section-label">Profile</div>
+                    <div class="grouped-list">
+                        <label class="row-input"><span>First name</span><input type="text" id="settings-first" placeholder="—" enterkeyhint="next" autocomplete="given-name"></label>
+                        <label class="row-input"><span>Email</span><input type="email" id="settings-email" placeholder="—" enterkeyhint="done" autocomplete="email"></label>
                     </div>
                 </div>
 
-                <div id="insights-card" class="insight-card" style="display:none">
-                    <div class="insight-icon">⚡</div>
-                    <div class="insight-body">
-                        <div class="insight-title" id="insight-title">—</div>
-                        <div class="insight-text" id="insight-text">—</div>
+                <div class="settings-section">
+                    <div class="section-label">Sync</div>
+                    <div class="grouped-list">
+                        <label class="row-input"><span>Access key</span><input type="password" id="settings-token" placeholder="Paste your access key" autocomplete="off" enterkeyhint="done"></label>
+                        <button class="row-action" data-action="testConnection"><span>Test connection</span><span id="ping-state" class="row-trailing">—</span></button>
+                        <button class="row-action" data-action="restoreFromNAS"><span>Restore from cloud</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+                    </div>
+                    <div class="section-foot" id="sync-meta">No sync activity yet.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-label">Appearance</div>
+                    <div class="grouped-list">
+                        <div class="row-segmented">
+                            <span id="theme-segment-label">Theme</span>
+                            <div class="segmented" id="theme-segment" role="tablist" aria-labelledby="theme-segment-label">
+                                <button role="tab" aria-selected="false" data-val="dark">Dark</button>
+                                <button role="tab" aria-selected="false" data-val="light">Light</button>
+                                <button role="tab" aria-selected="false" data-val="auto">Auto</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-foot">Auto follows your system setting.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-label">Rest timer</div>
+                    <div class="grouped-list">
+                        <div class="row-segmented">
+                            <span id="rest-segment-label">Duration</span>
+                            <div class="segmented" id="rest-segment" role="tablist" aria-labelledby="rest-segment-label">
+                                <button role="tab" aria-selected="false" data-val="60">60s</button>
+                                <button role="tab" aria-selected="false" data-val="90">90s</button>
+                                <button role="tab" aria-selected="false" data-val="120">2m</button>
+                                <button role="tab" aria-selected="false" data-val="180">3m</button>
+                                <button role="tab" aria-selected="false" data-val="0">Off</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <section class="chart-card card">
-                    <div class="chart-header">
-                        <h3>Volume</h3>
-                        <span class="chart-meta-text" id="chart-total">—</span>
+                <div class="settings-section">
+                    <div class="section-label">
+                        <span>Templates</span>
+                        <button class="section-add" data-action="newTemplate">+ New</button>
                     </div>
-                    <div class="chart-filters">
-                        <button class="filter-chip active" data-mode="volume">Volume</button>
-                        <button class="filter-chip" data-mode="sets">Sets</button>
-                    </div>
-                    <div class="volume-chart" id="volume-chart"></div>
-                    <div class="chart-axis">
-                        <span>14d ago</span>
-                        <span>Today</span>
-                    </div>
-                </section>
-
-                <section class="chart-card card">
-                    <div class="chart-header">
-                        <h3>By muscle group</h3>
-                    <span class="chart-meta-text">7d</span>
+                    <div class="grouped-list" id="templates-list"></div>
+                    <div class="section-foot">Templates filter the picker, set per-exercise targets, and track progress.</div>
                 </div>
-                <div class="muscle-bar" id="muscle-bar"></div>
-                <div class="muscle-legend" id="muscle-legend"></div>
-            </section>
-            </div><!-- /#home-idle-content -->
+
+                <div class="settings-section">
+                    <div class="section-label">
+                        <span>Custom exercises</span>
+                        <button class="section-add" data-action="newCustomExercise">+ New</button>
+                    </div>
+                    <div class="grouped-list" id="customs-list"></div>
+                    <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-label">Voice</div>
+                    <div class="grouped-list">
+                        <div class="row-segmented">
+                            <span id="workout-mode-label">Workout mode</span>
+                            <div class="segmented" id="workout-mode-segment" role="tablist" aria-labelledby="workout-mode-label">
+                                <button role="tab" aria-selected="false" data-val="off">Off</button>
+                                <button role="tab" aria-selected="false" data-val="on">On</button>
+                            </div>
+                        </div>
+                        <label class="row-select">
+                            <span>Voice</span>
+                            <select id="voice-picker" aria-label="Speech voice"></select>
+                        </label>
+                        <div class="row-slider">
+                            <span>Speed</span>
+                            <input type="range" id="voice-rate" min="0.5" max="2" step="0.05" value="1.05" aria-label="Speech rate" aria-valuetext="1.05 times speed">
+                            <span class="row-trailing" id="voice-rate-label" aria-hidden="true">1.05×</span>
+                        </div>
+                        <button class="row-action" data-action="testVoice"><span>Test voice</span></button>
+                    </div>
+                    <div class="section-foot">When workout mode is on, the mic stays open between sets. Tap the mic to stop. On iOS, additional voices can be downloaded in Settings → Accessibility → Spoken Content → Voices.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="section-label">Data</div>
+                    <div class="grouped-list">
+                        <button class="row-action" data-action="exportJSON"><span>Export JSON</span></button>
+                        <button class="row-action" data-action="exportHealthCSV"><span>Export for Apple Health</span></button>
+                        <button class="row-action danger" data-action="logoutFromSettings"><span>Sign out</span></button>
+                        <button class="row-action danger" data-action="wipeFromSettings"><span>Wipe all data</span></button>
+                    </div>
+                    <div class="section-foot">CSV format. Importable into Excel, Sheets, or any HealthKit-compatible utility (Health Auto Export, Shortcuts, etc).</div>
+                </div>
+
+                <div class="settings-foot" id="app-version-footer">IronVoice Pro</div>
+            </div>
         </section>
 
         <!-- ============================================================
@@ -491,8 +580,14 @@
                 <button role="tab" aria-selected="false" data-val="weight-reps">Weight × reps</button>
             </div>
             <div id="pr-grid" class="pr-grid"></div>
-            <div id="pr-empty" class="empty-state" style="display:none">
-                Log a few sets and your records will show up here.
+            <div id="pr-empty" class="empty-state empty-state-rich" style="display:none">
+                <div class="empty-state-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 4H2v2a4 4 0 0 0 5 4M19 4h3v2a4 4 0 0 1-5 4"/>
+                    </svg>
+                </div>
+                <div class="empty-state-title">No records yet</div>
+                <p>Every set you log builds your PR shelf. Start with the Workout tab — your heaviest lift in each exercise lands here automatically.</p>
             </div>
         </section>
 
@@ -531,10 +626,20 @@
     </button>
 
     <button id="mic-btn" type="button" data-action="toggleListening" aria-label="Voice log" aria-pressed="false">
-        <svg viewBox="0 0 24 24" fill="white" aria-hidden="true">
+        <svg class="mic-icon" viewBox="0 0 24 24" fill="white" aria-hidden="true">
             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
+        <!-- Audio-level equalizer. Shown only while listening; bar heights
+             driven by --mic-level-N CSS vars, written by startMicLevelMeter().
+             Replaces the static SVG visually so the FAB feels alive. -->
+        <span class="mic-eq" aria-hidden="true">
+            <span class="mic-eq-bar"></span>
+            <span class="mic-eq-bar"></span>
+            <span class="mic-eq-bar"></span>
+            <span class="mic-eq-bar"></span>
+            <span class="mic-eq-bar"></span>
+        </span>
     </button>
 
     <!-- Persistent tab bar. Five slots, with the mic raised above slot 3.
@@ -555,11 +660,11 @@
             </svg>
             <span class="tab-label">History</span>
         </button>
-        <button type="button" class="tab-btn tab-workout" id="tab-workout" data-action="toggleWorkoutSession" aria-label="Start or end workout" aria-pressed="false">
+        <button type="button" class="tab-btn tab-workout" id="tab-workout" data-screen-target="workout" aria-label="Workout">
             <svg class="tab-icon" id="tab-workout-icon" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="6 4 20 12 6 20 6 4"/>
             </svg>
-            <span class="tab-label" id="tab-workout-label">Start</span>
+            <span class="tab-label" id="tab-workout-label">Workout</span>
         </button>
         <button type="button" class="tab-btn" data-screen-target="profile" aria-label="Profile and settings">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

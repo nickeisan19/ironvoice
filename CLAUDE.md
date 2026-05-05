@@ -216,6 +216,47 @@ articulated reason.
 raised at dead center between History and Workout. Home is in the header
 icon strip (top right), not the tab bar. This was iterated to.
 
+**All four tabs are screens, not actions or sheets.** As of v9.0:
+
+- **Workout** is a real screen (not the old start/end button). The screen
+  shows a Start CTA + recent templates + last-workout summary when idle,
+  and the active session card + quick-add + set list + End button when a
+  session is running. Voice commands ("start workout") still call
+  `toggleWorkoutSession()` directly — the screen's CTA wires to the same
+  function. Don't conflate navigation with action again.
+- **Profile** is a real screen (not the old `settings-overlay` sheet). Same
+  grouped-list content; field saves now happen on tab-switch via
+  `saveProfileFromScreen()`. The legacy `openSettings`/`closeSettings`
+  function names are kept as one-line shims that route to `showScreen('profile')`
+  — don't delete them, internal callers still use the names.
+- **Manual quick-add lives on Workout, not Home.** The `#ex-search`,
+  `#manual-w`, `#manual-r`, `#ex-dropdown` IDs are now inside
+  `<section data-screen="workout">`. Home is a pure dashboard.
+
+**Hero Load is the home page's primary signal.** A full-width card at the
+top of Home (`.hero-load`, id `#strain-card`) shows the readiness state in
+2.4rem type with a left-edge color band. Latest PR + Current sit beneath
+in a demoted 2-up secondary row. The state classes (`.recovery`,
+`.steady`, `.high`, `.over`) are still applied by `renderStrain()` — the
+hero card overlays its own visuals on top of the same class hooks the
+old mini card used.
+
+**Mic FAB has a live audio-level equalizer while listening.** Five vertical
+bars driven by `--mic-level-1..5` CSS vars, written by
+`startMicLevelMeter()` from a parallel `getUserMedia` + `AnalyserNode`
+stream. Recognition is unaffected if the meter fails. Don't remove this
+without replacing it — a static mic feels broken in 2026.
+
+**A new PR auto-presents the celebration sheet.** `presentPRCelebration()`
+is called from `updateUI()` when `isNewPR === true`. Same canvas logic as
+the share-PR flow, repurposed as the moment-of-celebration. The old
+share-overlay still exists for explicit sharing from the exercise sheet.
+
+**History week-strip shows a per-day volume bar (not a dot).** Bar height
+is proportional to that day's volume relative to the week max; bar color
+is the dominant muscle worked. The class is `.week-day-bar` and replaces
+the old `.week-day-dot`. Computed in `renderHistoryScreen()`.
+
 ---
 
 ## Conventions Nick follows
