@@ -25,6 +25,11 @@
 
 const MAX_BYTES = 4 * 1024 * 1024;     // 4 MB request body cap
 const SNAPSHOT_DIR = 'snapshots';      // subkey segment for snapshot copies
+// Minimum gap between snapshot writes for a given user. Background sync
+// fires on every change and from multiple devices; without coalescing,
+// near-identical snapshots accumulate in R2 and most are pruned within
+// hours. Full-mode backups always snapshot regardless.
+const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
 export default {
     async fetch(request, env, ctx) {
@@ -128,54 +133,94 @@ export default {
         const inCustoms = body.customExercises || [];
         const inSessions = body.sessions       || [];
 
-        // Load current state (or skeleton if first sync)
-        let state;
-        const existing = await env.BUCKET.get(stateKey);
-        if (existing) {
-            state = JSON.parse(await existing.text());
-        } else {
-            state = { data: [], prs: [], templates: [], customExercises: [], sessions: [], syncedAt: 0 };
-        }
-        // Defensive defaults in case stored state is partial.
-        state.data            = state.data            ?? [];
-        state.templates       = state.templates       ?? [];
-        state.customExercises = state.customExercises ?? [];
-        state.sessions        = state.sessions        ?? [];
-
-        if (mode === 'delta') {
-            state.data            = mergeRecords(state.data,            incoming,    'id');
-            state.templates       = mergeRecords(state.templates,       inTpls,      'id');
-            state.customExercises = mergeRecords(state.customExercises, inCustoms,   'name');
-            state.sessions        = mergeRecords(state.sessions,        inSessions,  'id');
-        } else {
-            state.data            = incoming;
-            state.templates       = inTpls;
-            state.customExercises = inCustoms;
-            state.sessions        = inSessions;
-        }
-
-        // Garbage-collect tombstones older than threshold.
+        // ----------------------------------------------------------------
+        // Read-merge-write loop with R2 conditional puts.
+        //
+        // Two devices syncing simultaneously can both read the same state,
+        // merge their own delta, then race to write — last writer clobbers
+        // the other's records. The fix is `onlyIf: { etagMatches }`: if
+        // someone else wrote between our read and our write, R2 returns
+        // null and we re-read + re-merge against the fresh state.
+        //
+        // The merge is idempotent (modifiedAt-based, deletion-wins-on-tie),
+        // so re-merging the same incoming against fresher state always
+        // produces the right result.
+        // ----------------------------------------------------------------
         const tombstoneDays = parseInt(env.TOMBSTONE_DAYS || '90', 10);
-        state.data            = gcTombstones(state.data,            tombstoneDays);
-        state.templates       = gcTombstones(state.templates,       tombstoneDays);
-        state.customExercises = gcTombstones(state.customExercises, tombstoneDays);
-        state.sessions        = gcTombstones(state.sessions,        tombstoneDays);
+        const MAX_ATTEMPTS  = 3;
+        let state, stateJSON, shouldSnapshot;
 
-        // Server-authoritative PR recompute.
-        state.prs       = recomputePRs(state.data);
-        state.syncedAt  = Date.now();
+        let attempt = 0;
+        while (true) {
+            attempt++;
+            const existing = await env.BUCKET.get(stateKey);
+            if (existing) {
+                state = JSON.parse(await existing.text());
+            } else {
+                state = { data: [], prs: [], templates: [], customExercises: [], sessions: [], syncedAt: 0 };
+            }
+            // Defensive defaults in case stored state is partial.
+            state.data            = state.data            ?? [];
+            state.templates       = state.templates       ?? [];
+            state.customExercises = state.customExercises ?? [];
+            state.sessions        = state.sessions        ?? [];
 
-        // Write state
-        const stateJSON = JSON.stringify(state);
-        await env.BUCKET.put(stateKey, stateJSON, {
-            httpMetadata: { contentType: 'application/json' },
-        });
+            if (mode === 'delta') {
+                state.data            = mergeRecords(state.data,            incoming,    'id');
+                state.templates       = mergeRecords(state.templates,       inTpls,      'id');
+                state.customExercises = mergeRecords(state.customExercises, inCustoms,   'name');
+                state.sessions        = mergeRecords(state.sessions,        inSessions,  'id');
+            } else {
+                state.data            = incoming;
+                state.templates       = inTpls;
+                state.customExercises = inCustoms;
+                state.sessions        = inSessions;
+            }
 
-        // Snapshot copy + tiered prune. Both run on the request thread because
-        // they're cheap — single PUT and a list+delete loop. If either grows
-        // expensive later, wrap in ctx.waitUntil() to defer.
-        await writeSnapshot(env.BUCKET, slug, stateJSON);
-        await pruneSnapshots(env.BUCKET, slug);
+            // Garbage-collect tombstones older than threshold.
+            state.data            = gcTombstones(state.data,            tombstoneDays);
+            state.templates       = gcTombstones(state.templates,       tombstoneDays);
+            state.customExercises = gcTombstones(state.customExercises, tombstoneDays);
+            state.sessions        = gcTombstones(state.sessions,        tombstoneDays);
+
+            // Server-authoritative PR recompute.
+            state.prs       = recomputePRs(state.data);
+            state.syncedAt  = Date.now();
+
+            // Decide whether to snapshot before serializing state, so the
+            // updated lastSnapshotAt is included in the persisted blob.
+            const sinceLastSnap = Date.now() - (Number(state.lastSnapshotAt) || 0);
+            shouldSnapshot = mode === 'full' || sinceLastSnap >= SNAPSHOT_MIN_INTERVAL_MS;
+            if (shouldSnapshot) state.lastSnapshotAt = Date.now();
+
+            stateJSON = JSON.stringify(state);
+
+            // Conditional put: succeeds only if the object's etag still
+            // matches what we read. R2 returns null on precondition failure.
+            const putOpts = {
+                httpMetadata: { contentType: 'application/json' },
+            };
+            if (existing) {
+                putOpts.onlyIf = { etagMatches: existing.etag };
+            }
+            const putResult = await env.BUCKET.put(stateKey, stateJSON, putOpts);
+
+            if (putResult !== null) break;  // success
+            if (attempt >= MAX_ATTEMPTS) {
+                return jsonResponse(
+                    { error: 'Concurrent update; please retry' },
+                    503, env
+                );
+            }
+            // Otherwise loop and re-read + re-merge against fresh state.
+        }
+
+        // Snapshot is rate-limited (see SNAPSHOT_MIN_INTERVAL_MS). Pruning
+        // moved to a scheduled cron handler so it doesn't run on the hot
+        // path; see the `scheduled` export below.
+        if (shouldSnapshot) {
+            await writeSnapshot(env.BUCKET, slug, stateJSON);
+        }
 
         return jsonResponse({
             ok: true,
@@ -186,7 +231,43 @@ export default {
             prs: state.prs,
         }, 200, env);
     },
+
+    // ------------------------------------------------------------------
+    // Scheduled (Cron Trigger) entry point
+    //
+    // Enumerates every user slug in the bucket and prunes their snapshots
+    // per the tiered retention policy. Configured via [triggers].crons in
+    // wrangler.toml — runs once a day rather than on every backup.
+    //
+    // Enumeration uses delimiter='/' so we get back top-level "directories"
+    // (one per hashed-email slug) without listing every snapshot key.
+    // ------------------------------------------------------------------
+    async scheduled(event, env, ctx) {
+        ctx.waitUntil(pruneAllUsers(env.BUCKET));
+    },
 };
+
+// Walk the bucket's top-level prefixes and prune snapshots per user.
+// Failures for one user are logged and skipped so a single bad slug can't
+// block the rest of the run.
+async function pruneAllUsers(bucket) {
+    let cursor;
+    do {
+        const page = await bucket.list({ prefix: '', delimiter: '/', limit: 1000, cursor });
+        const prefixes = page.delimitedPrefixes || [];
+        for (const userPrefix of prefixes) {
+            // userPrefix looks like "<slug>/"
+            const slug = userPrefix.replace(/\/$/, '');
+            if (!slug) continue;
+            try {
+                await pruneSnapshots(bucket, slug);
+            } catch (err) {
+                console.error(`prune failed for ${slug}:`, err);
+            }
+        }
+        cursor = page.truncated ? page.cursor : null;
+    } while (cursor);
+}
 
 // ============================================================================
 // Helpers
@@ -244,7 +325,7 @@ async function hashEmailToSlug(email, salt) {
 
 // Recompute PRs from the authoritative non-deleted workout set.
 // One PR per exercise; max 1RM wins; ties broken by the higher actual weight.
-function recomputePRs(workouts) {
+export function recomputePRs(workouts) {
     const best = {};
     for (const w of workouts) {
         if (w.deleted) continue;
@@ -265,7 +346,7 @@ function recomputePRs(workouts) {
 }
 
 // Drop tombstoned rows whose modifiedAt is older than the cutoff.
-function gcTombstones(rows, days) {
+export function gcTombstones(rows, days) {
     if (!days || days <= 0) return rows;
     const cutoff = Date.now() - days * 86400 * 1000;
     return rows.filter(r => {
@@ -278,7 +359,7 @@ function gcTombstones(rows, days) {
 // Merge two arrays of records by `key`. Newer modifiedAt wins; on ties,
 // a deletion wins over a non-deletion (so concurrent edits and deletes
 // resolve to the safer "deleted" outcome).
-function mergeRecords(existing, incoming, key) {
+export function mergeRecords(existing, incoming, key) {
     const byKey = new Map();
     for (const r of existing) {
         if (r && r[key] !== undefined) byKey.set(r[key], r);
@@ -319,8 +400,15 @@ async function writeSnapshot(bucket, slug, jsonBody) {
 // 4w, monthly for 12mo. Anything older than 12 months is dropped.
 async function pruneSnapshots(bucket, slug) {
     const prefix = `${slug}/${SNAPSHOT_DIR}/`;
-    const list = await bucket.list({ prefix, limit: 1000 });
-    const objs = list.objects || [];
+    // Page through all snapshot keys. Without this, a user with >1000
+    // snapshots would silently leave the oldest ones unprunable forever.
+    const objs = [];
+    let cursor;
+    do {
+        const page = await bucket.list({ prefix, limit: 1000, cursor });
+        if (page.objects) objs.push(...page.objects);
+        cursor = page.truncated ? page.cursor : null;
+    } while (cursor);
     if (objs.length <= 7) return;   // small histories untouched
 
     const now = new Date();

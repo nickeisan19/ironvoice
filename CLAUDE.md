@@ -305,14 +305,11 @@ the Pages origin.
 
 In rough priority order:
 
-1. **Import JSON feature** — let users with old NAS-version data export from
-   their phone and import into the Cloudflare-hosted version. Discussed but
-   not built yet.
-2. **Capacitor wrap for App Store distribution** — would require integrating
+1. **Capacitor wrap for App Store distribution** — would require integrating
    `SFSpeechRecognizer` for voice (Web Speech doesn't work in WKWebView).
-3. **Apple Watch companion** — voice logging from the watch is the killer
+2. **Apple Watch companion** — voice logging from the watch is the killer
    feature for gym use. Requires Capacitor or full Swift native rewrite.
-4. **HealthKit write integration** — only viable from a native app, not PWA.
+3. **HealthKit write integration** — only viable from a native app, not PWA.
 
 ---
 
@@ -321,6 +318,8 @@ In rough priority order:
 These have been considered and declined. Don't propose them again unless
 the situation has materially changed.
 
+- **JSON import from old NAS data** — old data was scrapped, users started
+  clean on the Cloudflare backend. Don't propose adding an import path.
 - **OAuth / Google SSO** — overkill for the user model
 - **React/Vue/Svelte rewrite** — adds build complexity for no user-visible benefit
 - **Server-side rendering** — pointless for a single-page PWA

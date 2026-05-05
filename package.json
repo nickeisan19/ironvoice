@@ -7,10 +7,12 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
+    "test": "vitest run",
     "secret-token": "wrangler secret put IRONVOICE_TOKEN",
     "secret-salt": "wrangler secret put IRONVOICE_SALT"
   },
   "devDependencies": {
+    "vitest": "^2.1.9",
     "wrangler": "^4.87.0"
   }
 }

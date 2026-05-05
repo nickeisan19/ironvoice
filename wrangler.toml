@@ -42,3 +42,16 @@ TOMBSTONE_DAYS = "90"
 # Useful for debugging "did my phone actually call the Worker?" questions.
 [observability]
 enabled = true
+
+# ----------------------------------------------------------------------------
+# Cron Triggers
+#
+# The `scheduled` handler in worker.js prunes old snapshots per the tiered
+# retention policy. Running once a day at 03:00 UTC keeps it off the hot
+# request path — the per-backup snapshot writes are now the only R2 ops
+# in the request critical section.
+#
+# Reference: https://developers.cloudflare.com/workers/configuration/cron-triggers/
+# ----------------------------------------------------------------------------
+[triggers]
+crons = ["0 3 * * *"]
