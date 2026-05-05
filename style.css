@@ -579,9 +579,19 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
   width: 36px; height: 36px;
   border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
+  /* Hit area widened to ~44x44 (Apple HIG / WCAG AA) without enlarging the
+     visual circle. The negative margin reclaims the space so layout doesn't
+     shift; pointer-targets land on the padding ring. */
+  position: relative;
+}
+.icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 .icon-btn:active { background: rgba(120, 120, 128, 0.30); }
 .icon-btn svg { width: 18px; height: 18px; }
+.icon-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 #status {
   display: inline-flex; align-items: center; gap: 6px;
@@ -770,6 +780,22 @@ main {
   -webkit-text-fill-color: transparent;
 }
 .card.pr-flash { animation: pr-flash 1.4s var(--spring); }
+
+/* When .card is rendered as a <button> (e.g., the PR card on home), strip
+   the user-agent button chrome so it visually stays identical to a div
+   while remaining keyboard-activatable. The card's own padding/radius
+   already handle the look; we just need to reset what the browser added. */
+button.card-button {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+button.card-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 
 .card.status-card.recovery { border-color: rgba(48, 209, 88, 0.35); }
 .card.status-card.recovery #strain-text { color: var(--green); }
@@ -1006,6 +1032,10 @@ main {
   max-width: calc(100vw - 32px);
 }
 .snackbar.active { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+/* When a rest timer is on screen, lift the snackbar above the timer pill
+   so the two don't stack on the same baseline. JS toggles `.over-timer`
+   whenever a snackbar appears while #rest-timer is .active. */
+.snackbar.over-timer { bottom: calc(180px + env(safe-area-inset-bottom)); }
 .snackbar-text {
   color: var(--label);
   font-size: 0.88rem;
@@ -1203,12 +1233,13 @@ main {
 
 #mic-btn {
   position: fixed;
-  /* Tab bar is 64px tall + safe area. Mic sits raised so its center is
-     ~6px above the top of the bar, giving the "floating, breaks the bar"
-     look. 64 (bar height) + 6 (raise above) = 70 from baseline = bottom 70.
-     Then we need to subtract half the mic's own height (32) so its center
-     lands at that point. So bottom = 70 - 32 = 38, plus safe-area. */
-  bottom: calc(34px + env(safe-area-inset-bottom));
+  /* Tab bar is 64px tall + safe area. Mic sits raised so its bottom edge
+     clears the top of the bar — without this, the mic's lower hemisphere
+     overlaps the History/Workout tab buttons and steals their taps.
+     bottom = 64 (bar) - 24 (overlap target) + safe-area gives the
+     "floating, mostly above the bar" silhouette without intercepting
+     adjacent tap targets. */
+  bottom: calc(44px + env(safe-area-inset-bottom));
   /* 4-column tab bar: PRs, History, Workout, Profile.
      Columns at 12.5%, 37.5%, 62.5%, 87.5%. The mic floats raised at the
      boundary between History (col 2) and Workout (col 3), which is dead
@@ -1239,10 +1270,6 @@ main {
     0 0 28px rgba(255,69,58,0.45),
     0 2px 6px rgba(0,0,0,0.5);
   animation: mic-breath 2.5s ease-in-out infinite;
-}
-@keyframes mic-breath {
-  0%, 100% { opacity: 1;    transform: translateX(-50%) scale(1); }
-  50%      { opacity: 0.78; transform: translateX(-50%) scale(0.96); }
 }
 @keyframes mic-breath {
   0%, 100% { opacity: 1;    transform: translateX(-50%) scale(1); }
@@ -1376,6 +1403,12 @@ main {
 }
 .tab-btn.active { color: var(--blue); }
 
+/* The Workout button is the primary CTA when no session is active.
+   Give it a subtle blue accent to distinguish from secondary tabs;
+   when a session IS active the red state below takes precedence. */
+.tab-workout:not(.session-active) { color: var(--blue); }
+.tab-workout:not(.session-active) .tab-icon { color: var(--blue); }
+
 /* The Workout button has special states for active session */
 .tab-workout.session-active { color: var(--red); }
 .tab-workout.session-active .tab-icon { color: var(--red); }
@@ -1417,9 +1450,16 @@ main {
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: background 0.15s var(--ease);
+  position: relative;
+}
+.icon-btn-sm::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 .icon-btn-sm:active { background: var(--surface-3); }
 .icon-btn-sm svg { width: 18px; height: 18px; }
+.icon-btn-sm:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* Segmented as full-width tabs at top of a screen */
 .segmented-tabs {
@@ -1582,7 +1622,12 @@ main {
   cursor: pointer;
   transition: transform 0.15s var(--ease), background 0.15s var(--ease);
   -webkit-tap-highlight-color: transparent;
+  /* .pr-tile is rendered as <button>; reset UA chrome so it stays
+     visually identical to the original div. Color/font already inherit. */
+  font: inherit;
+  color: inherit;
 }
+.pr-tile:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .pr-tile:active { transform: scale(0.96); background: var(--surface-3); }
 .pr-tile-icon {
   width: 44px; height: 44px;

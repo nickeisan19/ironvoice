@@ -223,6 +223,99 @@ const formatDate = iso => {
 };
 const haptic = (pattern = 10) => { try { navigator.vibrate?.(pattern); } catch {} };
 const setStatus = (text, cls = '') => { const el = $('status'); el.textContent = text; el.className = cls; };
+
+// ----- Modal sheet a11y -----
+// One observer per .overlay handles three things every sheet needs:
+//   1. aria-hidden mirrors the .active class so SR navigation skips the
+//      sheet when it's not on screen.
+//   2. Focus is captured when the sheet opens and restored to the previously
+//      focused element on close — without this, keyboard users land back at
+//      the top of the page each time.
+//   3. Tab is trapped inside the sheet, and Escape triggers the sheet's
+//      first close/cancel/dismiss button (matching by data-action prefix).
+//      Profile sheet has no close action, so Escape is a no-op there —
+//      intentional, since the welcome flow is required.
+function setupOverlayA11y() {
+    const FOCUSABLES = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    document.querySelectorAll('.overlay').forEach(overlay => {
+        const dialog = overlay.querySelector('[role="dialog"]');
+        if (!dialog) return;
+        // Make the dialog itself programmatically focusable so we can
+        // park focus on it without opening the soft keyboard.
+        if (!dialog.hasAttribute('tabindex')) dialog.setAttribute('tabindex', '-1');
+
+        let savedFocus = null;
+
+        const findCloseAction = () => dialog.querySelector(
+            '[data-action^="close"], [data-action^="cancel"], [data-action="dismissInstallHint"]'
+        );
+
+        const onKey = (e) => {
+            if (!overlay.classList.contains('active')) return;
+            if (e.key === 'Escape') {
+                const closeBtn = findCloseAction();
+                if (closeBtn) { e.preventDefault(); closeBtn.click(); }
+                return;
+            }
+            if (e.key !== 'Tab') return;
+            const visible = Array.from(dialog.querySelectorAll(FOCUSABLES))
+                .filter(el => el.offsetParent !== null);
+            if (!visible.length) return;
+            const first = visible[0];
+            const last = visible[visible.length - 1];
+            if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+
+        const observer = new MutationObserver(muts => {
+            for (const m of muts) {
+                if (m.attributeName !== 'class') continue;
+                const isActive = overlay.classList.contains('active');
+                if (isActive) {
+                    overlay.setAttribute('aria-hidden', 'false');
+                    savedFocus = document.activeElement;
+                    document.addEventListener('keydown', onKey);
+                    // Park focus on the dialog itself (tabindex=-1). Other
+                    // handlers may immediately steal focus to an input —
+                    // that's fine and intended for flows like the welcome
+                    // sheet which should land in the first-name field.
+                    setTimeout(() => {
+                        if (!overlay.contains(document.activeElement)) {
+                            try { dialog.focus({ preventScroll: true }); } catch (_) {}
+                        }
+                    }, 0);
+                } else {
+                    overlay.setAttribute('aria-hidden', 'true');
+                    document.removeEventListener('keydown', onKey);
+                    if (savedFocus && document.body.contains(savedFocus) && typeof savedFocus.focus === 'function') {
+                        try { savedFocus.focus({ preventScroll: true }); } catch (_) {}
+                    }
+                    savedFocus = null;
+                }
+            }
+        });
+        observer.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+    });
+}
+
+// ----- Tablist helper -----
+// Mirrors `.active` class and `aria-selected` (when role=tab is present)
+// across every direct-child <button> of a segmented container. Called by
+// every segmented click handler and the various openSettings sync paths.
+// `match` receives the button element; truthy means "this is the active tab".
+function setSegmentedActive(container, match) {
+    if (!container) return;
+    container.querySelectorAll('button').forEach(b => {
+        const on = !!match(b);
+        b.classList.toggle('active', on);
+        if (b.getAttribute('role') === 'tab') b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+}
 const getToken = () => localStorage.getItem('ironToken') || '';
 const epley = (w, r) => w * (1 + r / 30);
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -233,6 +326,10 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&
 
 window.addEventListener('load', () => {
     applyTheme(theme);  // before anything paints
+    renderVersionFooter();
+    // Wire overlay a11y BEFORE we open any sheet, so first-run users land
+    // inside a properly trapped welcome dialog.
+    setupOverlayA11y();
     if (!userProfile?.first) {
         $('profile-overlay').classList.add('active');
     } else {
@@ -251,6 +348,7 @@ window.addEventListener('load', () => {
     initVoicePicker();
     initActionDispatcher();
     maybeShowInstallHint();
+    handleShortcutAction();
     showScreen('home');   // mark Home tab active on first load
     // v8: auto-sync triggers
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -265,6 +363,19 @@ function applyTheme(next) {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('ironTheme', theme);
     updateThemeColor();
+}
+
+// Pulled from version.js (loaded as a separate script before app.js).
+// If version.js ever fails to load we still want the footer to render
+// gracefully rather than show "undefined".
+function renderVersionFooter() {
+    const el = document.getElementById('app-version-footer');
+    if (!el) return;
+    const v = self.APP_VERSION;
+    const d = self.APP_BUILD_DATE;
+    el.textContent = (v && d) ? `IronVoice Pro · v${v} · ${d}`
+                   : v       ? `IronVoice Pro · v${v}`
+                             : 'IronVoice Pro';
 }
 
 function updateThemeColor() {
@@ -344,6 +455,7 @@ function initOutsideClick() {
     document.addEventListener('click', e => {
         if (!e.target.closest('.search-container')) {
             $('ex-dropdown').classList.remove('active');
+            $('ex-search')?.setAttribute('aria-expanded', 'false');
         }
         if (!e.target.closest('.history-row')) {
             document.querySelectorAll('.history-item.revealed').forEach(el => el.classList.remove('revealed'));
@@ -355,8 +467,7 @@ function initSegmented() {
     $('rest-segment')?.addEventListener('click', e => {
         const btn = e.target.closest('button[data-val]');
         if (!btn) return;
-        $('rest-segment').querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        setSegmentedActive($('rest-segment'), b => b === btn);
         restDuration = parseInt(btn.dataset.val, 10);
         localStorage.setItem('ironRest', String(restDuration));
         haptic(8);
@@ -365,8 +476,7 @@ function initSegmented() {
     $('theme-segment')?.addEventListener('click', e => {
         const btn = e.target.closest('button[data-val]');
         if (!btn) return;
-        $('theme-segment').querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        setSegmentedActive($('theme-segment'), b => b === btn);
         applyTheme(btn.dataset.val);
         haptic(8);
     });
@@ -375,8 +485,7 @@ function initSegmented() {
     $('workout-mode-segment')?.addEventListener('click', e => {
         const btn = e.target.closest('button[data-val]');
         if (!btn) return;
-        $('workout-mode-segment').querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        setSegmentedActive($('workout-mode-segment'), b => b === btn);
         setWorkoutMode(btn.dataset.val === 'on');
         haptic(8);
     });
@@ -385,8 +494,7 @@ function initSegmented() {
     $('custom-muscle-segment')?.addEventListener('click', e => {
         const btn = e.target.closest('button[data-val]');
         if (!btn || !editingCustomExercise) return;
-        $('custom-muscle-segment').querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        setSegmentedActive($('custom-muscle-segment'), b => b === btn);
         editingCustomExercise.muscle = btn.dataset.val;
         haptic(8);
     });
@@ -553,7 +661,11 @@ async function garbageCollectTombstones() {
 // Exercise search + template filter
 // ============================================================================
 
-function showExercises() { filterExercises(); $('ex-dropdown').classList.add('active'); }
+function showExercises() {
+    filterExercises();
+    $('ex-dropdown').classList.add('active');
+    $('ex-search')?.setAttribute('aria-expanded', 'true');
+}
 
 function filterExercises() {
     const input = $('ex-search').value.toLowerCase();
@@ -643,6 +755,7 @@ function selectExercise(name) {
     selectedExercise = name;
     $('ex-search').value = titleCase(name);
     $('ex-dropdown').classList.remove('active');
+    $('ex-search')?.setAttribute('aria-expanded', 'false');
 
     // If active template has a target for this exercise, prefill
     if (activeTemplate) {
@@ -819,15 +932,29 @@ function endSession(statusText = 'Ready') {
     _promptedInSession = false;
     _suspendForTTS = false;
     try { recognition?.abort(); } catch (_) {}
-    $('mic-btn').classList.remove('listening');
+    const mic = $('mic-btn');
+    mic.classList.remove('listening');
+    mic.setAttribute('aria-pressed', 'false');
     setStatus(statusText);
 }
 
 function initSpeech() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-        $('mic-btn').style.opacity = '0.4';
-        $('mic-btn').onclick = () => setStatus('Voice not supported', 'error');
+        // iOS Safari is the main offender — WebKit ships SpeechSynthesis
+        // (TTS) but not SpeechRecognition (STT). Without this branch the
+        // mic looks broken: tap, nothing happens. Dim the FAB, swap its
+        // tap behavior to a clear status message, and (on iOS) show a
+        // one-time banner explaining the limitation. Manual entry still
+        // works — the rest of the app is fine.
+        const mic = $('mic-btn');
+        mic.style.opacity = '0.4';
+        mic.setAttribute('aria-disabled', 'true');
+        mic.removeAttribute('aria-pressed');
+        // Replace the data-action so the dispatcher doesn't try to start
+        // a recognizer that doesn't exist.
+        mic.dataset.action = 'voiceUnsupportedHint';
+        maybeShowVoiceUnsupportedBanner();
         return;
     }
     try {
@@ -928,7 +1055,9 @@ function toggleListening() {
         isListening = true;
         _promptedInSession = false;
         _suspendForTTS = false;
-        $('mic-btn').classList.add('listening');
+        const mic = $('mic-btn');
+        mic.classList.add('listening');
+        mic.setAttribute('aria-pressed', 'true');
         setStatus(workoutMode ? 'Workout mode on' : 'Listening', 'listening');
         haptic(20);
         // Single-tap mode: bound the session. Workout mode is unbounded.
@@ -1200,6 +1329,10 @@ function setVoiceRate(rate) {
     localStorage.setItem('ironVoiceRate', String(voiceRate));
     const lbl = $('voice-rate-label');
     if (lbl) lbl.textContent = `${voiceRate.toFixed(2)}×`;
+    // Screen readers should hear "1.05 times speed" instead of
+    // "1.05 of 0.5 to 2" — aria-valuetext overrides the numeric default.
+    const slider = $('voice-rate');
+    if (slider) slider.setAttribute('aria-valuetext', `${voiceRate.toFixed(2)} times speed`);
 }
 
 function testVoice() {
@@ -1338,6 +1471,10 @@ function showSnackbar(text, { actionLabel = '', onAction = null, duration = 5000
         btn.style.display = 'none';
         _snackbarOnAction = null;
     }
+    // Lift the snackbar above the rest-timer pill if one is currently
+    // visible — both default to bottom: 128 + safe-area, which would stack.
+    const timerActive = $('rest-timer')?.classList.contains('active');
+    bar.classList.toggle('over-timer', !!timerActive);
     bar.classList.add('active');
     if (_snackbarTimer) clearTimeout(_snackbarTimer);
     if (duration > 0) {
@@ -1394,6 +1531,57 @@ function dismissInstallHint() {
     haptic(8);
 }
 
+// PWA shortcut handler — invoked at boot to honor manifest.json's
+// `shortcuts` array. The shortcut URL like ./?action=plate is parsed here
+// and dispatched after the boot sequence has installed the action handlers.
+// Wrapped in setTimeout so it runs after initSpeech / initActionDispatcher
+// finish, and so the home screen has rendered before a sheet pops over it.
+function handleShortcutAction() {
+    const params = new URLSearchParams(location.search);
+    const action = params.get('action');
+    if (!action) return;
+    // Strip the param from the URL so a refresh doesn't re-fire the action.
+    if (history.replaceState) {
+        history.replaceState({}, '', location.pathname + location.hash);
+    }
+    setTimeout(() => {
+        if (action === 'start-workout' && typeof toggleWorkoutSession === 'function') {
+            toggleWorkoutSession();
+        } else if (action === 'plate' && typeof openPlate === 'function') {
+            openPlate();
+        } else if (action === 'help' && typeof openHelp === 'function') {
+            openHelp();
+        }
+    }, 400);
+}
+
+// Voice unsupported (iOS Safari, older browsers) — show a one-time snackbar
+// the first time the user opens the app on a non-supporting browser so they
+// know why the mic appears disabled. Suppressed thereafter via a flag.
+function maybeShowVoiceUnsupportedBanner() {
+    if (localStorage.getItem('ironVoiceUnsupportedShown') === '1') return;
+    setTimeout(() => {
+        showSnackbar(
+            'Voice logging needs Chrome. You can still log manually.',
+            {
+                actionLabel: 'OK',
+                onAction: () => {
+                    localStorage.setItem('ironVoiceUnsupportedShown', '1');
+                    hideSnackbar();
+                },
+                duration: 12000,
+            }
+        );
+    }, 1200);
+}
+function voiceUnsupportedHint() {
+    setStatus('Voice not supported', 'error');
+    showSnackbar(
+        'Voice logging needs Chrome on Android or desktop.',
+        { actionLabel: 'OK', onAction: hideSnackbar, duration: 5000 }
+    );
+}
+
 // First-run voice tip — shown only when the user has zero entries
 // and hasn't seen it before. One nudge, then never again.
 async function maybeShowVoiceTip() {
@@ -1443,6 +1631,10 @@ function initActionDispatcher() {
         undoLastDelete,
         // v6 additions
         goPRs, toggleWorkoutSession,
+        // a11y: surfaces an explanatory snackbar on browsers without
+        // SpeechRecognition (iOS Safari, etc.). The mic's data-action is
+        // rewritten to this in initSpeech() when SR is unavailable.
+        voiceUnsupportedHint,
     };
     const INPUT_ACTIONS = { filterExercises };
     const FOCUS_ACTIONS = { showExercises };
@@ -1820,19 +2012,14 @@ function openSettings() {
     $('settings-first').value = userProfile?.first || '';
     $('settings-email').value = userProfile?.email || '';
     $('settings-token').value = getToken();
-    $('rest-segment').querySelectorAll('button').forEach(b => {
-        b.classList.toggle('active', parseInt(b.dataset.val, 10) === restDuration);
-    });
-    $('theme-segment').querySelectorAll('button').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === theme);
-    });
-    $('workout-mode-segment')?.querySelectorAll('button').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === (workoutMode ? 'on' : 'off'));
-    });
+    setSegmentedActive($('rest-segment'), b => parseInt(b.dataset.val, 10) === restDuration);
+    setSegmentedActive($('theme-segment'), b => b.dataset.val === theme);
+    setSegmentedActive($('workout-mode-segment'), b => b.dataset.val === (workoutMode ? 'on' : 'off'));
     populateVoicePicker();
     if ($('voice-rate')) {
         $('voice-rate').value = voiceRate;
         $('voice-rate-label').textContent = `${voiceRate.toFixed(2)}×`;
+        $('voice-rate').setAttribute('aria-valuetext', `${voiceRate.toFixed(2)} times speed`);
     }
     $('ping-state').textContent = '—';
     $('ping-state').className = 'row-trailing';
@@ -2154,9 +2341,7 @@ function newCustomExercise() {
     $('custom-name').value = '';
     $('custom-name').disabled = false;
     $('custom-delete-wrap').style.display = 'none';
-    $('custom-muscle-segment').querySelectorAll('button').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === 'arms');
-    });
+    setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === 'arms');
     $('custom-overlay').classList.add('active');
     setTimeout(() => $('custom-name').focus(), 350);
 }
@@ -2168,9 +2353,7 @@ function editCustomExercise(c) {
     // Allow muscle re-tagging only.
     $('custom-name').disabled = true;
     $('custom-delete-wrap').style.display = '';
-    $('custom-muscle-segment').querySelectorAll('button').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === c.muscle);
-    });
+    setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === c.muscle);
     $('custom-overlay').classList.add('active');
 }
 
@@ -2746,6 +2929,7 @@ function updateWorkoutTabUI() {
     if (!btn) return;
     if (activeSession) {
         btn.classList.add('session-active');
+        btn.setAttribute('aria-pressed', 'true');
         // Stop icon
         icon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="1.5"/>';
         // Compact mm or h:mm format so the label fits in a 25%-width column
@@ -2757,6 +2941,7 @@ function updateWorkoutTabUI() {
         label.textContent = compact;
     } else {
         btn.classList.remove('session-active');
+        btn.setAttribute('aria-pressed', 'false');
         // Play icon
         icon.innerHTML = '<polygon points="6 4 20 12 6 20 6 4"/>';
         label.textContent = 'Start';
@@ -2883,7 +3068,10 @@ function showScreen(name) {
         s.hidden = s.dataset.screen !== name;
     });
     document.querySelectorAll('.tab-btn[data-screen-target]').forEach(b => {
-        b.classList.toggle('active', b.dataset.screenTarget === name);
+        const on = b.dataset.screenTarget === name;
+        b.classList.toggle('active', on);
+        if (on) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
     });
     // Lazy-render the screen we just landed on so it's always fresh.
     if (name === 'prs') renderPRsScreen();
@@ -2956,13 +3144,16 @@ async function renderPRsScreen() {
         const subtitle = (prTab === 'weight-reps')
             ? `× ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
             : '';
+        const ariaLabel = `${titleCase(t.exercise)}, ${t.maxWeight} pounds${subtitle ? ` ${subtitle}` : ''}`;
+        // Rendered as <button> so keyboard activation (Enter/Space) and
+        // screen-reader role both come for free.
         return `
-            <div class="pr-tile" data-exercise="${escapeHtml(t.exercise)}">
-                <div class="pr-tile-icon" style="background:${bg}">${escapeHtml(initials)}</div>
+            <button type="button" class="pr-tile" data-exercise="${escapeHtml(t.exercise)}" aria-label="${escapeHtml(ariaLabel)}">
+                <div class="pr-tile-icon" style="background:${bg}" aria-hidden="true">${escapeHtml(initials)}</div>
                 <div class="pr-tile-name">${name}</div>
                 <div class="pr-tile-weight">${escapeHtml(String(t.maxWeight))} lb</div>
                 ${subtitle ? `<div class="pr-tile-sub">${escapeHtml(subtitle)}</div>` : ''}
-            </div>`;
+            </button>`;
     }).join('');
 
     // Wire tap handlers (delegation kept tiny because the grid is small)
@@ -2974,9 +3165,7 @@ async function renderPRsScreen() {
 function setPRTab(tab) {
     if (tab !== 'weight' && tab !== 'weight-reps') return;
     prTab = tab;
-    document.querySelectorAll('#pr-tab-segment button').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === tab);
-    });
+    setSegmentedActive($('pr-tab-segment'), b => b.dataset.val === tab);
     renderPRsScreen();
 }
 

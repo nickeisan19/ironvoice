@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <!-- viewport-fit=cover gives us env(safe-area-inset-*); no maximum-scale /
+         user-scalable=no — those break pinch-zoom for low-vision users on
+         Android (iOS ignores them anyway). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>IronVoice Pro</title>
 
     <!-- Item 1: Content-Security-Policy. script-src is now strict — no
@@ -43,43 +46,48 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="IronVoice">
+    <!-- Theme color follows the active scheme so the system bar matches the
+         app surface in both modes. Browsers without media support fall back
+         to the second tag (no-media), keeping dark as the safe default. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
     <meta name="theme-color" content="#000000">
 </head>
 <body>
     <!-- Profile sheet -->
-    <div id="profile-overlay" class="overlay">
-        <div class="modal sheet" role="dialog">
-            <h2>Welcome</h2>
+    <div id="profile-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+            <h2 id="profile-title">Welcome</h2>
             <p class="subtitle">Set up your profile to start tracking lifts.</p>
             <div class="modal-grid">
-                <input type="text" id="first-name" placeholder="First name" autocomplete="given-name">
-                <input type="text" id="last-name" placeholder="Last name" autocomplete="family-name">
+                <input type="text" id="first-name" placeholder="First name" autocomplete="given-name" enterkeyhint="next" aria-label="First name">
+                <input type="text" id="last-name" placeholder="Last name" autocomplete="family-name" enterkeyhint="next" aria-label="Last name">
             </div>
-            <input type="email" id="user-email" placeholder="Email (used to sync across devices)" autocomplete="email">
+            <input type="email" id="user-email" placeholder="Email (used to sync across devices)" autocomplete="email" enterkeyhint="done" aria-label="Email address">
             <button class="primary-btn" data-action="saveProfile">Start training</button>
         </div>
     </div>
 
     <!-- Settings sheet -->
-    <div id="settings-overlay" class="overlay">
-        <div class="modal sheet sheet-tall">
+    <div id="settings-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="settings-title">
             <div class="sheet-header">
-                <h2>Profile</h2>
+                <h2 id="settings-title">Profile</h2>
                 <button class="sheet-close" data-action="closeSettings">Done</button>
             </div>
             <div class="sheet-body">
                 <div class="settings-section">
                     <div class="section-label">Profile</div>
                     <div class="grouped-list">
-                        <label class="row-input"><span>First name</span><input type="text" id="settings-first" placeholder="—"></label>
-                        <label class="row-input"><span>Email</span><input type="email" id="settings-email" placeholder="—"></label>
+                        <label class="row-input"><span>First name</span><input type="text" id="settings-first" placeholder="—" enterkeyhint="next" autocomplete="given-name"></label>
+                        <label class="row-input"><span>Email</span><input type="email" id="settings-email" placeholder="—" enterkeyhint="done" autocomplete="email"></label>
                     </div>
                 </div>
 
                 <div class="settings-section">
                     <div class="section-label">Sync</div>
                     <div class="grouped-list">
-                        <label class="row-input"><span>Access key</span><input type="password" id="settings-token" placeholder="Paste your access key" autocomplete="off"></label>
+                        <label class="row-input"><span>Access key</span><input type="password" id="settings-token" placeholder="Paste your access key" autocomplete="off" enterkeyhint="done"></label>
                         <button class="row-action" data-action="testConnection"><span>Test connection</span><span id="ping-state" class="row-trailing">—</span></button>
                         <button class="row-action" data-action="restoreFromNAS"><span>Restore from cloud</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
                     </div>
@@ -90,11 +98,11 @@
                     <div class="section-label">Appearance</div>
                     <div class="grouped-list">
                         <div class="row-segmented">
-                            <span>Theme</span>
-                            <div class="segmented" id="theme-segment">
-                                <button data-val="dark">Dark</button>
-                                <button data-val="light">Light</button>
-                                <button data-val="auto">Auto</button>
+                            <span id="theme-segment-label">Theme</span>
+                            <div class="segmented" id="theme-segment" role="tablist" aria-labelledby="theme-segment-label">
+                                <button role="tab" aria-selected="false" data-val="dark">Dark</button>
+                                <button role="tab" aria-selected="false" data-val="light">Light</button>
+                                <button role="tab" aria-selected="false" data-val="auto">Auto</button>
                             </div>
                         </div>
                     </div>
@@ -105,13 +113,13 @@
                     <div class="section-label">Rest timer</div>
                     <div class="grouped-list">
                         <div class="row-segmented">
-                            <span>Duration</span>
-                            <div class="segmented" id="rest-segment">
-                                <button data-val="60">60s</button>
-                                <button data-val="90">90s</button>
-                                <button data-val="120">2m</button>
-                                <button data-val="180">3m</button>
-                                <button data-val="0">Off</button>
+                            <span id="rest-segment-label">Duration</span>
+                            <div class="segmented" id="rest-segment" role="tablist" aria-labelledby="rest-segment-label">
+                                <button role="tab" aria-selected="false" data-val="60">60s</button>
+                                <button role="tab" aria-selected="false" data-val="90">90s</button>
+                                <button role="tab" aria-selected="false" data-val="120">2m</button>
+                                <button role="tab" aria-selected="false" data-val="180">3m</button>
+                                <button role="tab" aria-selected="false" data-val="0">Off</button>
                             </div>
                         </div>
                     </div>
@@ -139,10 +147,10 @@
                     <div class="section-label">Voice</div>
                     <div class="grouped-list">
                         <div class="row-segmented">
-                            <span>Workout mode</span>
-                            <div class="segmented" id="workout-mode-segment">
-                                <button data-val="off">Off</button>
-                                <button data-val="on">On</button>
+                            <span id="workout-mode-label">Workout mode</span>
+                            <div class="segmented" id="workout-mode-segment" role="tablist" aria-labelledby="workout-mode-label">
+                                <button role="tab" aria-selected="false" data-val="off">Off</button>
+                                <button role="tab" aria-selected="false" data-val="on">On</button>
                             </div>
                         </div>
                         <label class="row-select">
@@ -151,8 +159,8 @@
                         </label>
                         <div class="row-slider">
                             <span>Speed</span>
-                            <input type="range" id="voice-rate" min="0.5" max="2" step="0.05" value="1.05" aria-label="Speech rate">
-                            <span class="row-trailing" id="voice-rate-label">1.05×</span>
+                            <input type="range" id="voice-rate" min="0.5" max="2" step="0.05" value="1.05" aria-label="Speech rate" aria-valuetext="1.05 times speed">
+                            <span class="row-trailing" id="voice-rate-label" aria-hidden="true">1.05×</span>
                         </div>
                         <button class="row-action" data-action="testVoice"><span>Test voice</span></button>
                     </div>
@@ -170,34 +178,34 @@
                     <div class="section-foot">CSV format. Importable into Excel, Sheets, or any HealthKit-compatible utility (Health Auto Export, Shortcuts, etc).</div>
                 </div>
 
-                <div class="settings-foot">IronVoice Pro · v7</div>
+                <div class="settings-foot" id="app-version-footer">IronVoice Pro</div>
             </div>
         </div>
     </div>
 
     <!-- Custom exercise editor sheet -->
-    <div id="custom-overlay" class="overlay">
-        <div class="modal sheet">
+    <div id="custom-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="custom-title">
             <div class="sheet-header sheet-header-3col">
                 <button class="sheet-close cancel" data-action="cancelCustomExercise">Cancel</button>
-                <span class="sheet-title-text">New exercise</span>
+                <span class="sheet-title-text" id="custom-title">New exercise</span>
                 <button class="sheet-close" data-action="saveCustomExercise">Save</button>
             </div>
             <div class="sheet-body">
                 <div class="grouped-list" style="margin-top:6px">
-                    <label class="row-input"><span>Name</span><input type="text" id="custom-name" placeholder="e.g. Sandbag carry" autocomplete="off"></label>
+                    <label class="row-input"><span>Name</span><input type="text" id="custom-name" placeholder="e.g. Sandbag carry" autocomplete="off" enterkeyhint="done"></label>
                 </div>
                 <div class="section-label" style="margin-top:18px">Muscle group</div>
                 <div class="grouped-list">
                     <div class="row-segmented">
-                        <span>Group</span>
-                        <div class="segmented segmented-wide" id="custom-muscle-segment">
-                            <button data-val="chest">Chest</button>
-                            <button data-val="back">Back</button>
-                            <button data-val="legs">Legs</button>
-                            <button data-val="shoulders">Shldrs</button>
-                            <button data-val="arms">Arms</button>
-                            <button data-val="core">Core</button>
+                        <span id="custom-muscle-label">Group</span>
+                        <div class="segmented segmented-wide" id="custom-muscle-segment" role="tablist" aria-labelledby="custom-muscle-label">
+                            <button role="tab" aria-selected="false" data-val="chest">Chest</button>
+                            <button role="tab" aria-selected="false" data-val="back">Back</button>
+                            <button role="tab" aria-selected="false" data-val="legs">Legs</button>
+                            <button role="tab" aria-selected="false" data-val="shoulders">Shldrs</button>
+                            <button role="tab" aria-selected="false" data-val="arms">Arms</button>
+                            <button role="tab" aria-selected="false" data-val="core">Core</button>
                         </div>
                     </div>
                 </div>
@@ -210,11 +218,11 @@
     </div>
 
     <!-- Template editor sheet -->
-    <div id="tpl-overlay" class="overlay">
-        <div class="modal sheet sheet-tall">
+    <div id="tpl-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-label="Template editor">
             <div class="sheet-header sheet-header-3col">
                 <button class="sheet-close cancel" data-action="cancelTemplate">Cancel</button>
-                <input type="text" id="tpl-name" class="sheet-title-input" placeholder="Template name">
+                <input type="text" id="tpl-name" class="sheet-title-input" placeholder="Template name" enterkeyhint="done" aria-label="Template name">
                 <button class="sheet-close" data-action="saveTemplate">Save</button>
             </div>
             <div class="sheet-body">
@@ -229,8 +237,8 @@
     </div>
 
     <!-- Exercise detail sheet (1RM trend) -->
-    <div id="ex-overlay" class="overlay">
-        <div class="modal sheet sheet-tall">
+    <div id="ex-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="ex-title">
             <div class="sheet-header">
                 <h2 id="ex-title">Exercise</h2>
                 <button class="sheet-close" data-action="closeExercise">Done</button>
@@ -249,16 +257,16 @@
     </div>
 
     <!-- Plate calculator sheet -->
-    <div id="plate-overlay" class="overlay">
-        <div class="modal sheet">
+    <div id="plate-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="plate-title">
             <div class="sheet-header">
-                <h2>Plate calculator</h2>
+                <h2 id="plate-title">Plate calculator</h2>
                 <button class="sheet-close" data-action="closePlate">Done</button>
             </div>
             <div class="sheet-body">
                 <div class="grouped-list" style="margin-bottom:18px">
-                    <label class="row-input"><span>Target weight</span><input type="number" id="plate-target" inputmode="decimal" placeholder="225"></label>
-                    <label class="row-input"><span>Bar weight</span><input type="number" id="plate-bar" inputmode="decimal" value="45"></label>
+                    <label class="row-input"><span>Target weight</span><input type="number" id="plate-target" inputmode="decimal" placeholder="225" enterkeyhint="done"></label>
+                    <label class="row-input"><span>Bar weight</span><input type="number" id="plate-bar" inputmode="decimal" value="45" enterkeyhint="done"></label>
                 </div>
                 <div id="plate-result" class="plate-result"></div>
             </div>
@@ -266,10 +274,10 @@
     </div>
 
     <!-- PR share preview sheet -->
-    <div id="share-overlay" class="overlay">
-        <div class="modal sheet">
+    <div id="share-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
             <div class="sheet-header">
-                <h2>PR card</h2>
+                <h2 id="share-title">PR card</h2>
                 <button class="sheet-close" data-action="closeShare">Close</button>
             </div>
             <div class="sheet-body">
@@ -284,11 +292,11 @@
 
     <!-- Update available toast -->
     <!-- Voice command reference sheet -->
-    <div id="help-overlay" class="overlay">
-        <div class="modal sheet sheet-tall">
+    <div id="help-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="help-title">
             <div class="sheet-header sheet-header-3col">
                 <span></span>
-                <span class="sheet-title-text">Voice commands</span>
+                <span class="sheet-title-text" id="help-title">Voice commands</span>
                 <button class="sheet-close" data-action="closeHelp">Done</button>
             </div>
             <div class="sheet-body">
@@ -378,7 +386,7 @@
                 </button>
             </div>
         </div>
-        <div id="status">Ready</div>
+        <div id="status" role="status" aria-live="polite" aria-atomic="true">Ready</div>
     </header>
 
     <main>
@@ -402,12 +410,12 @@
 
             <section class="manual-entry">
                 <div class="search-container">
-                    <input type="text" id="ex-search" placeholder="Search exercise…" data-on-input="filterExercises" data-on-focus="showExercises" autocomplete="off">
-                    <div id="ex-dropdown" class="search-results"></div>
+                    <input type="text" id="ex-search" placeholder="Search exercise…" data-on-input="filterExercises" data-on-focus="showExercises" autocomplete="off" enterkeyhint="search" aria-label="Search exercise" aria-autocomplete="list" aria-controls="ex-dropdown" role="combobox" aria-expanded="false">
+                    <div id="ex-dropdown" class="search-results" role="listbox"></div>
                 </div>
                 <div class="input-row">
-                    <input type="number" id="manual-w" placeholder="Lbs" inputmode="decimal" pattern="[0-9]*">
-                    <input type="number" id="manual-r" placeholder="Reps" inputmode="numeric" pattern="[0-9]*">
+                    <input type="number" id="manual-w" placeholder="Lbs" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" aria-label="Weight in pounds">
+                    <input type="number" id="manual-r" placeholder="Reps" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" aria-label="Repetitions">
                     <button class="add-btn" data-action="handleManualEntry">Add</button>
                 </div>
             </section>
@@ -425,10 +433,10 @@
                         <h3>Current</h3>
                         <div id="last-lift">—</div>
                     </div>
-                    <div class="card pr" id="pr-card" data-action="goPRs">
+                    <button type="button" class="card pr card-button" id="pr-card" data-action="goPRs" aria-label="View all personal records">
                         <h3>Latest PR</h3>
                         <div id="pr-display">—</div>
-                    </div>
+                    </button>
                     <div class="card status-card" id="strain-card">
                         <h3>Load</h3>
                         <div id="strain-text">—</div>
@@ -478,9 +486,9 @@
             <div class="screen-header">
                 <h2>Personal records</h2>
             </div>
-            <div class="segmented segmented-tabs" id="pr-tab-segment">
-                <button data-val="weight" class="active">Max weight</button>
-                <button data-val="weight-reps">Weight × reps</button>
+            <div class="segmented segmented-tabs" id="pr-tab-segment" role="tablist" aria-label="PR view">
+                <button role="tab" aria-selected="true" data-val="weight" class="active">Max weight</button>
+                <button role="tab" aria-selected="false" data-val="weight-reps">Weight × reps</button>
             </div>
             <div id="pr-grid" class="pr-grid"></div>
             <div id="pr-empty" class="empty-state" style="display:none">
@@ -513,17 +521,17 @@
     </main>
 
     <!-- Rest timer floating pill -->
-    <div id="rest-timer" class="timer-pill" data-action="dismissTimer" role="button">
-        <svg class="timer-ring" viewBox="0 0 36 36">
+    <button type="button" id="rest-timer" class="timer-pill" data-action="dismissTimer" aria-label="Dismiss rest timer">
+        <svg class="timer-ring" viewBox="0 0 36 36" aria-hidden="true">
             <circle cx="18" cy="18" r="16" class="timer-bg"/>
             <circle cx="18" cy="18" r="16" class="timer-fg" id="timer-arc"/>
         </svg>
         <span class="timer-text" id="timer-text">1:30</span>
         <span class="timer-label">Rest</span>
-    </div>
+    </button>
 
-    <button id="mic-btn" data-action="toggleListening" aria-label="Voice log (tap to start, tap again to stop)">
-        <svg viewBox="0 0 24 24" fill="white">
+    <button id="mic-btn" type="button" data-action="toggleListening" aria-label="Voice log" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="white" aria-hidden="true">
             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
             <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
@@ -534,26 +542,26 @@
          so its breath animation can scale freely without affecting the
          bar layout. -->
     <nav class="tab-bar" id="tab-bar" aria-label="Primary">
-        <button class="tab-btn" data-screen-target="prs" aria-label="Personal records">
+        <button type="button" class="tab-btn" data-screen-target="prs" aria-label="Personal records">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 4H2v2a4 4 0 0 0 5 4M19 4h3v2a4 4 0 0 1-5 4"/>
             </svg>
             <span class="tab-label">PRs</span>
         </button>
-        <button class="tab-btn" data-screen-target="history" aria-label="Workout history">
+        <button type="button" class="tab-btn" data-screen-target="history" aria-label="Workout history">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2"/>
                 <path d="M16 2v4M8 2v4M3 10h18"/>
             </svg>
             <span class="tab-label">History</span>
         </button>
-        <button class="tab-btn tab-workout" id="tab-workout" data-action="toggleWorkoutSession" aria-label="Start or end workout">
+        <button type="button" class="tab-btn tab-workout" id="tab-workout" data-action="toggleWorkoutSession" aria-label="Start or end workout" aria-pressed="false">
             <svg class="tab-icon" id="tab-workout-icon" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="6 4 20 12 6 20 6 4"/>
             </svg>
             <span class="tab-label" id="tab-workout-label">Start</span>
         </button>
-        <button class="tab-btn" data-screen-target="profile" aria-label="Profile and settings">
+        <button type="button" class="tab-btn" data-screen-target="profile" aria-label="Profile and settings">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="8" r="4"/>
                 <path d="M4 21v-1a8 8 0 0 1 16 0v1"/>
@@ -562,6 +570,7 @@
         </button>
     </nav>
 
+    <script src="version.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
