@@ -317,16 +317,36 @@
                 <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
             </div>
 
-            <!-- Secondary row: Current + Latest PR. Demoted from equal
-                 weight with Load — these are useful but not decision-driving. -->
+            <!-- v9.1: Home is now a launchpad, not a brochure. The "Today"
+                 section answers "what is the state of my training right now"
+                 — a primary action (Start / Resume) plus two state-aware
+                 summary tiles. The old Current+LatestPR cards were replaced
+                 because they showed point-in-time data that went stale
+                 between visits. -->
+            <div class="home-section-header"><h3>Today</h3></div>
+
+            <button type="button" class="home-primary-action" id="home-primary-action" data-screen-target="workout" aria-label="Start workout">
+                <span class="hpa-icon" id="hpa-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="6 4 20 12 6 20 6 4"/>
+                    </svg>
+                </span>
+                <span class="hpa-text">
+                    <span class="hpa-title" id="hpa-title">Start workout</span>
+                    <span class="hpa-sub" id="hpa-sub">Track time, sets, and volume</span>
+                </span>
+                <svg class="hpa-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+
             <div class="card-row card-row-2">
-                <div class="card card-mini">
-                    <h3>Current</h3>
-                    <div id="last-lift">—</div>
-                </div>
-                <button type="button" class="card pr card-mini card-button" id="pr-card" data-action="goPRs" aria-label="View all personal records">
-                    <h3>Latest PR</h3>
-                    <div id="pr-display">—</div>
+                <button type="button" class="card card-mini card-button today-card" id="today-card" data-action="goToday" aria-label="Today's training">
+                    <h3 id="today-card-label">Today</h3>
+                    <div id="today-card-value">—</div>
+                </button>
+                <button type="button" class="card card-mini card-button week-card" id="week-card" data-screen-target="history" aria-label="This week's history">
+                    <h3>This week</h3>
+                    <div id="week-card-value">—</div>
+                    <div id="week-card-delta" class="week-card-delta"></div>
                 </button>
             </div>
 
@@ -337,6 +357,10 @@
                     <div class="insight-text" id="insight-text">—</div>
                 </div>
             </div>
+
+            <!-- v9.1: Trends section. Charts answer "how am I doing over time"
+                 — informative but secondary to the at-a-glance Today block. -->
+            <div class="home-section-header"><h3>Trends</h3></div>
 
             <section class="chart-card card">
                 <div class="chart-header">
@@ -466,6 +490,7 @@
                     <div class="section-label">Profile</div>
                     <div class="grouped-list">
                         <label class="row-input"><span>First name</span><input type="text" id="settings-first" placeholder="—" enterkeyhint="next" autocomplete="given-name"></label>
+                        <label class="row-input"><span>Last name</span><input type="text" id="settings-last" placeholder="—" enterkeyhint="next" autocomplete="family-name"></label>
                         <label class="row-input"><span>Email</span><input type="email" id="settings-email" placeholder="—" enterkeyhint="done" autocomplete="email"></label>
                     </div>
                 </div>

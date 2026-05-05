@@ -235,11 +235,52 @@ icon strip (top right), not the tab bar. This was iterated to.
 
 **Hero Load is the home page's primary signal.** A full-width card at the
 top of Home (`.hero-load`, id `#strain-card`) shows the readiness state in
-2.4rem type with a left-edge color band. Latest PR + Current sit beneath
-in a demoted 2-up secondary row. The state classes (`.recovery`,
+2.4rem type with a left-edge color band. The state classes (`.recovery`,
 `.steady`, `.high`, `.over`) are still applied by `renderStrain()` — the
 hero card overlays its own visuals on top of the same class hooks the
 old mini card used.
+
+**Home is a launchpad, not a brochure (v9.1).** Below Hero Load, Home is
+sectioned into "Today" and "Trends" via `.home-section-header` markers.
+
+Today section contains:
+- A primary action pill (`.home-primary-action`, id `#home-primary-action`)
+  that says "Start workout" idle / "Resume workout · Nm" with a green
+  pulsing icon when a session is active. Both states navigate to the
+  Workout screen via `data-screen-target="workout"`.
+- A 2-up tile row: `#today-card` and `#week-card`. These replaced the old
+  Current + Latest PR cards (and their `#last-lift` / `#pr-display` IDs),
+  which showed point-in-time data that went stale across visits.
+
+`#today-card` is **state-aware** via `renderTodayCard()`:
+  - active session → "In progress · Nm · K sets / vol"
+  - sets logged today → "Today · K sets · vol" + top set
+  - else → "Last workout · Nd ago · tap to start"
+Tap routes via `goToday()`: active → Workout, else → History. The PR-flash
+animation now lands on `#today-card` (the tile that just received the new
+PR), not on a separate PR card.
+
+`#week-card` is the rolling 7-day summary (`renderWeekCard()`): tonnage,
+set count, distinct workout days, plus a `+/-N% vs prior` delta line in
+`.week-card-delta`. Distinct dates is used as the workout-count proxy
+(rare twice-in-one-day cases miscount; acceptable for a summary tile).
+Tap → History.
+
+Trends section contains the existing Volume + Muscle-group charts —
+demoted below the at-a-glance Today block.
+
+**Header subtitle is live (v9.1).** `#header-subtitle` mirrors the same
+state machine as the Today card via `renderHeaderSubtitle()`:
+"In session · Nm" / "Trained today" / "Last: yesterday" / "Last: Nd ago"
+/ "Ready to lift" (zero data). Re-rendered on log, on session start/end,
+on `showScreen('home')`, and on minute-boundary ticks inside the session
+ticker (`startSessionTicker` rate-limits home re-renders to once per
+minute even though the session-card timer keeps ticking per-second).
+
+**Last name is editable from Profile (v9.1).** Both signup welcome and the
+Profile screen capture `first` and `last`. `saveProfileFromScreen` writes
+both to `userProfile`. The display name (`#user-display`) still uses
+first only — "Hi, Nick" — by design.
 
 **Mic FAB has a live audio-level equalizer while listening.** Five vertical
 bars driven by `--mic-level-1..5` CSS vars, written by

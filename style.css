@@ -159,7 +159,7 @@ button { font-family: inherit; cursor: pointer; }
 button:active { transform: scale(0.96); }
 input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 
-.num, #pr-display, #last-lift, .item-data, .timer-text, #strain-text {
+.num, .item-data, .timer-text, #strain-text, .tc-primary, .tc-sub, .week-card-delta {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum", "ss01";
 }
@@ -755,18 +755,49 @@ main {
   letter-spacing: 0.08em;
 }
 
-#last-lift, #pr-display {
-  font-size: 1.1rem; font-weight: 700; letter-spacing: -0.025em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* v9.0: Mini-card variant — used in the secondary row beneath Hero Load.
    Tighter padding, smaller hero number — these are reference figures, not
    the decision metric. */
 .card.card-mini { padding: 12px 14px; }
 .card.card-mini h3 { font-size: 0.62rem; margin-bottom: 4px; }
+
+/* v9.1: Two-line tile content (today-card, week-card). The primary line is
+   the at-a-glance number; the sub line is supporting detail. Both ellipsize
+   so the layout never breaks on long exercise names. */
+.card.card-mini .tc-primary {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.15;
+}
+.card.card-mini .tc-sub {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: var(--label-secondary);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* v9.1: Week card delta (+8% vs prior). Pull-quote style — small, but
+   colored sign tells you which way last week went. */
+.week-card-delta {
+  margin-top: 4px;
+  font-size: 0.66rem;
+  color: var(--label-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.week-card-delta .delta-up { color: var(--green); font-weight: 700; }
+.week-card-delta .delta-down { color: var(--orange); font-weight: 700; }
 
 /* ==========================================================================
    v9.0: Hero Load card
@@ -858,19 +889,87 @@ main {
   font-weight: 500;
 }
 
-.card.pr {
-  border-color: rgba(255, 214, 10, 0.35);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(255, 214, 10, 0.10), transparent 70%),
-    var(--surface-1);
-}
-.card.pr h3 { color: var(--gold); }
-.card.pr #pr-display {
-  background: var(--pr-grad);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+/* v9.1: PR-flash retained — class is now applied to #today-card on a new PR
+   instead of the removed #pr-card. The .card.pr gradient/gold styles are
+   gone with the card itself. */
 .card.pr-flash { animation: pr-flash 1.4s var(--spring); }
+
+/* v9.1: Home section header. Lighter than a screen header — meant to
+   delineate "Today" from "Trends" without shouting. The :first-of-type
+   pulls the leading "Today" header tighter to the hero card above it. */
+.home-section-header { margin: 18px 0 8px 0; }
+.home-section-header h3 {
+  font-size: 0.7rem;
+  color: var(--label-tertiary);
+  margin: 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.home-section-header:first-of-type { margin-top: 6px; }
+
+/* v9.1: Home primary action pill. Sits above the Today/Week tile row to
+   make Home a launchpad rather than a pure dashboard. Idle = blue play
+   icon + "Start workout"; active session = green pulsing icon + "Resume
+   workout · Nm" (the icon-active class is toggled by renderHomePrimaryAction). */
+.home-primary-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease), background 0.2s var(--ease);
+}
+.home-primary-action:active { transform: scale(0.985); }
+.home-primary-action:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.hpa-icon {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s var(--ease);
+}
+.hpa-icon svg { width: 18px; height: 18px; }
+.hpa-icon-active {
+  background: var(--green);
+  animation: pulse-dot 1.6s var(--ease) infinite;
+}
+.hpa-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.hpa-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--label);
+}
+.hpa-sub {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--label-secondary);
+  font-weight: 500;
+}
+.hpa-chevron {
+  flex: 0 0 auto;
+  width: 16px; height: 16px;
+  color: var(--label-tertiary);
+}
 
 /* When .card is rendered as a <button> (e.g., the PR card on home), strip
    the user-agent button chrome so it visually stays identical to a div

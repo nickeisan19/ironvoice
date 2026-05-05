@@ -215,6 +215,9 @@ const isoForOffset = (offsetDays) => {
     d.setDate(d.getDate() - offsetDays);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+// Whole-day delta between two YYYY-MM-DD strings. Positive when b is later
+// than a. Used for "last workout: Nd ago"-style copy. Local-time anchored.
+const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
 const formatDate = iso => {
     if (iso === todayISO()) return "Today";
     if (iso === isoForOffset(1)) return "Yesterday";
@@ -1456,7 +1459,13 @@ async function renderAll() {
     await renderStrain();
     await renderInsights();
     await refreshLatestStats();
-    await refreshLatestPRCard();   // v6
+    // v9.1: Home card row replaced. New trio drives the at-a-glance "Today"
+    // section; the old refreshLatestPRCard is gone (PR tile lived in the
+    // wrong room — PRs already have their own tab).
+    await renderTodayCard();
+    await renderWeekCard();
+    await renderHomePrimaryAction();
+    await renderHeaderSubtitle();
     await refreshSessionCard();    // v6
     await renderTemplateChips();
     await renderTemplateProgress();
@@ -1476,18 +1485,23 @@ async function refreshLatestStats() {
 const getCurrentPR = async exercise => (await performDB('prs', 'get', exercise)) ?? null;
 
 async function updateUI(entry, isNewPR) {
-    $('last-lift').textContent = `${entry.weight} × ${entry.reps}`;
-
-    // v6: "Latest PR" card now shows the most recently achieved PR across
-    // all exercises, not just the current exercise's. This gives the home
-    // screen a sense of recency and pairs better with the new PRs tab.
-    await refreshLatestPRCard();
+    // v9.1: Home no longer has a "Current" tile pinned to the absolute last
+    // lift — that tile went stale across visits. The Today / This-week / live
+    // header subtitle replace it with state-aware summaries.
+    await renderTodayCard();
+    await renderWeekCard();
+    await renderHomePrimaryAction();
+    await renderHeaderSubtitle();
 
     if (isNewPR) {
-        const card = $('pr-card');
-        card.classList.remove('pr-flash');
-        void card.offsetWidth;
-        card.classList.add('pr-flash');
+        // v9.1: PR flash now lands on the Today card — that's the tile
+        // showing the set the user just logged. Old #pr-card was removed.
+        const card = $('today-card');
+        if (card) {
+            card.classList.remove('pr-flash');
+            void card.offsetWidth;
+            card.classList.add('pr-flash');
+        }
         setStatus('New PR!', 'synced');
         speak("New personal record!");
         haptic([30, 50, 30, 50, 60]);
@@ -1498,23 +1512,164 @@ async function updateUI(entry, isNewPR) {
     }
 }
 
-async function refreshLatestPRCard() {
-    const display = $('pr-display');
-    const card = $('pr-card');
-    if (!display) return;
-    const prs = await performDB('prs', 'getAll');
-    if (!prs.length) {
-        display.textContent = '—';
+// v9.1: Format a tonnage value compactly for tile display. Threshold of 1k
+// keeps small workouts readable as full numbers while heavy weeks compress.
+function formatVol(v) {
+    if (v >= 1000) return `${(v / 1000).toFixed(1)}k lb`;
+    return `${Math.round(v)} lb`;
+}
+
+// v9.1: Today card. Three states drive both the label and the value:
+//   active session → "In progress · Nm · K sets" (drives header subtitle too)
+//   sets logged today → "Today · K sets · vol" with top set
+//   else → "Last workout · Nd ago" pointing at Workout to start
+// The empty-data case (no sets ever) leaves the card at "—" since the
+// home-empty hint takes over visually anyway.
+async function renderTodayCard() {
+    const labelEl = $('today-card-label');
+    const valueEl = $('today-card-value');
+    if (!labelEl || !valueEl) return;
+
+    const all = await getActiveWorkouts();
+
+    if (activeSession) {
+        const setsInSession = all.filter(w => w.sessionId === activeSession.id);
+        const vol = setsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
+        const m = Math.max(0, Math.floor((Date.now() - activeSession.startedAt) / 60000));
+        labelEl.textContent = 'In progress';
+        valueEl.innerHTML = `
+            <div class="tc-primary">${m}m · ${setsInSession.length} ${setsInSession.length === 1 ? 'set' : 'sets'}</div>
+            <div class="tc-sub">${escapeHtml(formatVol(vol))}</div>
+        `;
         return;
     }
-    // Most recently achieved PR.
-    const latest = prs.sort((a, b) => (b.achievedAt ?? 0) - (a.achievedAt ?? 0))[0];
-    const exTitle = titleCase(latest.exercise);
-    const wt = Math.round(latest.maxWeight);
-    display.innerHTML = `
-        <div style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em">${escapeHtml(String(wt))} <span style="font-size:0.7rem;color:var(--label-tertiary)">LB</span></div>
-        <div style="font-size:0.72rem;color:var(--label-secondary);margin-top:2px;line-height:1.15">${escapeHtml(exTitle)}</div>
+
+    const todayStr = todayISO();
+    const todaySets = all.filter(w => w.date === todayStr);
+    if (todaySets.length) {
+        const vol = todaySets.reduce((s, w) => s + w.weight * w.reps, 0);
+        const top = todaySets.slice().sort((a, b) => b.weight - a.weight)[0];
+        labelEl.textContent = 'Today';
+        valueEl.innerHTML = `
+            <div class="tc-primary">${todaySets.length} ${todaySets.length === 1 ? 'set' : 'sets'} · ${escapeHtml(formatVol(vol))}</div>
+            <div class="tc-sub">top: ${escapeHtml(titleCase(top.exercise))} ${escapeHtml(String(top.weight))}×${escapeHtml(String(top.reps))}</div>
+        `;
+        return;
+    }
+
+    if (all.length) {
+        const lastDate = all.map(w => w.date).sort().pop();
+        const days = dayDiff(lastDate, todayStr);
+        labelEl.textContent = 'Last workout';
+        const ago = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`;
+        valueEl.innerHTML = `
+            <div class="tc-primary">${escapeHtml(ago)}</div>
+            <div class="tc-sub">tap to start</div>
+        `;
+        return;
+    }
+
+    labelEl.textContent = 'Today';
+    valueEl.textContent = '—';
+}
+
+// v9.1: This-week card. Replaces the old "Latest PR" tile, which never
+// changed between weeks and felt static. Distinct workout days (rather than
+// session count) is used so untagged historical sets still show up; rare
+// twice-in-one-day cases are an acceptable miscount for a summary tile.
+async function renderWeekCard() {
+    const valueEl = $('week-card-value');
+    const deltaEl = $('week-card-delta');
+    if (!valueEl) return;
+
+    const all = await getActiveWorkouts();
+    const cutoff7 = isoForOffset(6);    // last 7 days inclusive
+    const cutoff14 = isoForOffset(13);  // 7 days before that
+
+    const last7 = all.filter(w => w.date >= cutoff7);
+    const prev7 = all.filter(w => w.date >= cutoff14 && w.date < cutoff7);
+
+    if (!last7.length) {
+        valueEl.innerHTML = `<div class="tc-primary">—</div>`;
+        if (deltaEl) deltaEl.textContent = '';
+        return;
+    }
+
+    const vol7 = last7.reduce((s, w) => s + w.weight * w.reps, 0);
+    const sets7 = last7.length;
+    const days7 = new Set(last7.map(w => w.date)).size;
+
+    valueEl.innerHTML = `
+        <div class="tc-primary">${escapeHtml(formatVol(vol7))}</div>
+        <div class="tc-sub">${sets7} ${sets7 === 1 ? 'set' : 'sets'} · ${days7} ${days7 === 1 ? 'day' : 'days'}</div>
     `;
+
+    if (deltaEl) {
+        const volPrev = prev7.reduce((s, w) => s + w.weight * w.reps, 0);
+        if (volPrev > 0) {
+            const pct = Math.round(((vol7 - volPrev) / volPrev) * 100);
+            const sign = pct >= 0 ? '+' : '';
+            const cls = pct >= 0 ? 'delta-up' : 'delta-down';
+            deltaEl.innerHTML = `<span class="${cls}">${sign}${pct}%</span> vs prior`;
+        } else {
+            deltaEl.textContent = '';
+        }
+    }
+}
+
+// v9.1: Primary action pill. Two states: idle ("Start workout") and active
+// ("Resume workout · Nm"). Both navigate to the Workout screen — the user
+// can then start a session, pick a template, or see the active card.
+async function renderHomePrimaryAction() {
+    const titleEl = $('hpa-title');
+    const subEl = $('hpa-sub');
+    const iconEl = $('hpa-icon');
+    if (!titleEl) return;
+
+    if (activeSession) {
+        const m = Math.max(0, Math.floor((Date.now() - activeSession.startedAt) / 60000));
+        titleEl.textContent = 'Resume workout';
+        if (subEl) subEl.textContent = `In progress · ${m}m`;
+        if (iconEl) iconEl.classList.add('hpa-icon-active');
+    } else {
+        titleEl.textContent = 'Start workout';
+        if (subEl) subEl.textContent = 'Track time, sets, and volume';
+        if (iconEl) iconEl.classList.remove('hpa-icon-active');
+    }
+}
+
+// v9.1: Header subtitle is no longer the static "Ready to lift" — it now
+// mirrors the same training-state machine as the Today card so the page
+// has a sense of liveness even before the user scrolls. States:
+//   active session → "In session · Nm"
+//   trained today → "Trained today"
+//   trained recently → "Last: yesterday" / "Last: Nd ago"
+//   no data → "Ready to lift"
+async function renderHeaderSubtitle() {
+    const el = $('header-subtitle');
+    if (!el) return;
+    if (activeSession) {
+        const m = Math.max(0, Math.floor((Date.now() - activeSession.startedAt) / 60000));
+        el.textContent = `In session · ${m}m`;
+        return;
+    }
+    let all;
+    try { all = await getActiveWorkouts(); } catch { return; }
+    const todayStr = todayISO();
+    if (all.some(w => w.date === todayStr)) { el.textContent = 'Trained today'; return; }
+    if (!all.length) { el.textContent = 'Ready to lift'; return; }
+    const lastDate = all.map(w => w.date).sort().pop();
+    const days = dayDiff(lastDate, todayStr);
+    if (days <= 0) el.textContent = 'Trained today';
+    else if (days === 1) el.textContent = 'Last: yesterday';
+    else el.textContent = `Last: ${days}d ago`;
+}
+
+// v9.1: Today card tap target. Active session → Workout screen so the user
+// sees the in-progress card and quick-add. Otherwise → History so they can
+// review prior sessions or scroll back to find their last workout.
+function goToday() {
+    showScreen(activeSession ? 'workout' : 'history');
 }
 
 async function renderHistory() {
@@ -1728,6 +1883,8 @@ function initActionDispatcher() {
         undoLastDelete,
         // v6 additions
         goPRs, toggleWorkoutSession,
+        // v9.1: Today-card tap routes state-aware (active → Workout, else → History)
+        goToday,
         // v9.0 — PR celebration sheet (auto-presented on new PR)
         closePRCelebrate, downloadCelebrate, shareCelebrate,
         // a11y: surfaces an explanatory snackbar on browsers without
@@ -1892,7 +2049,6 @@ async function renderStrain() {
 
     // Days since last lift
     const lastDate = w.map(x => x.date).sort().pop();
-    const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
     const dsl = dayDiff(lastDate, todayISO());
 
     // Sessions in last 7
@@ -2118,6 +2274,7 @@ function saveProfile() {
 
 function renderProfileScreen() {
     $('settings-first').value = userProfile?.first || '';
+    if ($('settings-last')) $('settings-last').value = userProfile?.last || '';
     $('settings-email').value = userProfile?.email || '';
     $('settings-token').value = getToken();
     setSegmentedActive($('rest-segment'), b => parseInt(b.dataset.val, 10) === restDuration);
@@ -2140,9 +2297,11 @@ function renderProfileScreen() {
 function saveProfileFromScreen() {
     if (!$('settings-first')) return;   // screen not in the DOM (early boot)
     const first = $('settings-first').value.trim();
+    const last = $('settings-last') ? $('settings-last').value.trim() : (userProfile?.last || '');
     const email = $('settings-email').value.trim();
     if (userProfile) {
         userProfile.first = first || userProfile.first;
+        userProfile.last = last;     // v9.1: last name editable from Profile (was capture-only at signup)
         userProfile.email = email;
         localStorage.setItem('ironUser', JSON.stringify(userProfile));
         $('user-display').textContent = `Hi, ${userProfile.first}`;
@@ -2937,6 +3096,11 @@ async function startWorkoutSession() {
     startSessionTicker();
     await refreshSessionCard();
     updateWorkoutTabUI();
+    // v9.1: flip Home tiles + header subtitle into "in session" mode now,
+    // not on the next minute boundary.
+    await renderTodayCard();
+    await renderHomePrimaryAction();
+    await renderHeaderSubtitle();
     haptic([15, 40, 15]);
     return activeSession;
 }
@@ -2959,6 +3123,10 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
         stopSessionTicker();
         await refreshSessionCard();
         updateWorkoutTabUI();
+        // v9.1: flip Home back to idle copy.
+        await renderTodayCard();
+        await renderHomePrimaryAction();
+        await renderHeaderSubtitle();
         if (!silent) showSnackbar('Empty workout discarded', { duration: 3000 });
         return null;
     }
@@ -2970,6 +3138,11 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     stopSessionTicker();
     await refreshSessionCard();
     updateWorkoutTabUI();
+    // v9.1: flip Home tiles + subtitle back to idle now that the session ended.
+    await renderTodayCard();
+    await renderWeekCard();
+    await renderHomePrimaryAction();
+    await renderHeaderSubtitle();
     // v8: auto-sync the completed workout. Fire-and-forget — the user shouldn't
     // wait for network to see "workout ended". Errors will retry on next trigger.
     autoSync('workout-end');
@@ -2989,12 +3162,26 @@ async function toggleWorkoutSession() {
 
 // --- live ticker for the session card ---
 
+// v9.1: track the elapsed minute we last rendered into the home tiles, so
+// the home renders only fire on a minute boundary instead of every second.
+// The session-card timer keeps ticking per-second; only the home copy is
+// rate-limited (it reads the DB and would be wasteful at 1Hz).
+let _lastTickedMinute = -1;
 function startSessionTicker() {
     stopSessionTicker();
+    _lastTickedMinute = -1;
     _sessionTickerTimer = setInterval(() => {
         if (!activeSession) { stopSessionTicker(); return; }
         renderSessionCardTime();
         updateWorkoutTabUI();
+        const m = Math.floor((Date.now() - activeSession.startedAt) / 60000);
+        if (m !== _lastTickedMinute) {
+            _lastTickedMinute = m;
+            // Re-render only the elements that show elapsed minutes.
+            renderTodayCard();
+            renderHomePrimaryAction();
+            renderHeaderSubtitle();
+        }
     }, 1000);
 }
 function stopSessionTicker() {
@@ -3301,6 +3488,13 @@ function showScreen(name) {
     if (name === 'home') {
         refreshSessionCard();          // keep workout-screen state in sync too
         renderHomeEmptyState();        // first-launch empty hint
+        // v9.1: re-pull state-aware tiles and subtitle. Cheap and matters
+        // because state can change while another screen was up (e.g. a set
+        // logged via voice while user is on PRs tab).
+        renderTodayCard();
+        renderWeekCard();
+        renderHomePrimaryAction();
+        renderHeaderSubtitle();
     }
     if (name === 'workout') renderWorkoutScreen();
     if (name === 'profile') renderProfileScreen();
