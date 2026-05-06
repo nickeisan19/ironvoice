@@ -262,7 +262,8 @@ top to bottom:
 3. A 2-up tile row: `#today-card` and `#week-card`. These replaced the old
    Current + Latest PR cards (and their `#last-lift` / `#pr-display` IDs),
    which showed point-in-time data that went stale across visits.
-4. "Trends" section header + Volume + Muscle-group charts.
+4. "Trends" section header + three insight-led cards (v9.4): Strength
+   Trajectory, Training Rhythm, Balance vs Your Norm.
 
 The primary action pill (`.home-primary-action`, id `#home-primary-action`)
 says "Start workout" idle / "Resume workout · Nm" with a green pulsing
@@ -283,8 +284,36 @@ set count, distinct workout days, plus a `+/-N% vs prior` delta line in
 (rare twice-in-one-day cases miscount; acceptable for a summary tile).
 Tap → History.
 
-Trends section contains the existing Volume + Muscle-group charts —
-demoted below the at-a-glance Today block.
+**Trends section is three insight-led cards (v9.4).** Each leads with a
+one-line headline takeaway and uses a small visual as supporting evidence.
+Replaces the old 14d Volume bar chart + absolute Muscle distribution,
+which were demoted in v9.1/v9.2 and removed entirely in v9.4 because
+they didn't answer questions the Today/Week tiles already covered.
+
+1. **Strength Trajectory (4w)** — `renderStrengthTrajectory()`. Top 3
+   most-frequent exercises over the last 4 weeks, each row showing
+   weekly best estimated 1RM as an inline SVG sparkline (`.sr-spark`).
+   Headline format: "Bench +5 · Squat — · Deadlift +15". Tap a row to
+   open the exercise sheet.
+2. **Training Rhythm (4w)** — `renderTrainingRhythm()`. Four weekly
+   bars (rolling 7-day buckets) with a workout-day count badge under
+   each; current week highlighted in gold. Headline shows
+   workouts/week average with a delta vs the prior 4-week window.
+   The Volume/Sets toggle (`initChartFilters()`) is preserved and
+   drives this card.
+3. **Balance vs Your Norm (7d vs 30d)** — `renderBalance()`. Per-muscle
+   horizontal bars with a baseline marker at the user's 30-day rolling
+   weekly average (`.br-baseline`). Bars above the marker mean trained
+   more than usual; below means trailing. Headline calls out the most
+   under-trained muscle when deviation > 25%, otherwise reports
+   "Balanced — within 25% of your norm".
+
+Implementation notes: the old `renderChart()` and
+`renderMuscleDistribution()` are gone; don't resurrect them. New helper
+`fourWeekBuckets()` powers Strength + Rhythm. All three render functions
+are wired into `renderAll`, `saveAndSyncUI`, `deleteEntry`,
+`undoLastDelete`. Sparklines are inline SVG — no charting library, no
+build step.
 
 **Header subtitle is live (v9.1).** `#header-subtitle` mirrors the same
 state machine as the Today card via `renderHeaderSubtitle()`:
@@ -421,6 +450,22 @@ all existing buckets (would force re-import). Keep the salt stable.
 **`getenv() ?: 'fallback'` lets env vars override hardcoded values.** If a
 secret seems to "not be working," check whether an env var is set with a
 different value and silently winning over the literal in source.
+
+**iOS standalone PWA: `position: fixed` + `backdrop-filter` jitters during
+momentum scroll on tall pages.** Symptom: tab bar (and mic FAB) briefly
+track upward scroll before snapping back to bottom — looks like the bar
+is "floating and scrolling with content." Discovered post-v9.4 when the
+Trends redesign made Home tall enough to trigger meaningful momentum
+scrolling. Root cause: WebKit's default paint pipeline composites
+`position: fixed` elements on the same layer as scrolling content when
+they don't have their own GPU layer; `backdrop-filter` makes the
+mis-paint visible. Fix is to force a separate compositor layer:
+`transform: translate3d(0, 0, 0)` + `will-change: transform` on
+`.tab-bar`, and `translate3d(-50%, 0, 0)` (not plain `translateX`) on
+`#mic-btn` and its `mic-breath` keyframes. Don't drop these — the
+2D-only `translateX` form does NOT promote to its own layer on iOS, so
+reverting to it brings the bug back. Same applies to any future fixed
+overlay that uses `backdrop-filter`.
 
 ---
 

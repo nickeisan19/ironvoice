@@ -1646,7 +1646,11 @@ button.card-button:focus-visible {
      boundary between History (col 2) and Workout (col 3), which is dead
      center (50%) — the standard "raised tab bar action" position. */
   left: 50%;
-  transform: translateX(-50%);
+  /* translate3d (not translateX) so iOS promotes the FAB to its own
+     compositor layer alongside the tab bar — keeps it pinned during
+     momentum scroll instead of tracking content. */
+  transform: translate3d(-50%, 0, 0);
+  will-change: transform;
   width: 64px; height: 64px;
   border-radius: 50%;
   background: var(--blue-grad);
@@ -1660,7 +1664,7 @@ button.card-button:focus-visible {
   z-index: 100;                                        /* above tab bar (90) */
   transition: transform 0.2s var(--spring), box-shadow 0.3s var(--ease);
 }
-#mic-btn:active { transform: translateX(-50%) scale(0.92); }
+#mic-btn:active { transform: translate3d(-50%, 0, 0) scale(0.92); }
 #mic-btn svg { width: 26px; height: 26px; }
 
 #mic-btn.listening {
@@ -1673,8 +1677,8 @@ button.card-button:focus-visible {
   animation: mic-breath 2.5s ease-in-out infinite;
 }
 @keyframes mic-breath {
-  0%, 100% { opacity: 1;    transform: translateX(-50%) scale(1); }
-  50%      { opacity: 0.78; transform: translateX(-50%) scale(0.96); }
+  0%, 100% { opacity: 1;    transform: translate3d(-50%, 0, 0) scale(1); }
+  50%      { opacity: 0.78; transform: translate3d(-50%, 0, 0) scale(0.96); }
 }
 
 .timer-pill {
@@ -1766,6 +1770,15 @@ button.card-button:focus-visible {
   width: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  /* iOS standalone PWA: pin the bar to its own GPU compositor layer.
+     Without this, on a tall page (Home post-v9.4 Trends adds enough
+     scroll-depth) the bar briefly tracks momentum scroll before
+     snapping back to bottom — backdrop-filter interacts badly with
+     the default paint pipeline during momentum scroll. translate3d
+     forces a separate layer so the bar is composited independently
+     from the scrolling content and stays pinned. */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 .tab-btn {
