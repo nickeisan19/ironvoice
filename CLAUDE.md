@@ -414,6 +414,22 @@ FAB — that conflict was the reason for the v9.2 change. Don't shrink
 the tap target back to just the inner pill — making the whole banner
 tappable was the v9.3 fix for "I missed the small button."
 
+**No native browser dialogs anywhere (v9.8).** Every confirm / alert /
+prompt in the app routes through `confirmSheet({...})` or
+`infoSheet({...})` — Promise-returning helpers that drive a single
+custom overlay (`#confirm-sheet-overlay`) styled like the rest of the
+sheet family (quick-add, set-action). Both helpers resolve to true or
+false; `confirmSheet` is two-button (confirm + cancel, with optional
+`danger: true` for the red destructive variant), `infoSheet` is
+one-button (acknowledgement). Buttons dispatch via
+`data-action="confirmSheetYes"` / `confirmSheetNo`. Earlier in the
+project's life there was a deliberate "plain confirm() — works on every
+platform, no extra UI" choice for boot prompts; that's been fully
+reversed. Don't bring back native `confirm()`/`alert()`/`prompt()`
+even for quick prototypes — the visual mismatch was the trigger for
+this rewrite, and a single fast-path exception will leak the system
+dialog back into a release.
+
 ---
 
 ## Conventions Nick follows

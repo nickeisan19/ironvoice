@@ -1767,6 +1767,71 @@ function hideSnackbar() {
     if (_snackbarTimer) { clearTimeout(_snackbarTimer); _snackbarTimer = null; }
 }
 
+// v9.8 — Custom confirm/info sheet. Replaces native confirm()/alert() so
+// the IronVoice sheet aesthetic is consistent across destructive prompts
+// (End workout, Wipe, Sign out, Delete template, etc.) and boot-time
+// questions (forgotten session, Start a workout?). Returns a Promise that
+// resolves to true (confirmed) or false (cancelled / dismissed).
+//
+// Single-instance: if a second sheet is requested while one is already
+// open, the existing one resolves as cancelled before the new one opens.
+let _confirmSheetResolve = null;
+
+function confirmSheet({
+    title = '',
+    body = '',
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
+    danger = false,
+} = {}) {
+    return new Promise(resolve => {
+        if (_confirmSheetResolve) { _confirmSheetResolve(false); _confirmSheetResolve = null; }
+        _confirmSheetResolve = resolve;
+        $('confirm-sheet-title').textContent = title;
+        const bodyEl = $('confirm-sheet-body');
+        if (bodyEl) {
+            bodyEl.textContent = body;
+            bodyEl.style.display = body ? '' : 'none';
+        }
+        const confirmBtn = $('confirm-sheet-confirm');
+        const cancelBtn = $('confirm-sheet-cancel');
+        confirmBtn.textContent = confirmLabel;
+        cancelBtn.textContent = cancelLabel;
+        confirmBtn.classList.toggle('danger', !!danger);
+        cancelBtn.style.display = '';
+        $('confirm-sheet-overlay').classList.add('active');
+    });
+}
+
+// Single-button info sheet (replaces alert()). Resolves to true on dismiss.
+function infoSheet({ title = '', body = '', dismissLabel = 'OK' } = {}) {
+    return new Promise(resolve => {
+        if (_confirmSheetResolve) { _confirmSheetResolve(false); _confirmSheetResolve = null; }
+        _confirmSheetResolve = resolve;
+        $('confirm-sheet-title').textContent = title;
+        const bodyEl = $('confirm-sheet-body');
+        if (bodyEl) {
+            bodyEl.textContent = body;
+            bodyEl.style.display = body ? '' : 'none';
+        }
+        const confirmBtn = $('confirm-sheet-confirm');
+        const cancelBtn = $('confirm-sheet-cancel');
+        confirmBtn.textContent = dismissLabel;
+        confirmBtn.classList.remove('danger');
+        cancelBtn.style.display = 'none';
+        $('confirm-sheet-overlay').classList.add('active');
+    });
+}
+
+function _resolveConfirmSheet(result) {
+    $('confirm-sheet-overlay').classList.remove('active');
+    const r = _confirmSheetResolve;
+    _confirmSheetResolve = null;
+    if (r) r(result);
+}
+function confirmSheetYes() { _resolveConfirmSheet(true); }
+function confirmSheetNo() { _resolveConfirmSheet(false); }
+
 // Undo for the most recent journal delete. The snackbar action wires this up.
 let _lastDeletedId = null;
 async function undoLastDelete() {
@@ -1923,6 +1988,9 @@ function initActionDispatcher() {
         // v9.6 — tap a pill → action sheet (Edit / Delete). Replaces the
         // v9.2 long-press gesture.
         openSetAction, closeSetAction, editFromSetAction, deleteFromSetAction,
+        // v9.8 — custom confirm/info sheet button handlers (replaces all
+        // native confirm()/alert() so the system dialog never shows).
+        confirmSheetYes, confirmSheetNo,
         // a11y: surfaces an explanatory snackbar on browsers without
         // SpeechRecognition (iOS Safari, etc.). The mic's data-action is
         // rewritten to this in initSpeech() when SR is unavailable.
@@ -2598,15 +2666,27 @@ async function testConnection() {
     haptic(10);
 }
 
-function logoutFromSettings() {
-    if (!confirm("Sign out of this device? Cloud history is preserved — sign back in with the same email to restore.")) return;
+async function logoutFromSettings() {
+    const ok = await confirmSheet({
+        title: 'Sign out of this device?',
+        body: 'Cloud history is preserved — sign back in with the same email to restore.',
+        confirmLabel: 'Sign out',
+        danger: true,
+    });
+    if (!ok) return;
     localStorage.removeItem('ironUser');
     localStorage.removeItem('ironToken');
     location.reload();
 }
 
 async function wipeFromSettings() {
-    if (!confirm("Wipe all local history, PRs, and templates? This cannot be undone.")) return;
+    const ok = await confirmSheet({
+        title: 'Wipe local data?',
+        body: 'All local history, PRs, and templates will be removed. This cannot be undone.',
+        confirmLabel: 'Wipe',
+        danger: true,
+    });
+    if (!ok) return;
     await performDB('workouts', 'clear');
     await performDB('prs', 'clear');
     await performDB('templates', 'clear');
@@ -2624,7 +2704,10 @@ async function exportJSON() {
 
 async function exportHealthCSV() {
     const data = await getActiveWorkouts();
-    if (!data.length) { alert('No data to export.'); return; }
+    if (!data.length) {
+        await infoSheet({ title: 'No data to export', body: 'Log at least one set, then try again.' });
+        return;
+    }
     // Schema compatible with Health Auto Export "Workout" CSV import
     const lines = ['Date,Exercise,Muscle Group,Weight (lb),Reps,Estimated 1RM (lb),Volume (lb)'];
     data.sort((a, b) => a.id - b.id).forEach(w => {
@@ -2810,7 +2893,13 @@ async function saveTemplate() {
 }
 
 async function deleteTemplate() {
-    if (!confirm(`Delete "${editingTemplate.name}"?`)) return;
+    const ok = await confirmSheet({
+        title: `Delete "${editingTemplate.name}"?`,
+        body: 'The template will be removed. Logged sets that used it stay in your history.',
+        confirmLabel: 'Delete',
+        danger: true,
+    });
+    if (!ok) return;
     editingTemplate.deleted = true;
     editingTemplate.modifiedAt = Date.now();
     await performDB('templates', 'put', editingTemplate);
@@ -2888,8 +2977,11 @@ async function saveCustomExercise() {
     if (isNew) {
         const collision = exerciseLibrary.find(ex => ex.name === name);
         if (collision) {
-            alert(`"${titleCase(name)}" already exists in the library.`);
             haptic([20, 50, 20]);
+            await infoSheet({
+                title: 'Already in the library',
+                body: `"${titleCase(name)}" already exists. Pick a different name, or delete the existing entry first.`,
+            });
             return;
         }
     }
@@ -2919,7 +3011,13 @@ async function saveCustomExercise() {
 
 async function deleteCustomExercise() {
     if (!editingCustomExercise) return;
-    if (!confirm(`Delete "${titleCase(editingCustomExercise.name)}"?\n\nExisting journal entries with this name stay. New voice/search matches won't include it.`)) return;
+    const ok = await confirmSheet({
+        title: `Delete "${titleCase(editingCustomExercise.name)}"?`,
+        body: "Existing journal entries with this name stay. New voice/search matches won't include it.",
+        confirmLabel: 'Delete',
+        danger: true,
+    });
+    if (!ok) return;
 
     editingCustomExercise.deleted = true;
     editingCustomExercise.modifiedAt = Date.now();
@@ -3611,10 +3709,17 @@ async function confirmEndWorkout() {
         .filter(w => w.sessionId === activeSession.id && !w.deleted);
     const mins = Math.max(1, Math.round((Date.now() - activeSession.startedAt) / 60000));
     const setCount = setsInSession.length;
-    const msg = setCount > 0
-        ? `End this workout?\n\n${mins}m · ${setCount} set${setCount === 1 ? '' : 's'} logged.`
-        : `End this workout?\n\nNo sets logged — the empty session will be discarded.`;
-    if (!confirm(msg)) return;
+    const body = setCount > 0
+        ? `${mins}m · ${setCount} set${setCount === 1 ? '' : 's'} logged.`
+        : 'No sets logged — the empty session will be discarded.';
+    const ok = await confirmSheet({
+        title: 'End this workout?',
+        body,
+        confirmLabel: 'End workout',
+        cancelLabel: 'Keep going',
+        danger: true,
+    });
+    if (!ok) return;
     await endWorkoutSession();
 }
 
@@ -3850,12 +3955,14 @@ async function resumeOrPromptSession() {
     _forgottenPromptDidFire = true;   // v8: suppress launch prompt this load
     const lastWhen = new Date(lastSetAt);
     const lastTimeLabel = lastWhen.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const endAtLast = confirm(
-        `You started a workout earlier and didn't end it. ` +
-        `Your last set was at ${lastTimeLabel}.\n\n` +
-        `OK = end the workout at that time.\n` +
-        `Cancel = resume the workout (still going).`
-    );
+    const endAtLast = await confirmSheet({
+        title: 'Resume your workout?',
+        body:
+            `You started a workout earlier and didn't end it. ` +
+            `Your last set was at ${lastTimeLabel}.`,
+        confirmLabel: 'End at last set',
+        cancelLabel: 'Resume workout',
+    });
     if (endAtLast) {
         activeSession = stored;
         await endWorkoutSession({ atTimestamp: lastSetAt, silent: true });
@@ -4394,12 +4501,12 @@ async function maybePromptStartOnLaunch() {
     if (lastAt === 0) return;                   // brand new user — don't prompt
     if (Date.now() - lastAt < LAUNCH_PROMPT_THRESHOLD_MS) return;  // too recent
 
-    // Ask. Plain confirm() — works on every platform, no extra UI.
-    const ok = confirm(
-        "Start a workout now?\n\n" +
-        "OK — start the session timer\n" +
-        "Cancel — keep just logging sets without a session"
-    );
+    const ok = await confirmSheet({
+        title: 'Start a workout now?',
+        body: "Track session time and rest while you lift, or keep logging individual sets without a session.",
+        confirmLabel: 'Start workout',
+        cancelLabel: 'Not now',
+    });
     throttlePrompts();   // either way, don't re-ask for 6h
     if (ok) {
         await startWorkoutSession();
@@ -4412,11 +4519,12 @@ async function maybePromptStartOnLaunch() {
 async function maybePromptStartOnFirstSet() {
     if (activeSession) return;                  // already in a session
     if (isPromptThrottled()) return;
-    const ok = confirm(
-        "You just logged a set. Start a workout to track session time?\n\n" +
-        "OK — start the timer (this set will be included)\n" +
-        "Cancel — just keep logging without a session"
-    );
+    const ok = await confirmSheet({
+        title: 'Start a workout?',
+        body: 'Track session time for this and future sets — the one you just logged will be included.',
+        confirmLabel: 'Start workout',
+        cancelLabel: 'Not now',
+    });
     throttlePrompts();
     if (!ok) return;
     // Backdate the session to just before the set we just logged so the
@@ -4614,9 +4722,20 @@ async function syncToNAS() {
 }
 
 async function restoreFromNAS() {
-    if (!userProfile?.email) { alert('Add email first'); return; }
-    if (!getToken()) { alert('Add your access key first'); return; }
-    if (!confirm("Pull from the cloud and merge with local? Local is kept; remote-only is added; deletes win on either side.")) return;
+    if (!userProfile?.email) {
+        await infoSheet({ title: 'Add an email first', body: 'Restore looks up your cloud backup by email — set one in Profile.' });
+        return;
+    }
+    if (!getToken()) {
+        await infoSheet({ title: 'Add your access key first', body: 'Restore needs the bearer token saved in Profile to authorize the request.' });
+        return;
+    }
+    const ok = await confirmSheet({
+        title: 'Pull from the cloud and merge?',
+        body: 'Local data is kept; remote-only entries are added; deletes win on either side.',
+        confirmLabel: 'Restore',
+    });
+    if (!ok) return;
 
     setStatus('Restoring…', 'listening');
     try {
@@ -4629,7 +4748,10 @@ async function restoreFromNAS() {
         // Item 9: 404 means no backup exists for this email. Most often a typo.
         if (res.status === 404) {
             setStatus('No backup found', 'error');
-            alert(`No backup found in the cloud for ${userProfile.email}.\n\nIf this was a typo, fix the email in Profile and try again. Your local data is untouched.`);
+            await infoSheet({
+                title: 'No backup found',
+                body: `Nothing in the cloud for ${userProfile.email}. If this was a typo, fix the email in Profile and try again. Your local data is untouched.`,
+            });
             return;
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

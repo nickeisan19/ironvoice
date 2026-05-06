@@ -320,6 +320,30 @@
         <button class="snackbar-action" id="snackbar-action" type="button"></button>
     </div>
 
+    <!-- v9.8 — Custom confirm/info sheet. Replaces every native confirm()
+         and alert() in the app so destructive prompts (End workout, Wipe
+         data, Sign out, Delete template/custom exercise, etc.) and boot-time
+         questions (forgotten session, Start a workout?) all use the same
+         in-app sheet aesthetic instead of the system dialog. Dynamically
+         populated by confirmSheet({...}) / infoSheet({...}) — both return a
+         Promise that resolves to true (confirmed) or false (cancelled). -->
+    <div id="confirm-sheet-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-sheet-title">
+            <div class="sheet-header sheet-header-3col">
+                <span></span>
+                <span class="sheet-title-text" id="confirm-sheet-title">—</span>
+                <span></span>
+            </div>
+            <div class="sheet-body">
+                <p class="confirm-sheet-body" id="confirm-sheet-body"></p>
+                <div class="confirm-sheet-actions">
+                    <button type="button" class="primary-btn" id="confirm-sheet-confirm" data-action="confirmSheetYes">Confirm</button>
+                    <button type="button" class="primary-btn secondary" id="confirm-sheet-cancel" data-action="confirmSheetNo">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- iOS install hint banner -->
     <div id="install-banner" class="banner">
         <div class="banner-body">

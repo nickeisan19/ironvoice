@@ -2202,6 +2202,32 @@ button.card-button:focus-visible {
 }
 .primary-btn.danger:active { background: #c63a30; }
 
+/* v9.8 — Secondary "Cancel" companion to .primary-btn. Uses surface
+   tones rather than the blue/red fills so it reads as the lower-weight
+   choice in the confirm/info sheet. */
+.primary-btn.secondary {
+  background: var(--surface-3);
+  color: var(--label);
+}
+.primary-btn.secondary:active { background: var(--surface-2); }
+
+/* v9.8 — Custom confirm / info sheet body. Mirrors the quick-add and
+   set-action sheet rhythm so the family is visually coherent. */
+.confirm-sheet-body {
+  margin: 6px 4px 18px;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--label-secondary);
+  white-space: pre-wrap;
+}
+.confirm-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 /* ==========================================================================
    PRs screen
    ========================================================================== */
