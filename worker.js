@@ -324,25 +324,37 @@ async function hashEmailToSlug(email, salt) {
 }
 
 // Recompute PRs from the authoritative non-deleted workout set.
-// One PR per exercise; max 1RM wins; ties broken by the higher actual weight.
+// One record per exercise tracks two independent winners — the heaviest
+// weight ever lifted and the best estimated 1RM (which may be a different
+// set with more reps at lower weight). prType identifies which milestone
+// is more recent so the share card leads with the latest moment.
 export function recomputePRs(workouts) {
-    const best = {};
+    const byEx = {};   // ex → { bestByW, bestBy1RM }
     for (const w of workouts) {
         if (w.deleted) continue;
         const ex = w.exercise;
         if (typeof ex !== 'string') continue;
-        const oneRM = Number(w.oneRM) || 0;
+        const weight = Number(w.weight) || 0;
+        const oneRM  = Number(w.oneRM)  || 0;
         if (oneRM <= 0) continue;
-        if (!best[ex] || oneRM > best[ex].max1RM) {
-            best[ex] = {
-                exercise:   ex,
-                maxWeight:  Number(w.weight) || 0,
-                max1RM:     oneRM,
-                achievedAt: Number(w.id) || 0,
-            };
-        }
+        const slot = byEx[ex] || (byEx[ex] = { bestByW: w, bestBy1RM: w });
+        if (weight > (Number(slot.bestByW.weight) || 0)) slot.bestByW   = w;
+        if (oneRM  > (Number(slot.bestBy1RM.oneRM) || 0)) slot.bestBy1RM = w;
     }
-    return Object.values(best);
+    return Object.entries(byEx).map(([ex, { bestByW, bestBy1RM }]) => {
+        const prType = (Number(bestByW.id) || 0) >= (Number(bestBy1RM.id) || 0)
+            ? 'weight' : '1rm';
+        return {
+            exercise:       ex,
+            maxWeight:      Number(bestByW.weight)   || 0,
+            maxWeightReps:  Number(bestByW.reps)     || 0,
+            max1RM:         Number(bestBy1RM.oneRM)  || 0,
+            max1RMWeight:   Number(bestBy1RM.weight) || 0,
+            max1RMReps:     Number(bestBy1RM.reps)   || 0,
+            achievedAt:     Math.max(Number(bestByW.id) || 0, Number(bestBy1RM.id) || 0),
+            prType,
+        };
+    });
 }
 
 // Drop tombstoned rows whose modifiedAt is older than the cutoff.

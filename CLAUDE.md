@@ -339,6 +339,71 @@ is called from `updateUI()` when `isNewPR === true`. Same canvas logic as
 the share-PR flow, repurposed as the moment-of-celebration. The old
 share-overlay still exists for explicit sharing from the exercise sheet.
 
+**PR records track max-weight and max-1RM independently (v9.9).** Each
+record in the `prs` store carries six numeric fields plus a `prType`
+flag:
+
+```js
+{
+  exercise,
+  maxWeight, maxWeightReps,                  // heaviest weight ever lifted
+  max1RM, max1RMWeight, max1RMReps,          // best estimated 1RM + its source set
+  achievedAt,
+  prType,                                    // 'weight' | '1rm'
+}
+```
+
+`saveAndSyncUI` ([app.js](app.js)) computes `isWeightPR` and `is1RMPR`
+independently against the previous record's all-time bests, and only
+updates the field whose flag fired (so a 1RM-only PR doesn't silently
+clobber the stored max-weight set). Combo PRs — both flags fire on the
+same set — store `prType: 'weight'`; weight on the bar wins on the
+headline because it's the more visceral milestone.
+
+`recomputePR` ([app.js](app.js)) and the Worker's `recomputePRs`
+([worker.js](worker.js)) rebuild deterministically from the workout
+log: pick the heaviest-weight set and the best-1RM set independently
+(they may be the same set or different), then assign `prType` to
+whichever set has the more recent `id` (ties go to weight). This keeps
+the stored variant honest even after deletes, edits, or a fresh
+restore from the server.
+
+**PR card has two variants (v9.9).** `drawPRCanvas` ([app.js](app.js))
+branches on `pr.prType`:
+
+- `'weight'` → headline is the rounded `maxWeight` with tag
+  `LB · NEW MAX WEIGHT`, secondary line `for N reps · est. M lb 1RM`
+- `'1rm'` → headline is the rounded `max1RM` with tag
+  `LB · ESTIMATED 1RM`, secondary line `from {max1RMWeight} × {max1RMReps}`
+
+Records that pre-date the `prType` field (legacy data, never re-PR'd
+since v9.9) default to the `'1rm'` path so the card never breaks. The
+prior literal-`reps` bug (`${pr.maxWeight} × reps for the record`,
+which rendered the word "reps" instead of a number) is fixed by this
+rewrite — the secondary line is constructed from real fields now.
+
+**PR card has the IronVoice mark at top-left (v9.9).** A 120×120 draw
+of `icon-512.png` sits at (96, 120) on the 1080×1920 canvas, with the
+`IRONVOICE · NEW PR` tag baseline-aligned beside it (left-aligned, not
+centered). Image is lazy-loaded once into a module-level cache
+(`_ivLogoImg` + `getLogoImage()`) so re-renders don't re-decode. If
+the icon fails to load (offline edge case), the draw silently skips
+and the rest of the card still renders. Don't move the mark to a
+centered watermark or a side-stripe lockup — the corner-mark
+direction was an explicit design call when this card was redesigned.
+
+**PR sheets are share-only (v9.9).** Both the celebration sheet
+(`#pr-celebrate-overlay`) and the share sheet (`#share-overlay`) now
+expose a single `Share…` primary button — no `Save image` companion.
+On iOS the native share sheet already offers Save to Photos as a
+destination when a `File` is passed via `navigator.share`, so the
+explicit save button was redundant. On platforms without Web Share
+file support (older Safari, desktop Firefox), the consolidated
+`shareOrDownloadCanvas` helper falls back to `triggerDownload`,
+preserving the save path silently. The old `downloadCelebrate` /
+`downloadShare` functions and their `ACTIONS` entries were deleted —
+don't re-introduce a dedicated save button.
+
 **History week-strip shows a per-day volume bar (not a dot).** Bar height
 is proportional to that day's volume relative to the week max; bar color
 is the dominant muscle worked. The class is `.week-day-bar` and replaces

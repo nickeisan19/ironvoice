@@ -833,9 +833,29 @@ async function saveAndSyncUI(entry) {
     try {
         await performDB('workouts', 'put', entry);
         const oldPR = await performDB('prs', 'get', entry.exercise);
-        const isNewPR = !oldPR || entry.oneRM > oldPR.max1RM;
+        // Track max weight and max 1RM independently. The PR card branches
+        // on prType to decide whether to lead with the weight ("first time
+        // at 235") or the 1RM ("rep work pushed your estimated max"). When
+        // both move in the same set, weight wins on the headline.
+        const isWeightPR = !oldPR || entry.weight > (oldPR.maxWeight ?? 0);
+        const is1RMPR    = !oldPR || entry.oneRM  > (oldPR.max1RM    ?? 0);
+        const isNewPR    = isWeightPR || is1RMPR;
         if (isNewPR) {
-            await performDB('prs', 'put', { exercise: entry.exercise, maxWeight: entry.weight, max1RM: entry.oneRM, achievedAt: entry.id });
+            const prevMaxWeight     = oldPR?.maxWeight     ?? 0;
+            const prevMaxWeightReps = oldPR?.maxWeightReps ?? 0;
+            const prevMax1RM        = oldPR?.max1RM        ?? 0;
+            const prevMax1RMWeight  = oldPR?.max1RMWeight  ?? 0;
+            const prevMax1RMReps    = oldPR?.max1RMReps    ?? 0;
+            await performDB('prs', 'put', {
+                exercise:       entry.exercise,
+                maxWeight:      isWeightPR ? entry.weight : prevMaxWeight,
+                maxWeightReps:  isWeightPR ? entry.reps   : prevMaxWeightReps,
+                max1RM:         is1RMPR    ? entry.oneRM  : prevMax1RM,
+                max1RMWeight:   is1RMPR    ? entry.weight : prevMax1RMWeight,
+                max1RMReps:     is1RMPR    ? entry.reps   : prevMax1RMReps,
+                achievedAt:     entry.id,
+                prType:         isWeightPR ? 'weight' : '1rm',
+            });
         }
         markUnsynced();   // v8: flag for auto-sync triggers (background, end-of-workout)
         await updateUI(entry, isNewPR);
@@ -1966,7 +1986,7 @@ function initActionDispatcher() {
     const ACTIONS = {
         applyUpdate, cancelCustomExercise, cancelTemplate, closeExercise,
         closePlate, closeSettings, closeShare, deleteCustomExercise,
-        deleteTemplate, dismissTimer, downloadShare, exportHealthCSV,
+        deleteTemplate, dismissTimer, exportHealthCSV,
         exportJSON, handleManualEntry, logoutFromSettings, nativeShare,
         newCustomExercise, newTemplate, openPlate, openSettings,
         restoreFromNAS, saveCustomExercise, saveProfile, saveTemplate,
@@ -1982,7 +2002,7 @@ function initActionDispatcher() {
         // v9.1: Today-card tap routes state-aware (active → Workout, else → History)
         goToday,
         // v9.0 — PR celebration sheet (auto-presented on new PR)
-        closePRCelebrate, downloadCelebrate, shareCelebrate,
+        closePRCelebrate, shareCelebrate,
         // v9.2 — quick-add another set for the same exercise during a workout
         openQuickAdd, closeQuickAdd, saveQuickAdd,
         // v9.6 — tap a pill → action sheet (Edit / Delete). Replaces the
@@ -2491,8 +2511,23 @@ async function deleteEntry(id, silent = false) {
 async function recomputePR(exercise) {
     const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && w.exercise === exercise);
     if (!all.length) { await performDB('prs', 'delete', exercise); return; }
-    const best = all.reduce((b, w) => w.oneRM > b.oneRM ? w : b);
-    await performDB('prs', 'put', { exercise, maxWeight: best.weight, max1RM: best.oneRM, achievedAt: best.id });
+    // Two independent winners — heaviest weight ever lifted, and best
+    // estimated 1RM. They may be the same set (combo PR) or different
+    // (rep work beat a heavy single's Epley). prType picks which is more
+    // recent, so the card leads with the latest milestone.
+    const bestByW   = all.reduce((b, w) => w.weight > b.weight ? w : b);
+    const bestBy1RM = all.reduce((b, w) => w.oneRM  > b.oneRM  ? w : b);
+    const prType    = bestByW.id >= bestBy1RM.id ? 'weight' : '1rm';
+    await performDB('prs', 'put', {
+        exercise,
+        maxWeight:      bestByW.weight,
+        maxWeightReps:  bestByW.reps,
+        max1RM:         bestBy1RM.oneRM,
+        max1RMWeight:   bestBy1RM.weight,
+        max1RMReps:     bestBy1RM.reps,
+        achievedAt:     Math.max(bestByW.id, bestBy1RM.id),
+        prType,
+    });
 }
 
 // ============================================================================
@@ -3461,33 +3496,51 @@ function closePRCelebrate() {
     $('pr-celebrate-overlay').classList.remove('active');
     _celebratingExercise = null;
 }
-function downloadCelebrate() {
-    if (!_celebratingExercise) return;
-    $('pr-celebrate-canvas').toBlob(blob => {
-        if (!blob) return;
-        triggerDownload(blob, `pr-${_celebratingExercise.replace(/\s+/g, '-')}-${todayISO()}.png`);
-    }, 'image/png');
-}
 async function shareCelebrate() {
-    const c = $('pr-celebrate-canvas');
-    if (!navigator.canShare) { downloadCelebrate(); return; }
+    if (!_celebratingExercise) return;
+    await shareOrDownloadCanvas('pr-celebrate-canvas', _celebratingExercise);
+}
+
+// Single share path for both the celebration sheet and the share sheet.
+// On iOS the native share sheet exposes Save to Photos as a destination,
+// so we no longer surface an explicit "Save image" button. On platforms
+// without Web Share file support (older Safari, desktop Firefox), fall
+// back to a direct download — same end state, no broken affordance.
+async function shareOrDownloadCanvas(canvasId, exerciseName) {
+    const c = $(canvasId);
+    if (!c) return;
+    const filename = `pr-${exerciseName.replace(/\s+/g, '-')}-${todayISO()}.png`;
     c.toBlob(async blob => {
         if (!blob) return;
         const file = new File([blob], 'ironvoice-pr.png', { type: 'image/png' });
-        try {
-            if (navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'New PR',
-                    text: `New ${titleCase(_celebratingExercise || '')} PR via IronVoice`,
-                });
-            } else {
-                downloadCelebrate();
+        const text = `New ${titleCase(exerciseName)} PR via IronVoice`;
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: 'New PR', text });
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                console.warn('Share failed, falling back to download', err);
             }
-        } catch (err) {
-            if (err.name !== 'AbortError') console.warn('Share failed', err);
         }
+        triggerDownload(blob, filename);
     }, 'image/png');
+}
+
+// IronVoice brand mark, lazy-loaded once and reused across renders. The
+// PR canvas redraws on every share/celebrate, so caching the decoded
+// image avoids re-decoding on every call.
+let _ivLogoImg = null;
+async function getLogoImage() {
+    if (_ivLogoImg && _ivLogoImg.complete && _ivLogoImg.naturalWidth > 0) {
+        return _ivLogoImg;
+    }
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload  = () => { _ivLogoImg = img; resolve(img); };
+        img.onerror = () => { resolve(null); };
+        img.src = './icon-512.png';
+    });
 }
 
 async function drawPRCanvas(canvasId, exerciseName) {
@@ -3523,35 +3576,63 @@ async function drawPRCanvas(canvasId, exerciseName) {
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, W, H);
 
-    // Top tag
+    // Top-left brand mark + tag. Logo + tag share a baseline so the lockup
+    // reads as a single magazine-style mark rather than two separate things.
+    const logo = await getLogoImage();
+    const logoSize = 120;
+    const logoX = 96, logoY = 120;
+    if (logo) ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
     ctx.fillStyle = '#ffffff';
     ctx.font = '600 36px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('IRONVOICE · NEW PR', W / 2, 180);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('IRONVOICE · NEW PR', logoX + logoSize + 28, logoY + logoSize / 2);
+    ctx.textBaseline = 'alphabetic';
 
-    // Exercise name
+    // Exercise name (centered)
     ctx.fillStyle = '#ffffff';
     ctx.font = '700 80px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif';
-    ctx.fillText(titleCase(exerciseName), W / 2, 360);
+    ctx.textAlign = 'center';
+    ctx.fillText(titleCase(exerciseName), W / 2, 420);
 
-    // Big weight (gold gradient)
-    const weight = Math.round(pr.max1RM);
+    // Headline number — weight or 1RM depending on which milestone the
+    // PR represents. Records that pre-date the prType field default to
+    // the legacy 1RM-forward presentation.
+    const prType = pr.prType === 'weight' ? 'weight' : '1rm';
+    const headline = prType === 'weight'
+        ? Math.round(pr.maxWeight)
+        : Math.round(pr.max1RM);
     ctx.font = '800 360px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif';
     const goldGrad = ctx.createLinearGradient(0, H * 0.4, 0, H * 0.7);
     goldGrad.addColorStop(0, '#ffd60a');
     goldGrad.addColorStop(1, '#ff9f0a');
     ctx.fillStyle = goldGrad;
-    ctx.fillText(String(weight), W / 2, H * 0.6);
+    ctx.fillText(String(headline), W / 2, H * 0.6);
 
-    // "lb 1RM" subtitle
+    // Tag below headline
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '500 56px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.fillText('LB · ESTIMATED 1RM', W / 2, H * 0.66);
+    ctx.fillText(prType === 'weight' ? 'LB · NEW MAX WEIGHT' : 'LB · ESTIMATED 1RM', W / 2, H * 0.66);
 
-    // Actual lift
+    // Secondary line — context for the headline. For a weight PR show
+    // the rep count + estimated 1RM; for a 1RM PR show the source set
+    // (the rep work that drove the Epley up). Older PR records that
+    // lack the new fields fall back gracefully to weight-only context.
     ctx.fillStyle = '#ffffff';
     ctx.font = '600 64px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.fillText(`${pr.maxWeight} × reps for the record`, W / 2, H * 0.78);
+    let secondary;
+    if (prType === 'weight') {
+        const reps = Number(pr.maxWeightReps) || 0;
+        const oneRM = Math.round(pr.max1RM);
+        secondary = reps > 0
+            ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} lb 1RM`
+            : `est. ${oneRM} lb 1RM`;
+    } else {
+        const w = Number(pr.max1RMWeight) || pr.maxWeight || 0;
+        const r = Number(pr.max1RMReps)   || 0;
+        secondary = (w && r) ? `from ${w} × ${r}` : `from ${w || pr.maxWeight} lb`;
+    }
+    ctx.fillText(secondary, W / 2, H * 0.78);
 
     // Date
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
@@ -3563,29 +3644,9 @@ async function drawPRCanvas(canvasId, exerciseName) {
     ctx.fillRect(W * 0.35, H * 0.92, W * 0.3, 6);
 }
 
-function downloadShare() {
-    $('pr-canvas').toBlob(blob => {
-        if (!blob) return;
-        triggerDownload(blob, `pr-${currentExerciseSheet?.exercise.replace(/\s+/g, '-')}-${todayISO()}.png`);
-    }, 'image/png');
-}
-
 async function nativeShare() {
-    const c = $('pr-canvas');
-    if (!navigator.canShare) { downloadShare(); return; }
-    c.toBlob(async blob => {
-        if (!blob) return;
-        const file = new File([blob], `ironvoice-pr.png`, { type: 'image/png' });
-        try {
-            if (navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: 'New PR', text: `New ${titleCase(currentExerciseSheet.exercise)} PR via IronVoice` });
-            } else {
-                downloadShare();
-            }
-        } catch (err) {
-            if (err.name !== 'AbortError') console.warn('Share failed', err);
-        }
-    }, 'image/png');
+    if (!currentExerciseSheet) return;
+    await shareOrDownloadCanvas('pr-canvas', currentExerciseSheet.exercise);
 }
 
 // ============================================================================
