@@ -409,15 +409,29 @@ function initServiceWorker() {
             return;
         }
 
-        // Mid-session detection: surface the banner so the user can choose
-        // when to reload. We don't auto-apply mid-session because reloading
-        // could interrupt active set entry or voice recognition.
+        // New SW finished installing while the app is open. We split into
+        // two paths so the common "user just opened the app for the first
+        // time post-release" case is invisible:
+        //
+        //   • Safe to auto-apply  → user has no active workout session and
+        //                            is sitting on Home. Apply immediately;
+        //                            the controllerchange handler in
+        //                            initSWMessages() reloads the page.
+        //   • Not safe            → user is mid-session OR on a screen
+        //                            where a reload would lose context
+        //                            (Workout, History detail, etc.).
+        //                            Surface the banner and let them
+        //                            choose when to reload.
         reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (!newWorker) return;
             newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    pendingSWUpdate = newWorker;
+                if (newWorker.state !== 'installed') return;
+                if (!navigator.serviceWorker.controller) return;
+                pendingSWUpdate = newWorker;
+                if (!activeSession && currentScreen === 'home') {
+                    applyUpdate();
+                } else {
                     $('update-toast').classList.add('active');
                 }
             });

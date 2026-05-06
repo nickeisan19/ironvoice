@@ -1231,12 +1231,21 @@ button.card-button:focus-visible {
   z-index: 9500;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   transform: translateY(-100%);
-  transition: transform 0.45s var(--spring);
+  transition: transform 0.45s var(--spring), background 0.15s ease;
   pointer-events: none;
+  /* v9.3 — whole banner is the tap target. Hint affordance + suppress
+     iOS text-selection / tap-highlight artifacts when the user presses
+     anywhere outside the inner pill. */
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .update-banner.active {
   transform: translateY(0);
   pointer-events: auto;
+}
+.update-banner:active {
+  background: #0064d6;
 }
 .update-banner-text {
   flex: 1;

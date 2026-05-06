@@ -220,10 +220,20 @@ icon strip (top right), not the tab bar. This was iterated to.
 
 - **Workout** is a real screen (not the old start/end button). The screen
   shows a Start CTA + recent templates + last-workout summary when idle,
-  and the active session card + quick-add + set list + End button when a
-  session is running. Voice commands ("start workout") still call
+  and the active session card + quick-add + set list when a session is
+  running. Voice commands ("start workout") still call
   `toggleWorkoutSession()` directly — the screen's CTA wires to the same
   function. Don't conflate navigation with action again.
+- **End workout lives inside the active session card (v9.2)** as a compact
+  red pill, gated by a `confirm()` that surfaces session stats. Voice
+  ("end workout") still bypasses the confirm for hands-busy use. The old
+  `#workout-active-actions` footer container has been removed — don't
+  reintroduce a screen-level End button.
+- **Per-exercise "+ Add set" pill (v9.2).** Each exercise group on the
+  Workout screen has an "+ Add set" pill at its right edge that opens a
+  quick-add sheet pre-filled with the previous set's weight × reps. Save
+  flows through `buildEntry` → `saveAndSyncUI`, the same path as voice
+  and manual entry — don't fork the write path.
 - **Profile** is a real screen (not the old `settings-overlay` sheet). Same
   grouped-list content; field saves now happen on tab-switch via
   `saveProfileFromScreen()`. The legacy `openSettings`/`closeSettings`
@@ -240,17 +250,24 @@ top of Home (`.hero-load`, id `#strain-card`) shows the readiness state in
 hero card overlays its own visuals on top of the same class hooks the
 old mini card used.
 
-**Home is a launchpad, not a brochure (v9.1).** Below Hero Load, Home is
-sectioned into "Today" and "Trends" via `.home-section-header` markers.
+**Home is a launchpad, not a brochure (v9.1, refined v9.2).** Home layout
+top to bottom:
 
-Today section contains:
-- A primary action pill (`.home-primary-action`, id `#home-primary-action`)
-  that says "Start workout" idle / "Resume workout · Nm" with a green
-  pulsing icon when a session is active. Both states navigate to the
-  Workout screen via `data-screen-target="workout"`.
-- A 2-up tile row: `#today-card` and `#week-card`. These replaced the old
-  Current + Latest PR cards (and their `#last-lift` / `#pr-display` IDs),
-  which showed point-in-time data that went stale across visits.
+1. `.hero-row` — Hero Load and the primary action pill sit **side-by-side**
+   (50/50 split) at the very top of Home. The "Today" section header was
+   moved *below* this pair so it labels just the daily summary tiles, not
+   the hero row. Internal sizes were tuned for half-width fit: the Load
+   value drops to 1.75rem and the action pill's chevron is hidden.
+2. "Today" section header.
+3. A 2-up tile row: `#today-card` and `#week-card`. These replaced the old
+   Current + Latest PR cards (and their `#last-lift` / `#pr-display` IDs),
+   which showed point-in-time data that went stale across visits.
+4. "Trends" section header + Volume + Muscle-group charts.
+
+The primary action pill (`.home-primary-action`, id `#home-primary-action`)
+says "Start workout" idle / "Resume workout · Nm" with a green pulsing
+icon when a session is active. Both states navigate to the Workout screen
+via `data-screen-target="workout"`.
 
 `#today-card` is **state-aware** via `renderTodayCard()`:
   - active session → "In progress · Nm · K sets / vol"
@@ -297,6 +314,49 @@ share-overlay still exists for explicit sharing from the exercise sheet.
 is proportional to that day's volume relative to the week max; bar color
 is the dominant muscle worked. The class is `.week-day-bar` and replaces
 the old `.week-day-dot`. Computed in `renderHistoryScreen()`.
+
+**History day detail uses the active-workout pill layout (v9.2).** The
+day-detail view mirrors how an in-progress session looks: each exercise
+group renders as muscle dot + exercise name + a horizontal row of
+weight × reps pills. PR sets get an inline gold pill tag. Long-press a
+pill to delete (existing 5s Undo snackbar applies). Tapping an exercise
+group header opens the exercise sheet. The old swipe-to-delete row list
+and `attachSwipe` helper are gone — don't resurrect them.
+
+**Root font-size is 17px, not the browser default 16 (v9.2).** All
+rem-based text scales up ~6%. Smallest body-text floor moves from
+~12.5px to ~13.3px. The tabbar and icons are pixel-fixed and unaffected.
+Keep this in mind when sizing new text elements: prefer rem so the
+scale stays consistent.
+
+**iOS status-bar mask (v9.2).** `body::before` paints a solid bar of
+height `env(safe-area-inset-top)` so page content doesn't bleed behind
+the iPhone status bar (time, cellular, battery). Z-indexed above the
+sticky header, below overlays. No-op on devices without a notch
+(safe-area-inset-top resolves to 0). Don't add another top spacer or
+sticky-header margin to "fix" the status bar — this is the fix.
+
+**PWA update flow has three paths (v9.3):**
+- **Cold start with already-waiting SW** — if a service worker is in the
+  `waiting` state at app launch, the page posts `SKIP_WAITING`
+  immediately. Reopening the app always lands on the latest shell with
+  no visible prompt.
+- **New SW finishes installing while user is on Home and idle (v9.3)** —
+  auto-apply path. `updatefound` → `installed` checks `!activeSession &&
+  currentScreen === 'home'`; if true, calls `applyUpdate()` directly
+  instead of showing the banner. This collapses the most common
+  "first launch post-release" case into a one-second invisible reload.
+- **New SW finishes installing while user is mid-session or on a non-Home
+  screen** — surfaces the full-width blue banner pinned to the top of
+  the screen. The whole banner is the tap target (v9.3): `data-action`
+  is on the wrapper `<div role="button" tabindex="0">`, the inner
+  "Update now" pill is decorative `aria-hidden`. Tapping anywhere on
+  the banner triggers `applyUpdate`.
+
+Don't replace the banner with a toast or tuck the prompt next to the
+FAB — that conflict was the reason for the v9.2 change. Don't shrink
+the tap target back to just the inner pill — making the whole banner
+tappable was the v9.3 fix for "I missed the small button."
 
 ---
 

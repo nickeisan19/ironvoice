@@ -293,14 +293,18 @@
 
     <!-- v9.2 — Prominent top-of-screen update banner. Replaces the small
          bottom toast that competed with the mic FAB for attention. Drops in
-         from the top edge with a blue background so it's unmissable. The
-         "Update now" button calls applyUpdate → SKIP_WAITING → reload. -->
-    <div id="update-toast" class="update-banner" role="alert" aria-live="polite">
+         from the top edge with a blue background so it's unmissable.
+         v9.3 — The whole banner is the tap target (data-action on the
+         wrapper, role="button"). The inner pill is decorative; tapping
+         anywhere on the banner triggers applyUpdate → SKIP_WAITING →
+         reload. -->
+    <div id="update-toast" class="update-banner" role="button" tabindex="0"
+         aria-live="polite" data-action="applyUpdate">
         <div class="update-banner-text">
             <strong>New version ready</strong>
-            <span>Tap update to load the latest IronVoice.</span>
+            <span>Tap to load the latest IronVoice.</span>
         </div>
-        <button class="update-banner-btn" data-action="applyUpdate">Update now</button>
+        <span class="update-banner-btn" aria-hidden="true">Update now</span>
     </div>
 
     <header id="app-header">
