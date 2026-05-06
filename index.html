@@ -394,33 +394,46 @@
                 </div>
             </div>
 
-            <!-- v9.1: Trends section. Charts answer "how am I doing over time"
-                 — informative but secondary to the at-a-glance Today block. -->
+            <!-- v9.4: Insight-led Trends. Each card leads with a one-line
+                 takeaway, then a small visual underneath as evidence. The
+                 three cards answer the questions Today/Week tiles don't:
+                 "am I getting stronger", "am I consistent over weeks",
+                 "am I balanced relative to my own norm". -->
             <div class="home-section-header"><h3>Trends</h3></div>
 
             <section class="chart-card card">
                 <div class="chart-header">
-                    <h3>Volume</h3>
-                    <span class="chart-meta-text" id="chart-total">—</span>
+                    <h3>Strength</h3>
+                    <span class="chart-meta-text">4w</span>
                 </div>
+                <div class="trend-headline" id="strength-headline">—</div>
+                <div class="strength-list" id="strength-list"></div>
+            </section>
+
+            <section class="chart-card card">
+                <div class="chart-header">
+                    <h3>Training rhythm</h3>
+                    <span class="chart-meta-text">4w</span>
+                </div>
+                <div class="trend-headline" id="rhythm-headline">—</div>
                 <div class="chart-filters">
                     <button class="filter-chip active" data-mode="volume">Volume</button>
                     <button class="filter-chip" data-mode="sets">Sets</button>
                 </div>
-                <div class="volume-chart" id="volume-chart"></div>
-                <div class="chart-axis">
-                    <span>14d ago</span>
-                    <span>Today</span>
+                <div class="rhythm-chart" id="rhythm-chart"></div>
+                <div class="rhythm-axis">
+                    <span>4w ago</span>
+                    <span>This week</span>
                 </div>
             </section>
 
             <section class="chart-card card">
                 <div class="chart-header">
-                    <h3>By muscle group</h3>
+                    <h3>Balance vs your norm</h3>
                     <span class="chart-meta-text">7d</span>
                 </div>
-                <div class="muscle-bar" id="muscle-bar"></div>
-                <div class="muscle-legend" id="muscle-legend"></div>
+                <div class="trend-headline" id="balance-headline">—</div>
+                <div class="balance-list" id="balance-list"></div>
             </section>
 
             <!-- First-launch empty hint. Hidden once any data exists. -->

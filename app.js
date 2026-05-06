@@ -536,7 +536,7 @@ function initChartFilters() {
             chip.classList.add('active');
             chartMode = chip.dataset.mode;
             localStorage.setItem('ironChartMode', chartMode);
-            renderChart();
+            renderTrainingRhythm();
             haptic(6);
         });
         if (chip.dataset.mode === chartMode) {
@@ -840,8 +840,9 @@ async function saveAndSyncUI(entry) {
         markUnsynced();   // v8: flag for auto-sync triggers (background, end-of-workout)
         await updateUI(entry, isNewPR);
         await renderHistory();
-        await renderChart();
-        await renderMuscleDistribution();
+        await renderStrengthTrajectory();
+        await renderTrainingRhythm();
+        await renderBalance();
         await renderStrain();
         await renderInsights();
         await renderTemplateProgress();
@@ -1480,8 +1481,9 @@ function initVoicePicker() {
 
 async function renderAll() {
     await renderHistory();
-    await renderChart();
-    await renderMuscleDistribution();
+    await renderStrengthTrajectory();
+    await renderTrainingRhythm();
+    await renderBalance();
     await renderStrain();
     await renderInsights();
     await refreshLatestStats();
@@ -1779,8 +1781,9 @@ async function undoLastDelete() {
         await performDB('workouts', 'put', entry);
         await recomputePR(entry.exercise);
         await renderHistory();
-        await renderChart();
-        await renderMuscleDistribution();
+        await renderStrengthTrajectory();
+        await renderTrainingRhythm();
+        await renderBalance();
         await renderStrain();
         await renderInsights();
         await refreshLatestStats();
@@ -1968,89 +1971,318 @@ function initActionDispatcher() {
 }
 
 // ============================================================================
-// Volume chart with mode toggle
+// v9.4: Insight-led Trends — three cards on Home (Strength, Rhythm, Balance).
+// Replaces the old 14-day Volume bar chart and absolute Muscle distribution.
+// Each card leads with a one-line takeaway and a small visual underneath.
 // ============================================================================
 
-async function renderChart() {
-    const container = $('volume-chart');
-    container.innerHTML = "";
-    const workouts = await getActiveWorkouts();
-
-    const days = [];
-    for (let i = 13; i >= 0; i--) {
-        const iso = isoForOffset(i);
-        const todayEntries = workouts.filter(w => w.date === iso);
-        const value = chartMode === 'sets'
-            ? todayEntries.length
-            : todayEntries.reduce((sum, w) => sum + (w.weight * w.reps), 0);
-        days.push({ iso, value });
+// Shared 4-week aggregator: returns 4 rolling 7-day buckets, oldest first.
+// bucket[0] = days 21-27 ago, bucket[3] = last 7 days. Each entry is the
+// raw workouts array for that window so callers can derive any metric.
+function fourWeekBuckets(workouts) {
+    const buckets = [[], [], [], []];
+    for (let b = 0; b < 4; b++) {
+        const startOffset = (3 - b) * 7 + 6;   // older edge, inclusive
+        const endOffset = (3 - b) * 7;         // newer edge, inclusive
+        const startISO = isoForOffset(startOffset);
+        const endISO = isoForOffset(endOffset);
+        buckets[b] = workouts.filter(w => w.date >= startISO && w.date <= endISO);
     }
-
-    const max = Math.max(1, ...days.map(d => d.value));
-    const today = todayISO();
-    const totalLast7 = days.slice(-7).reduce((s, d) => s + d.value, 0);
-
-    days.forEach(d => {
-        const bar = document.createElement('div');
-        bar.className = 'vbar';
-        if (d.value > 0) bar.classList.add('active');
-        if (d.iso === today) bar.classList.add('today');
-        bar.style.height = `${Math.max(3, (d.value / max) * 100)}%`;
-        const labelVal = chartMode === 'sets' ? `${d.value} set${d.value === 1 ? '' : 's'}` : `${Math.round(d.value).toLocaleString()} lbs`;
-        bar.title = `${formatDate(d.iso)}: ${labelVal}`;
-        container.appendChild(bar);
-    });
-
-    if (totalLast7 > 0) {
-        $('chart-total').textContent = chartMode === 'sets'
-            ? `${totalLast7} sets · 7d`
-            : `${Math.round(totalLast7).toLocaleString()} lb · 7d`;
-    } else {
-        $('chart-total').textContent = '—';
-    }
+    return buckets;
 }
 
-// ============================================================================
-// Muscle distribution (last 7 days)
-// ============================================================================
-
-async function renderMuscleDistribution() {
-    const bar = $('muscle-bar');
-    const legend = $('muscle-legend');
-    bar.innerHTML = "";
-    legend.innerHTML = "";
+// ----------------------------------------------------------------------------
+// Card 1 — Strength Trajectory
+//
+// For the user's top 3 most-frequent exercises in the last 4 weeks, surface
+// the change in best estimated 1RM from week-1 to week-4. The headline gives
+// a single-glance answer to "am I getting stronger?"; the per-row sparkline
+// shows the shape underneath. Tapping a row opens the existing exercise
+// sheet (which has the full-history trend chart).
+// ----------------------------------------------------------------------------
+async function renderStrengthTrajectory() {
+    const list = $('strength-list');
+    const headline = $('strength-headline');
+    if (!list || !headline) return;
+    list.innerHTML = "";
 
     const workouts = await getActiveWorkouts();
-    const cutoff = isoForOffset(7);
-    const recent = workouts.filter(w => w.date >= cutoff);
-    const totals = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
-    recent.forEach(w => {
-        const m = muscleOf(w.exercise);
-        totals[m] += w.weight * w.reps;
-    });
-    const grand = Object.values(totals).reduce((a, b) => a + b, 0);
+    const buckets = fourWeekBuckets(workouts);
+    const all4w = buckets.flat();
 
-    if (!grand) {
-        bar.innerHTML = `<div style="flex:1;background:var(--surface-3)"></div>`;
-        legend.innerHTML = `<span class="leg-item" style="color:var(--label-tertiary)">No volume in last 7 days</span>`;
+    if (!all4w.length) {
+        headline.textContent = 'Log a few sets to see your strength trajectory.';
         return;
     }
 
-    const order = MUSCLES;
-    order.forEach(m => {
-        const seg = document.createElement('div');
-        const pct = (totals[m] / grand) * 100;
-        seg.style.flex = String(totals[m] || 0.001);
-        seg.style.background = muscleColor[m];
-        seg.title = `${m}: ${pct.toFixed(0)}%`;
-        bar.appendChild(seg);
+    // Per-exercise: max oneRM in each of the 4 weekly buckets, plus a
+    // session-count for ranking. A "session" = a distinct date with a set.
+    const byEx = {};
+    buckets.forEach((bucket, weekIdx) => {
+        bucket.forEach(w => {
+            if (!byEx[w.exercise]) byEx[w.exercise] = { weeks: [0, 0, 0, 0], dates: new Set() };
+            if (w.oneRM > byEx[w.exercise].weeks[weekIdx]) byEx[w.exercise].weeks[weekIdx] = w.oneRM;
+            byEx[w.exercise].dates.add(w.date);
+        });
+    });
 
-        if (totals[m] > 0) {
-            const item = document.createElement('span');
-            item.className = 'leg-item';
-            item.innerHTML = `<span class="leg-dot" style="background:${muscleColor[m]}"></span>${titleCase(m)} ${pct.toFixed(0)}%`;
-            legend.appendChild(item);
+    const ranked = Object.entries(byEx)
+        .map(([ex, d]) => ({ ex, weeks: d.weeks, sessions: d.dates.size }))
+        .sort((a, b) => b.sessions - a.sessions)
+        .slice(0, 3);
+
+    if (!ranked.length) {
+        headline.textContent = 'Log a few sets to see your strength trajectory.';
+        return;
+    }
+
+    // Headline: summarize the deltas across the top exercises. Each gets a
+    // short "Bench +5" / "Squat —" fragment; we join with a middle dot.
+    const headlineFrags = ranked.map(r => {
+        const first = r.weeks.find(v => v > 0) || 0;
+        const last = [...r.weeks].reverse().find(v => v > 0) || 0;
+        const delta = first && last ? last - first : 0;
+        const name = titleCase(r.ex.split(' ').slice(0, 2).join(' '));
+        if (!first || !last || first === last || Math.abs(delta) < 1) return `${name} —`;
+        const sign = delta > 0 ? '+' : '';
+        return `${name} ${sign}${Math.round(delta)}`;
+    });
+    headline.textContent = headlineFrags.join(' · ');
+
+    // Rows: name, delta pill, sparkline
+    ranked.forEach(r => {
+        const first = r.weeks.find(v => v > 0) || 0;
+        const last = [...r.weeks].reverse().find(v => v > 0) || 0;
+        const delta = first && last ? last - first : 0;
+
+        let pillCls = 'flat';
+        let pillText = '—';
+        if (first && last && Math.abs(delta) >= 1) {
+            if (delta > 0) { pillCls = 'up'; pillText = `+${Math.round(delta)}`; }
+            else { pillCls = 'down'; pillText = `${Math.round(delta)}`; }
         }
+
+        // Sparkline. Plot only the non-zero weeks (zero = no session that week,
+        // not a regression to 0 lbs). One point = render a single dot; <2
+        // points overall means no sparkline, just the dot for the latest.
+        const points = r.weeks
+            .map((v, i) => ({ x: i, v }))
+            .filter(p => p.v > 0);
+        const maxV = Math.max(...points.map(p => p.v), 1);
+        const minV = Math.min(...points.map(p => p.v));
+        const range = Math.max(maxV - minV, 1);
+        // viewBox 0 0 70 28 — match container px so coords map 1:1
+        const px = (p) => ({
+            x: 4 + (p.x / 3) * 62,
+            y: 4 + (1 - (p.v - minV) / range) * 20,
+        });
+        const coords = points.map(px);
+        const polyline = coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
+        const endDot = coords[coords.length - 1];
+        const sparkSvg = coords.length >= 2
+            ? `<svg class="sr-spark ${pillCls}" viewBox="0 0 70 28" preserveAspectRatio="none">
+                   <polyline class="line" points="${polyline}"/>
+                   <circle class="end-dot" cx="${endDot.x.toFixed(1)}" cy="${endDot.y.toFixed(1)}" r="2.5"/>
+               </svg>`
+            : `<svg class="sr-spark ${pillCls}" viewBox="0 0 70 28" preserveAspectRatio="none">
+                   ${endDot ? `<circle class="end-dot" cx="${endDot.x.toFixed(1)}" cy="${endDot.y.toFixed(1)}" r="2.5"/>` : ''}
+               </svg>`;
+
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'strength-row';
+        row.dataset.exercise = r.ex;
+        row.setAttribute('aria-label', `Open ${titleCase(r.ex)} details`);
+        row.innerHTML = `
+            <span class="sr-name">${escapeHtml(titleCase(r.ex))}</span>
+            <span class="sr-delta ${pillCls}">${escapeHtml(pillText)} lb</span>
+            ${sparkSvg}
+        `;
+        row.addEventListener('click', () => openExercise(r.ex));
+        list.appendChild(row);
+    });
+}
+
+// ----------------------------------------------------------------------------
+// Card 2 — Training Rhythm
+//
+// Four weekly bars (rolling 7-day buckets) with a workout-count badge under
+// each. Replaces the old 14-day Volume chart at a more useful timescale.
+// Headline: avg workouts/week + delta vs prior 4-week window when available.
+// Volume/Sets toggle reuses the existing chartMode state.
+// ----------------------------------------------------------------------------
+async function renderTrainingRhythm() {
+    const chart = $('rhythm-chart');
+    const headline = $('rhythm-headline');
+    if (!chart || !headline) return;
+    chart.innerHTML = "";
+
+    const workouts = await getActiveWorkouts();
+    const buckets = fourWeekBuckets(workouts);
+    const all4w = buckets.flat();
+
+    const metric = (bucket) => chartMode === 'sets'
+        ? bucket.length
+        : bucket.reduce((s, w) => s + w.weight * w.reps, 0);
+
+    const values = buckets.map(metric);
+    const dayCounts = buckets.map(b => new Set(b.map(w => w.date)).size);
+    const max = Math.max(1, ...values);
+
+    // Headline. Two-pass logic:
+    //   1) avg workouts/week over the last 4 weeks
+    //   2) delta vs prior 4 weeks (days 28-55 ago) when there's enough data
+    const totalDays4w = dayCounts.reduce((a, b) => a + b, 0);
+    const avg = totalDays4w / 4;
+
+    // Prior 4-week window for comparison — straight count of distinct dates.
+    const priorStart = isoForOffset(55);
+    const priorEnd = isoForOffset(28);
+    const priorDates = new Set(
+        workouts.filter(w => w.date >= priorStart && w.date <= priorEnd).map(w => w.date)
+    );
+    const priorAvg = priorDates.size / 4;
+
+    if (!totalDays4w) {
+        headline.textContent = 'No workouts logged in the last 4 weeks.';
+    } else {
+        let head = `${avg.toFixed(1)} workouts/week avg`;
+        if (priorAvg > 0) {
+            const diff = avg - priorAvg;
+            if (Math.abs(diff) >= 0.25) {
+                const sign = diff > 0 ? '+' : '';
+                head += ` · ${sign}${diff.toFixed(1)} vs prior`;
+            } else {
+                head += ` · steady`;
+            }
+        }
+        headline.textContent = head;
+    }
+
+    // Bars
+    buckets.forEach((bucket, i) => {
+        const v = values[i];
+        const days = dayCounts[i];
+        const isCurrent = (i === 3);
+
+        const col = document.createElement('div');
+        col.className = 'rhythm-col';
+        if (v > 0) col.classList.add('active');
+        if (isCurrent) col.classList.add('current');
+
+        const heightPct = Math.max(4, (v / max) * 100);
+        const labelVal = chartMode === 'sets'
+            ? `${v} set${v === 1 ? '' : 's'}`
+            : `${Math.round(v).toLocaleString()} lbs`;
+        col.title = `${i === 3 ? 'This week' : `${(3 - i)}w ago`}: ${labelVal}, ${days} day${days === 1 ? '' : 's'}`;
+
+        col.innerHTML = `
+            <div class="rc-bar-wrap"><div class="rc-bar" style="height:${heightPct}%"></div></div>
+            <div class="rc-count">${days}d</div>
+        `;
+        chart.appendChild(col);
+    });
+}
+
+// ----------------------------------------------------------------------------
+// Card 3 — Balance vs Your Norm
+//
+// For each muscle group, compare last-7-day volume to the user's 30-day
+// rolling weekly average for that muscle. Renders a horizontal bar with a
+// baseline marker; the headline calls out the most under-trained muscle if
+// it's >25% below baseline, otherwise reports "balanced". Replaces the
+// old absolute-percentage muscle distribution which had no reference.
+// ----------------------------------------------------------------------------
+async function renderBalance() {
+    const list = $('balance-list');
+    const headline = $('balance-headline');
+    if (!list || !headline) return;
+    list.innerHTML = "";
+
+    const workouts = await getActiveWorkouts();
+    const cutoff7 = isoForOffset(6);    // last 7 days inclusive
+    const cutoff30 = isoForOffset(29);  // last 30 days inclusive
+
+    const recent7 = workouts.filter(w => w.date >= cutoff7);
+    const recent30 = workouts.filter(w => w.date >= cutoff30);
+
+    const sumByMuscle = (entries) => {
+        const totals = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+        entries.forEach(w => { totals[muscleOf(w.exercise)] += w.weight * w.reps; });
+        return totals;
+    };
+    const cur = sumByMuscle(recent7);
+    const baseline30 = sumByMuscle(recent30);
+    const baselineWeekly = {};
+    MUSCLES.forEach(m => { baselineWeekly[m] = baseline30[m] / (30 / 7); });
+
+    const grandCur = Object.values(cur).reduce((a, b) => a + b, 0);
+    const grandBase = Object.values(baselineWeekly).reduce((a, b) => a + b, 0);
+
+    if (!grandCur && !grandBase) {
+        headline.textContent = 'No volume in the last 30 days.';
+        return;
+    }
+    if (!grandBase) {
+        // First-week user — no baseline yet, just show this week's spread.
+        headline.textContent = 'Building your baseline — keep logging.';
+    } else if (!grandCur) {
+        headline.textContent = 'Nothing logged in the last 7 days.';
+    } else {
+        // Most under-trained muscle vs baseline (only when baseline has
+        // meaningful volume for it). Surface only if deviation > 25%.
+        let worst = null;
+        MUSCLES.forEach(m => {
+            if (baselineWeekly[m] < 100) return; // ignore muscles with negligible baseline
+            const dev = (cur[m] - baselineWeekly[m]) / baselineWeekly[m];
+            if (dev < -0.25 && (!worst || dev < worst.dev)) worst = { m, dev };
+        });
+        if (worst) {
+            headline.textContent = `${titleCase(worst.m)} ${Math.round(Math.abs(worst.dev) * 100)}% below your norm.`;
+        } else {
+            headline.textContent = `Balanced — within 25% of your norm.`;
+        }
+    }
+
+    // Each row: muscle name, track with current fill + baseline marker, pct delta
+    // The track scales to the *max* of (current, baseline) across all muscles
+    // so bars and markers share a consistent x-axis.
+    const trackMax = Math.max(
+        1,
+        ...MUSCLES.map(m => Math.max(cur[m], baselineWeekly[m]))
+    );
+
+    MUSCLES.forEach(m => {
+        const curV = cur[m];
+        const baseV = baselineWeekly[m];
+        const fillPct = (curV / trackMax) * 100;
+        const baselinePct = (baseV / trackMax) * 100;
+
+        let cls = '';
+        let pctText = '—';
+        if (baseV >= 100) {
+            const dev = (curV - baseV) / baseV;
+            const devPct = Math.round(dev * 100);
+            if (dev > 0.1) { cls = 'above'; pctText = `+${devPct}%`; }
+            else if (dev < -0.1) { cls = 'below'; pctText = `${devPct}%`; }
+            else { pctText = '~norm'; }
+        } else if (curV > 0) {
+            pctText = 'new';
+        } else {
+            pctText = '—';
+        }
+
+        const row = document.createElement('div');
+        row.className = `balance-row ${cls}`;
+        row.innerHTML = `
+            <span class="br-name">${titleCase(m)}</span>
+            <div class="br-track">
+                <div class="br-fill" style="width:${fillPct.toFixed(1)}%;background:${muscleColor[m]}"></div>
+                ${baseV > 0 ? `<div class="br-baseline" style="left:${baselinePct.toFixed(1)}%" title="30d avg"></div>` : ''}
+            </div>
+            <span class="br-pct">${escapeHtml(pctText)}</span>
+        `;
+        list.appendChild(row);
     });
 }
 
@@ -2163,8 +2395,9 @@ async function deleteEntry(id, silent = false) {
         markUnsynced();   // v8
         await recomputePR(entry.exercise);
         await renderHistory();
-        await renderChart();
-        await renderMuscleDistribution();
+        await renderStrengthTrajectory();
+        await renderTrainingRhythm();
+        await renderBalance();
         await renderStrain();
         await renderInsights();
         await refreshLatestStats();
