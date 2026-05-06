@@ -166,6 +166,32 @@
         </div>
     </div>
 
+    <!-- Quick-add another set for the same exercise during an active workout.
+         Triggered from the "+ Add set" pill in the session set list. Save calls
+         buildEntry(exercise, w, r) → saveAndSyncUI(entry), so it goes through
+         the same PR/sync/UI pipeline as voice and manual entry. -->
+    <div id="quick-add-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
+            <div class="sheet-header sheet-header-3col">
+                <button class="sheet-close cancel" data-action="closeQuickAdd">Cancel</button>
+                <span class="sheet-title-text" id="quick-add-title">Add set</span>
+                <button class="sheet-close" data-action="saveQuickAdd">Save</button>
+            </div>
+            <div class="sheet-body">
+                <div class="quick-add-exercise">
+                    <span class="muscle-tag" id="quick-add-muscle"></span>
+                    <span class="quick-add-name" id="quick-add-name">—</span>
+                </div>
+                <div class="quick-add-prev" id="quick-add-prev"></div>
+                <div class="grouped-list" style="margin-top:14px">
+                    <label class="row-input"><span>Weight (lb)</span><input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0"></label>
+                    <label class="row-input"><span>Reps</span><input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0"></label>
+                </div>
+                <div class="section-foot">Same exercise, new weight × reps. Pre-filled from the previous set.</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Plate calculator sheet -->
     <div id="plate-overlay" class="overlay" aria-hidden="true">
         <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="plate-title">
@@ -265,9 +291,16 @@
         <button class="banner-dismiss" data-action="dismissInstallHint" aria-label="Dismiss">&times;</button>
     </div>
 
-    <div id="update-toast" class="toast">
-        <span>Update available</span>
-        <button data-action="applyUpdate">Reload</button>
+    <!-- v9.2 — Prominent top-of-screen update banner. Replaces the small
+         bottom toast that competed with the mic FAB for attention. Drops in
+         from the top edge with a blue background so it's unmissable. The
+         "Update now" button calls applyUpdate → SKIP_WAITING → reload. -->
+    <div id="update-toast" class="update-banner" role="alert" aria-live="polite">
+        <div class="update-banner-text">
+            <strong>New version ready</strong>
+            <span>Tap update to load the latest IronVoice.</span>
+        </div>
+        <button class="update-banner-btn" data-action="applyUpdate">Update now</button>
     </div>
 
     <header id="app-header">
@@ -304,39 +337,38 @@
              HOME SCREEN
              ============================================================ -->
         <section class="screen" data-screen="home">
-            <!-- v9.0: Hero Load card. The single most important question
-                 walking into the gym is "am I ready?", so Load gets the
-                 dominant slot. Color band reflects the current state
-                 (recovery / steady / high / over). -->
-            <div class="hero-load card status-card" id="strain-card" role="group" aria-label="Training load and readiness">
-                <div class="hero-load-head">
-                    <h3>Load</h3>
-                    <span class="hero-load-pulse" aria-hidden="true"></span>
+            <!-- v9.2: Hero Load + Start workout sit side-by-side as the
+                 home launchpad row. Load (left) answers "am I ready?",
+                 Start workout (right) is the primary action. Both halves
+                 use 50% of the row so the two questions a gym-goer asks
+                 walking in — readiness and "let's go" — are answered in
+                 a single glance. Tiles below this row stay 2-up. -->
+            <div class="card-row hero-row">
+                <div class="hero-load card status-card" id="strain-card" role="group" aria-label="Training load and readiness">
+                    <div class="hero-load-head">
+                        <h3>Load</h3>
+                        <span class="hero-load-pulse" aria-hidden="true"></span>
+                    </div>
+                    <div class="hero-load-value" id="strain-text">—</div>
+                    <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
                 </div>
-                <div class="hero-load-value" id="strain-text">—</div>
-                <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
+                <button type="button" class="home-primary-action" id="home-primary-action" data-screen-target="workout" aria-label="Start workout">
+                    <span class="hpa-icon" id="hpa-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="6 4 20 12 6 20 6 4"/>
+                        </svg>
+                    </span>
+                    <span class="hpa-text">
+                        <span class="hpa-title" id="hpa-title">Start workout</span>
+                        <span class="hpa-sub" id="hpa-sub">Track time, sets, and volume</span>
+                    </span>
+                    <svg class="hpa-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
             </div>
 
-            <!-- v9.1: Home is now a launchpad, not a brochure. The "Today"
-                 section answers "what is the state of my training right now"
-                 — a primary action (Start / Resume) plus two state-aware
-                 summary tiles. The old Current+LatestPR cards were replaced
-                 because they showed point-in-time data that went stale
-                 between visits. -->
+            <!-- v9.1: Home is now a launchpad, not a brochure. "Today"
+                 section labels the daily summary tiles below. -->
             <div class="home-section-header"><h3>Today</h3></div>
-
-            <button type="button" class="home-primary-action" id="home-primary-action" data-screen-target="workout" aria-label="Start workout">
-                <span class="hpa-icon" id="hpa-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <polygon points="6 4 20 12 6 20 6 4"/>
-                    </svg>
-                </span>
-                <span class="hpa-text">
-                    <span class="hpa-title" id="hpa-title">Start workout</span>
-                    <span class="hpa-sub" id="hpa-sub">Track time, sets, and volume</span>
-                </span>
-                <svg class="hpa-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
 
             <div class="card-row card-row-2">
                 <button type="button" class="card card-mini card-button today-card" id="today-card" data-action="goToday" aria-label="Today's training">
@@ -413,7 +445,10 @@
                 <h2>Workout</h2>
             </div>
 
-            <!-- Active session: visible only while a workout is running. -->
+            <!-- Active session: visible only while a workout is running. v9.2:
+                 the End button now lives inside this card (was a separate
+                 footer below the screen) and routes through confirmEndWorkout
+                 so a misplaced tap can't accidentally close out a session. -->
             <div id="session-card" class="session-card" style="display:none">
                 <div class="session-card-row">
                     <div class="session-card-meta">
@@ -425,6 +460,9 @@
                         <div><span id="session-card-vol">0</span><small>vol</small></div>
                     </div>
                 </div>
+                <button type="button" class="end-workout-btn" data-action="confirmEndWorkout">
+                    End workout
+                </button>
             </div>
 
             <!-- Quick-add: search, weight, reps. Same logic as the old home
@@ -467,12 +505,6 @@
                 </div>
             </div>
 
-            <!-- Active state: end-button at the bottom. -->
-            <div id="workout-active-actions" style="display:none">
-                <button type="button" class="end-workout-btn" data-action="toggleWorkoutSession">
-                    End workout
-                </button>
-            </div>
         </section>
 
         <!-- ============================================================

@@ -133,6 +133,36 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* v9.2 — Root font size bumped from the browser default (16px) to 17px so
+   every rem-based size in the app scales up proportionally (~6%). The whole
+   typographic scale moves together: small labels get more legible (10.5px →
+   11.2px is the floor) without tweaking each rule individually. Bump here
+   if a future pass wants the type larger; tabbar/icons are pixel-fixed and
+   unaffected. */
+html { font-size: 17px; }
+
+/* v9.2 — Status-bar guard. apple-mobile-web-app-status-bar-style="black-translucent"
+   means the iOS status bar (time, cellular, battery) is overlaid on top of
+   the app — page content extends under it. Without this strip, page content
+   scrolling upward visibly slides behind the status bar icons because the
+   header's background is transparent until .scrolled kicks in. This fixed
+   mask covers only the safe-area-top region (env(safe-area-inset-top), ~47px
+   on iPhones with Dynamic Island, 0 elsewhere) with the page bg color so
+   the status bar always reads against a clean strip. Z-index sits above
+   the sticky header (100) and below overlays. pointer-events:none so it
+   never blocks taps on the header below. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: var(--bg);
+  z-index: 110;
+  pointer-events: none;
+}
+
 html, body {
   margin: 0; padding: 0;
   background: var(--bg);
@@ -731,9 +761,47 @@ main {
 .tp-item.done .tp-check::before { content: "✓"; color: white; font-size: 0.65rem; font-weight: 800; }
 
 /* Stat cards. .card-row defaults to a 3-up flex; .card-row-2 is the v9.0
-   secondary row beneath the Hero Load card (Current + Latest PR). */
+   secondary row beneath the Hero Load card (Current + Latest PR).
+   .hero-row is the v9.2 launchpad pair (Load + Start workout). */
 .card-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .card-row-2 { gap: 10px; }
+.hero-row { gap: 10px; align-items: stretch; }
+.hero-row > .hero-load,
+.hero-row > .home-primary-action {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+/* Hero Load at half-width: tighter padding, smaller headline value so the
+   tile reads cleanly even when the load state name is long ("RECOVERY"). */
+.hero-row > .hero-load { padding: 14px 16px 14px 18px; }
+.hero-row .hero-load-value { font-size: 1.75rem; }
+.hero-row .hero-load-sub {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Start workout pill at half-width: icon + title + sub. The trailing
+   chevron is hidden — the icon already signals "go." */
+.hero-row > .home-primary-action {
+  padding: 12px 14px;
+  gap: 10px;
+}
+.hero-row .hpa-chevron { display: none; }
+.hero-row .hpa-icon { width: 34px; height: 34px; }
+.hero-row .hpa-icon svg { width: 16px; height: 16px; }
+.hero-row .hpa-title { font-size: 0.92rem; }
+.hero-row .hpa-sub {
+  font-size: 0.72rem;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 .card {
   flex: 1;
@@ -818,7 +886,6 @@ main {
   color: inherit;
   cursor: default;          /* not actionable; tap does nothing yet */
   padding: 18px 20px 18px 24px;
-  margin-bottom: 14px;
   background: var(--surface-1);
   border: 0.5px solid var(--hairline);
   border-radius: var(--radius-lg);
@@ -918,7 +985,6 @@ main {
   gap: 14px;
   width: 100%;
   padding: 14px 16px;
-  margin-bottom: 10px;
   background: var(--surface-1);
   border: 0.5px solid var(--hairline);
   border-radius: var(--radius-lg);
@@ -1148,33 +1214,60 @@ button.card-button:focus-visible {
 .share-actions { margin-top: 18px; }
 
 /* Toast (update available) */
-.toast {
+/* v9.2 — Update banner pinned to the top of the screen. Replaces the old
+   .toast at the bottom (which fought the mic FAB for attention). Drops in
+   from the top edge in solid blue so a new version is unmistakable on
+   open. The action button is a full-height pill so the tap target is
+   generous on mobile. */
+.update-banner {
   position: fixed;
-  bottom: calc(128px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background: var(--frosted-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 0.5px solid var(--hairline-strong);
-  border-radius: 100px;
-  padding: 10px 8px 10px 18px;
-  display: none;
+  top: 0; left: 0; right: 0;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  z-index: 9000;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  font-size: 0.88rem;
-  opacity: 0;
-  transition: transform 0.4s var(--spring), opacity 0.3s var(--ease);
+  gap: 14px;
+  padding: calc(env(safe-area-inset-top) + 14px) 16px 14px;
+  background: var(--blue);
+  color: white;
+  z-index: 9500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transform: translateY(-100%);
+  transition: transform 0.45s var(--spring);
+  pointer-events: none;
 }
-.toast.active { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast button {
-  background: var(--blue); color: white;
-  border: none; border-radius: 100px;
-  padding: 7px 14px;
-  font-size: 0.82rem; font-weight: 600;
+.update-banner.active {
+  transform: translateY(0);
+  pointer-events: auto;
 }
+.update-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.update-banner-text strong {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.update-banner-text span {
+  font-size: 0.85rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.update-banner-btn {
+  flex-shrink: 0;
+  background: white;
+  color: var(--blue);
+  border: none;
+  border-radius: 100px;
+  padding: 10px 18px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+.update-banner-btn:active { background: rgba(255, 255, 255, 0.85); }
 
 /* Voice command help list — two-column rows: command | description */
 .help-list { padding: 0; }
@@ -1672,6 +1765,10 @@ button.card-button:focus-visible {
   border-radius: 18px;
   padding: 14px 18px;
   margin: 0 0 16px;
+  /* Column layout so the compact End-workout pill can self-align to the
+     trailing edge below the existing meta/stats row. */
+  display: flex;
+  flex-direction: column;
 }
 .session-card-row {
   display: flex;
@@ -1788,6 +1885,127 @@ button.card-button:focus-visible {
 .session-set-pill .set-reps {
   font-weight: 500;
   color: var(--label-secondary);
+}
+
+/* ==========================================================================
+   v9.2 — Quick-add another set pill + history pill mirror
+   The trailing "+ Add set" pill on each session-set-group opens a small
+   sheet to log another set of the same exercise (workout screen only).
+   In history, sets render as the same pill format as the workout screen
+   so reviewing a past day looks like reviewing the active session. Pills
+   in history support long-press to delete (5s undo via existing snackbar).
+   ========================================================================== */
+
+/* "+ Add set" is a compact inline pill self-aligned to the right edge of
+   its row (margin-left:auto consumes the leftover space on the line, so
+   it sits flush with the right side of the group whether it fits with the
+   pills or wraps to its own line). Same blue-fill treatment as the
+   .add-btn on the manual-entry row. */
+.session-set-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 5px 12px;
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+.session-set-add:active { background: #0070d8; }
+.session-set-add-icon {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.session-set-add-label { font-weight: 600; }
+
+/* History pill: same visuals as session-set-pill but a button so it can
+   handle long-press for delete and bear a PR badge inline. */
+.history-pill {
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.history-pill:active,
+.history-pill.long-pressing {
+  background: var(--surface-2);
+  transform: scale(0.96);
+  box-shadow: inset 0 0 0 1px var(--label-tertiary);
+}
+.history-pill .pill-pr-tag {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  background: var(--pr-grad);
+  color: #1a1300;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 6px;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+.history-pill.is-pr {
+  border-color: rgba(255, 196, 0, 0.6);
+}
+
+/* The group header in history is tappable (opens the exercise sheet),
+   so reset button defaults and add a subtle press treatment. */
+.history-group-header {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  padding: 0 0 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.history-group-header:active .session-set-group-name { color: var(--blue); }
+
+.history-session-divider {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--label-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 4px 2px;
+}
+
+.history-set-group { margin-bottom: 10px; }
+.history-day-detail .session-sets,
+#history-day-groups { display: flex; flex-direction: column; gap: 10px; }
+
+/* Quick-add sheet — exercise display + previous-set hint */
+.quick-add-exercise {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 4px 0;
+}
+.quick-add-exercise .muscle-tag {
+  width: 12px; height: 12px;
+  margin-right: 0;
+}
+.quick-add-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--label);
+}
+.quick-add-prev {
+  margin-top: 6px;
+  padding: 0 4px;
+  font-size: 0.85rem;
+  color: var(--label-secondary);
+  font-feature-settings: "tnum";
 }
 
 /* ==========================================================================
@@ -2024,19 +2242,23 @@ button.card-button:focus-visible {
 .workout-start-cta-title { font-size: 1.15rem; font-weight: 700; }
 .workout-start-cta-sub { font-size: 0.82rem; opacity: 0.85; font-weight: 500; }
 
+/* v9.2 — End workout: compact pill self-aligned to the trailing edge of
+   the in-progress card. Same red palette as before, sized like the small
+   .add-btn on the manual-entry row so it doesn't dominate the card. Tap →
+   confirmEndWorkout (prompt) → endWorkoutSession. */
 .end-workout-btn {
-  width: 100%;
-  padding: 16px;
-  margin-top: 18px;
-  background: rgba(255, 69, 58, 0.14);
+  align-self: flex-end;
+  margin-top: 12px;
+  padding: 7px 16px;
+  background: rgba(255, 69, 58, 0.20);
   color: var(--red);
-  border: 0.5px solid rgba(255, 69, 58, 0.35);
-  border-radius: var(--radius-md);
+  border: 0.5px solid rgba(255, 69, 58, 0.45);
+  border-radius: 100px;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.85rem;
   letter-spacing: -0.01em;
 }
-.end-workout-btn:active { background: rgba(255, 69, 58, 0.22); }
+.end-workout-btn:active { background: rgba(255, 69, 58, 0.32); }
 
 .last-workout-card {
   background: var(--surface-1);

@@ -396,7 +396,22 @@ window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change'
 function initServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('sw.js').then(reg => {
-        // Listen for updates
+        // v9.2 — Cold-start auto-apply. If a previous tab detected an update
+        // but the user closed the app before tapping Reload, the new worker
+        // is still sitting in `waiting` when we open today. Apply it
+        // immediately on launch so reopening the app is "always the latest
+        // version" without requiring a visible prompt. The controllerchange
+        // handler in initSWMessages() then reloads the page seamlessly.
+        // Guard on .controller so the very first install (no prior version)
+        // doesn't trigger a redundant reload.
+        if (reg.waiting && navigator.serviceWorker.controller) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            return;
+        }
+
+        // Mid-session detection: surface the banner so the user can choose
+        // when to reload. We don't auto-apply mid-session because reloading
+        // could interrupt active set entry or voice recognition.
         reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (!newWorker) return;
@@ -459,9 +474,6 @@ function initOutsideClick() {
         if (!e.target.closest('.search-container')) {
             $('ex-dropdown').classList.remove('active');
             $('ex-search')?.setAttribute('aria-expanded', 'false');
-        }
-        if (!e.target.closest('.history-row')) {
-            document.querySelectorAll('.history-item.revealed').forEach(el => el.classList.remove('revealed'));
         }
     });
 }
@@ -1883,10 +1895,14 @@ function initActionDispatcher() {
         undoLastDelete,
         // v6 additions
         goPRs, toggleWorkoutSession,
+        // v9.2 — End-workout confirm wrapper (button only; voice bypasses)
+        confirmEndWorkout,
         // v9.1: Today-card tap routes state-aware (active → Workout, else → History)
         goToday,
         // v9.0 — PR celebration sheet (auto-presented on new PR)
         closePRCelebrate, downloadCelebrate, shareCelebrate,
+        // v9.2 — quick-add another set for the same exercise during a workout
+        openQuickAdd, closeQuickAdd, saveQuickAdd,
         // a11y: surfaces an explanatory snackbar on browsers without
         // SpeechRecognition (iOS Safari, etc.). The mic's data-action is
         // rewritten to this in initSpeech() when SR is unavailable.
@@ -2122,41 +2138,6 @@ async function renderInsights() {
 // ============================================================================
 // Swipe-to-delete
 // ============================================================================
-
-function attachSwipe(item) {
-    let startX = 0, dx = 0, pointerId = null, isOpen = false;
-    item.addEventListener('pointerdown', e => {
-        if (e.target.closest('.row-delete')) return;
-        pointerId = e.pointerId;
-        startX = e.clientX;
-        isOpen = item.classList.contains('revealed');
-        item.classList.add('swiping');
-    });
-    item.addEventListener('pointermove', e => {
-        if (e.pointerId !== pointerId) return;
-        dx = e.clientX - startX;
-        if (isOpen) dx -= 78;
-        const offset = Math.min(0, Math.max(-160, dx));
-        item.style.transform = `translateX(${offset}px)`;
-    });
-    const finish = e => {
-        if (e.pointerId !== pointerId) return;
-        item.classList.remove('swiping');
-        item.style.transform = '';
-        const total = isOpen ? dx - 78 : dx;
-        if (total < -120) {
-            const id = parseInt(item.closest('.history-row').dataset.id, 10);
-            deleteEntry(id);
-        } else if (total < -40) {
-            item.classList.add('revealed');
-        } else {
-            item.classList.remove('revealed');
-        }
-        pointerId = null; dx = 0;
-    };
-    item.addEventListener('pointerup', finish);
-    item.addEventListener('pointercancel', finish);
-}
 
 async function deleteEntry(id, silent = false) {
     try {
@@ -2767,6 +2748,65 @@ function openPlate() {
 
 function closePlate() { $('plate-overlay').classList.remove('active'); }
 
+// v9.2 — Quick-add another set for an exercise already being worked. Opens
+// from the "+ Add set" pill on each session-set-group during an active
+// workout. Pre-fills the weight/reps inputs with the previous set's values
+// so the common case (same weight × same reps) is one tap → Save.
+let _quickAddExercise = null;
+
+async function openQuickAdd(el) {
+    const exercise = el?.dataset?.exercise;
+    if (!exercise) return;
+    _quickAddExercise = exercise;
+
+    const lib = exerciseLibrary.find(ex => ex.name === exercise);
+    const muscle = lib?.muscle || muscleOf(exercise) || 'core';
+    $('quick-add-name').textContent = titleCase(exercise);
+    const tagEl = $('quick-add-muscle');
+    if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
+
+    // Pre-fill from the most recent set of this exercise — first try the
+    // active session, then fall back to the all-time most recent so the
+    // dialog still has something useful even outside a session.
+    let prev = null;
+    const all = (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted && w.exercise === exercise);
+    if (activeSession) {
+        prev = all
+            .filter(w => w.sessionId === activeSession.id)
+            .sort((a, b) => b.id - a.id)[0] || null;
+    }
+    if (!prev) prev = all.sort((a, b) => b.id - a.id)[0] || null;
+
+    $('quick-add-w').value = prev ? String(prev.weight) : '';
+    $('quick-add-r').value = prev ? String(prev.reps) : '';
+    $('quick-add-prev').textContent = prev
+        ? `Previous set: ${prev.weight} × ${prev.reps}`
+        : 'No previous sets — enter weight and reps.';
+
+    $('quick-add-overlay').classList.add('active');
+    setTimeout(() => $('quick-add-w').focus({ preventScroll: true }), 350);
+}
+
+function closeQuickAdd() {
+    $('quick-add-overlay').classList.remove('active');
+    _quickAddExercise = null;
+}
+
+async function saveQuickAdd() {
+    const exercise = _quickAddExercise;
+    const w = parseFloat($('quick-add-w').value);
+    const r = parseInt($('quick-add-r').value, 10);
+    if (!exercise || isNaN(w) || isNaN(r) || w <= 0 || r <= 0) {
+        haptic([20, 50, 20]);
+        return;
+    }
+    const entry = buildEntry(exercise, w, r);
+    closeQuickAdd();
+    await saveAndSyncUI(entry);
+    haptic(15);
+}
+
 function renderPlate() {
     const target = parseFloat($('plate-target').value);
     const bar = parseFloat($('plate-bar').value) || 45;
@@ -3160,6 +3200,25 @@ async function toggleWorkoutSession() {
     else await startWorkoutSession();
 }
 
+// v9.2 — Click-only path for the End workout button. Asks for confirmation
+// before tearing down the session so a misplaced tap (the button now lives
+// inside the In-progress card, where the rest of the active UI is) can't
+// accidentally end a workout in progress. Voice ("end workout") still goes
+// through executeIntent → endWorkoutSession({ silent: true }) directly —
+// hands-busy paths don't get the prompt.
+async function confirmEndWorkout() {
+    if (!activeSession) return;
+    const setsInSession = (await performDB('workouts', 'getAll'))
+        .filter(w => w.sessionId === activeSession.id && !w.deleted);
+    const mins = Math.max(1, Math.round((Date.now() - activeSession.startedAt) / 60000));
+    const setCount = setsInSession.length;
+    const msg = setCount > 0
+        ? `End this workout?\n\n${mins}m · ${setCount} set${setCount === 1 ? '' : 's'} logged.`
+        : `End this workout?\n\nNo sets logged — the empty session will be discarded.`;
+    if (!confirm(msg)) return;
+    await endWorkoutSession();
+}
+
 // --- live ticker for the session card ---
 
 // v9.1: track the elapsed minute we last rendered into the home tiles, so
@@ -3208,7 +3267,6 @@ async function refreshSessionCard() {
     const card = $('session-card');
     const sessionSets = $('session-sets');
     const workoutIdle = $('workout-idle');
-    const workoutActions = $('workout-active-actions');
     if (!card) return;
 
     if (!activeSession) {
@@ -3217,14 +3275,12 @@ async function refreshSessionCard() {
         card.style.display = 'none';
         if (sessionSets) sessionSets.style.display = 'none';
         if (workoutIdle) workoutIdle.style.display = '';
-        if (workoutActions) workoutActions.style.display = 'none';
         return;
     }
 
     // Session active: flip the Workout screen into active mode.
     card.style.display = '';
     if (workoutIdle) workoutIdle.style.display = 'none';
-    if (workoutActions) workoutActions.style.display = '';
 
     renderSessionCardTime();
     const setsInSession = (await performDB('workouts', 'getAll'))
@@ -3320,14 +3376,23 @@ function renderSessionSets(container, sets) {
         const setPills = orderedSets.map(s =>
             `<span class="session-set-pill">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span></span>`
         ).join('');
+        // v9.2 — trailing "+ Add set" pill opens the quick-add sheet so the
+        // user can log another set of the same exercise without re-typing
+        // the name in the search box.
+        const exTitle = escapeHtml(titleCase(exercise));
+        const addPill =
+            `<button type="button" class="session-set-pill session-set-add" data-action="openQuickAdd" data-exercise="${escapeHtml(exercise)}" aria-label="Add another set of ${exTitle}">` +
+                `<span class="session-set-add-icon" aria-hidden="true">+</span>` +
+                `<span class="session-set-add-label">Add set</span>` +
+            `</button>`;
         html += `
             <div class="session-set-group">
                 <div class="session-set-group-header">
                     <span class="muscle-tag" style="background:${muscleBg}"></span>
-                    <span class="session-set-group-name">${escapeHtml(titleCase(exercise))}</span>
+                    <span class="session-set-group-name">${exTitle}</span>
                     <span class="session-set-count">${orderedSets.length} set${orderedSets.length === 1 ? '' : 's'}</span>
                 </div>
-                <div class="session-set-pills">${setPills}</div>
+                <div class="session-set-pills">${setPills}${addPill}</div>
             </div>`;
     }
     container.innerHTML = html;
@@ -3719,9 +3784,7 @@ async function renderHistoryDayDetail(date, allWorkouts) {
     const empty = $('history-day-empty');
     const headers = $('history-session-headers');
     const groups = $('history-day-groups');
-    const dayWorkouts = allWorkouts
-        .filter(w => w.date === date)
-        .sort((a, b) => b.id - a.id);
+    const dayWorkouts = allWorkouts.filter(w => w.date === date);
 
     if (!dayWorkouts.length) {
         headers.innerHTML = '';
@@ -3732,21 +3795,46 @@ async function renderHistoryDayDetail(date, allWorkouts) {
     }
     empty.style.display = 'none';
 
-    // Build session header(s) for the day.
+    // v9.2 — History day detail now mirrors the active-workout pill layout:
+    // for each session of the day we render one or more session-set-group
+    // cards (one per exercise) with horizontal pills for each set, instead
+    // of the old per-row swipe-to-delete list. Long-press a pill to delete
+    // it (same Undo snackbar as before). Tap the group header to open the
+    // exercise sheet.
     const allSessions = await performDB('sessions', 'getAll');
     const sessionMap = Object.fromEntries(allSessions.map(s => [s.id, s]));
-    const sessionIdsSeen = new Set();
-    for (const w of dayWorkouts) if (w.sessionId) sessionIdsSeen.add(w.sessionId);
+    const prs = await performDB('prs', 'getAll');
+    const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
 
+    // Bucket sets into sessions (or a synthetic "untagged" bucket). Each
+    // bucket carries its sets in chronological order so pills read left to
+    // right in the order they were performed.
+    const sessionBuckets = new Map();   // sessionId | 'untagged' → sets[]
+    for (const w of dayWorkouts) {
+        const key = w.sessionId || 'untagged';
+        if (!sessionBuckets.has(key)) sessionBuckets.set(key, []);
+        sessionBuckets.get(key).push(w);
+    }
+    for (const sets of sessionBuckets.values()) sets.sort((a, b) => a.id - b.id);
+
+    // Order: tagged sessions by start time, then any untagged sets last.
+    const orderedKeys = [...sessionBuckets.keys()]
+        .filter(k => k !== 'untagged')
+        .sort((a, b) => {
+            const sa = sessionMap[a]?.startedAt || 0;
+            const sb = sessionMap[b]?.startedAt || 0;
+            return sa - sb;
+        });
+    if (sessionBuckets.has('untagged')) orderedKeys.push('untagged');
+
+    // Top-of-detail summary header(s) — keep the existing time/duration
+    // metadata bar so users can scan the day at a glance.
     let headerHtml = '';
-    const sortedSessions = [...sessionIdsSeen]
-        .map(id => sessionMap[id])
-        .filter(Boolean)
-        .sort((a, b) => a.startedAt - b.startedAt);
-
-    for (const s of sortedSessions) {
-        const setsInSession = dayWorkouts.filter(w => w.sessionId === s.id);
-        const setCount = setsInSession.length;
+    for (const key of orderedKeys) {
+        if (key === 'untagged') continue;
+        const s = sessionMap[key];
+        if (!s) continue;
+        const setsInSession = sessionBuckets.get(key);
         const startTime = new Date(s.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         const dur = s.durationMs > 0 ? `${Math.round(s.durationMs / 60000)}m` : '—';
         const estimatedFlag = s.estimated ? `<span class="estimated">~estimated</span>` : '';
@@ -3758,70 +3846,117 @@ async function renderHistoryDayDetail(date, allWorkouts) {
                 <div class="session-header-meta">
                     <span>${escapeHtml(startTime)}</span>
                     <span>${escapeHtml(dur)}</span>
-                    <span>${setCount} sets</span>
+                    <span>${setsInSession.length} sets</span>
                     ${estimatedFlag}
                 </div>
             </div>`;
     }
-    // Untagged sets get a tiny note so they're explained.
-    const untaggedCount = dayWorkouts.filter(w => !w.sessionId).length;
-    if (untaggedCount && sortedSessions.length === 0) {
-        headerHtml = `<div class="session-header-row">
+    const untaggedSets = sessionBuckets.get('untagged');
+    if (untaggedSets && !sessionMap[orderedKeys[0]]) {
+        // Only emit the untagged note if there are no real sessions for the
+        // day; otherwise the session header(s) above carry the count.
+        headerHtml += `<div class="session-header-row">
             <div class="session-header-icon" style="background:var(--label-tertiary)"><svg viewBox="0 0 24 24" fill="white" width="13" height="13"><circle cx="12" cy="12" r="10"/></svg></div>
-            <div class="session-header-meta"><span>${untaggedCount} sets · no session timer</span></div>
+            <div class="session-header-meta"><span>${untaggedSets.length} sets · no session timer</span></div>
         </div>`;
     }
     headers.innerHTML = headerHtml;
 
-    // Render the actual sets — same row markup as the journal had, so
-    // swipe-to-delete and the click delegation already wired up will work.
-    const prs = await performDB('prs', 'getAll');
-    const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
+    // Build the pill groups. For each session bucket, group its sets by
+    // exercise (preserving first-seen order) and render the same markup
+    // renderSessionSets() emits — minus the trailing "+ Add set" pill,
+    // which is workout-screen-only.
+    let bodyHtml = '';
+    for (const key of orderedKeys) {
+        const sets = sessionBuckets.get(key) || [];
+        if (!sets.length) continue;
 
-    const itemsHtml = dayWorkouts.map(set => {
-        const isPRSet = prMap[set.exercise] === set.id;
-        const m = muscleOf(set.exercise);
-        const exName = escapeHtml(set.exercise);
-        const exTitle = escapeHtml(titleCase(set.exercise));
-        const muscleBg = escapeHtml(muscleColor[m] || '#888');
-        return `
-            <div class="history-row" data-id="${set.id}" data-exercise="${exName}">
-                <button class="row-delete" type="button">Delete</button>
-                <div class="history-item">
-                    <span class="item-name tappable"><span class="muscle-tag" style="background:${muscleBg}"></span>${exTitle}${isPRSet ? '<span class="item-pr-tag">PR</span>' : ''}</span>
-                    <span class="item-data">${escapeHtml(String(set.weight))}<span class="reps"> × ${escapeHtml(String(set.reps))}</span></span>
-                </div>
-            </div>`;
-    }).join('');
-
-    groups.innerHTML = `<div class="day-group"><div class="items">${itemsHtml}</div></div>`;
-    groups.querySelectorAll('.history-item').forEach(attachSwipe);
-
-    // Ensure the click-delegation listener is wired for this container too.
-    initJournalDelegationFor(groups);
-}
-
-// Delegation for any history container — the existing initJournalDelegation
-// hardcoded #history-groups; this generic version takes any element.
-function initJournalDelegationFor(container) {
-    if (!container || container.dataset.delegated === '1') return;
-    container.dataset.delegated = '1';
-    container.addEventListener('click', e => {
-        const row = e.target.closest('.history-row');
-        if (!row) return;
-        if (e.target.closest('.row-delete')) {
-            const id = parseInt(row.dataset.id, 10);
-            if (Number.isFinite(id)) deleteEntry(id);
-            return;
+        // Optional per-bucket label only when there are multiple sessions
+        // in the day, so a single-session day doesn't get redundant chrome.
+        const realSessionCount = orderedKeys.filter(k => k !== 'untagged').length;
+        if (key !== 'untagged' && realSessionCount > 1) {
+            const s = sessionMap[key];
+            const startTime = s ? new Date(s.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+            bodyHtml += `<div class="history-session-divider">${escapeHtml(startTime)}</div>`;
         }
-        if (e.target.closest('.item-name.tappable')) {
-            const ex = row.dataset.exercise;
+
+        const exerciseGroups = new Map();
+        for (const w of sets) {
+            if (!exerciseGroups.has(w.exercise)) exerciseGroups.set(w.exercise, []);
+            exerciseGroups.get(w.exercise).push(w);
+        }
+
+        for (const [exercise, exSets] of exerciseGroups) {
+            const lib = exerciseLibrary.find(ex => ex.name === exercise);
+            const muscle = lib?.muscle || muscleOf(exercise) || 'core';
+            const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
+            const exTitle = escapeHtml(titleCase(exercise));
+            const exName = escapeHtml(exercise);
+            const hasPR = exSets.some(s => prMap[s.exercise] === s.id);
+
+            const pills = exSets.map(s => {
+                const isPR = prMap[s.exercise] === s.id;
+                return `<button type="button" class="session-set-pill history-pill${isPR ? ' is-pr' : ''}" data-id="${s.id}" aria-label="Set ${escapeHtml(String(s.weight))} pounds for ${escapeHtml(String(s.reps))} reps. Long-press to delete.">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span>${isPR ? '<span class="pill-pr-tag">PR</span>' : ''}</button>`;
+            }).join('');
+
+            bodyHtml += `
+                <div class="session-set-group history-set-group">
+                    <button type="button" class="session-set-group-header history-group-header" data-history-exercise="${exName}">
+                        <span class="muscle-tag" style="background:${muscleBg}"></span>
+                        <span class="session-set-group-name">${exTitle}${hasPR ? '<span class="item-pr-tag">PR</span>' : ''}</span>
+                        <span class="session-set-count">${exSets.length} set${exSets.length === 1 ? '' : 's'}</span>
+                    </button>
+                    <div class="session-set-pills">${pills}</div>
+                </div>`;
+        }
+    }
+    groups.innerHTML = bodyHtml || '';
+
+    // Wire interactions: tap header → exercise sheet, long-press pill → delete.
+    groups.querySelectorAll('.history-group-header').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ex = btn.dataset.historyExercise;
             if (ex) openExercise(ex);
-        }
+        });
     });
+    groups.querySelectorAll('.history-pill').forEach(attachPillLongPress);
 }
 
-
+// v9.2 — Long-press (500ms) on a history pill triggers deleteEntry, which
+// already shows a 5-second Undo snackbar. A regular tap is a no-op so
+// accidentally brushing a pill while scrolling is safe.
+function attachPillLongPress(pill) {
+    let timer = null;
+    let pointerId = null;
+    let startX = 0, startY = 0;
+    const cancel = () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        pill.classList.remove('long-pressing');
+        pointerId = null;
+    };
+    pill.addEventListener('pointerdown', e => {
+        if (e.button && e.button !== 0) return;
+        pointerId = e.pointerId;
+        startX = e.clientX; startY = e.clientY;
+        pill.classList.add('long-pressing');
+        timer = setTimeout(() => {
+            const id = parseInt(pill.dataset.id, 10);
+            if (Number.isFinite(id)) {
+                haptic([30, 50, 30]);
+                deleteEntry(id);
+            }
+            cancel();
+        }, 500);
+    });
+    pill.addEventListener('pointermove', e => {
+        if (e.pointerId !== pointerId) return;
+        // Treat any meaningful drag as scroll intent → cancel the long-press.
+        if (Math.abs(e.clientX - startX) > 8 || Math.abs(e.clientY - startY) > 8) cancel();
+    });
+    pill.addEventListener('pointerup', cancel);
+    pill.addEventListener('pointercancel', cancel);
+    pill.addEventListener('pointerleave', cancel);
+}
 
 // Items 7 + 9: incremental sync + restore-typo detection.
 //
