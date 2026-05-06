@@ -1387,6 +1387,20 @@ button.card-button:focus-visible {
 }
 .update-banner-btn:active { background: rgba(255, 255, 255, 0.85); }
 
+/* v9.10 — Updating veil. Set on <body> just before SKIP_WAITING is posted
+   so the brief window between the message and controllerchange/reload
+   doesn't paint the old shell first. Sits above every overlay and the
+   tab bar. No animation — instant solid cover so the swap reads as one
+   deliberate transition rather than a flash. */
+.app-updating::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 99999;
+  pointer-events: auto;
+}
+
 /* Voice command help list — two-column rows: command | description */
 .help-list { padding: 0; }
 .help-row {

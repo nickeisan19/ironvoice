@@ -457,7 +457,7 @@ sticky header, below overlays. No-op on devices without a notch
 (safe-area-inset-top resolves to 0). Don't add another top spacer or
 sticky-header margin to "fix" the status bar — this is the fix.
 
-**PWA update flow has three paths (v9.3):**
+**PWA update flow has three paths (v9.3, refined v9.10):**
 - **Cold start with already-waiting SW** — if a service worker is in the
   `waiting` state at app launch, the page posts `SKIP_WAITING`
   immediately. Reopening the app always lands on the latest shell with
@@ -478,6 +478,44 @@ Don't replace the banner with a toast or tuck the prompt next to the
 FAB — that conflict was the reason for the v9.2 change. Don't shrink
 the tap target back to just the inner pill — making the whole banner
 tappable was the v9.3 fix for "I missed the small button."
+
+**v9.10 — three small refinements to the update story.** None of the
+above paths change in shape; what changes is what the user sees and
+when detection fires.
+
+1. **Updating veil during the swap.** Both the cold-start path
+   ([app.js](app.js) `initServiceWorker`) and `applyUpdate()` add
+   `app-updating` to `<body>` immediately before posting `SKIP_WAITING`.
+   `.app-updating::after` ([style.css](style.css)) is a full-viewport
+   solid-`var(--bg)` overlay at z-index 99999 that hides every paint
+   between the message post and the `controllerchange` reload. Without
+   it, the page paints the stale shell once before the reload paints
+   the new shell — that double-paint is what reads as a "flash." Don't
+   animate the veil; it should be instant. Don't skip applying it from
+   `applyUpdate()`, the auto-apply-on-Home and banner-tap paths need
+   the same masking.
+2. **Post-update snackbar (`acknowledgeVersionLanding()` in
+   [app.js](app.js)).** Persists `ironLastSeenVersion` in
+   `localStorage`. After `showScreen('home')` on boot, compares with
+   `self.APP_VERSION`: if different (and a previous value existed),
+   shows the standard snackbar `"Updated to v9.X"` for 3.5s, then
+   writes the new value. First install is silent — there's no prior
+   version to celebrate. This is the *retrospective* signal that the
+   invisible swap worked; the user sees the fresh shell and gets a
+   confirming nudge.
+3. **Detection on visibility resume.** `onVisibilityChange()` in
+   [app.js](app.js) now fires `reg.update()` on the `'visible'`
+   branch (cheap conditional GET to `sw.js`; 304 short-circuit if
+   already current). The 30-min `setInterval` poll stays — visibility
+   resume covers the case where the PWA has been backgrounded for
+   hours and the user comes back. This is the highest-leverage
+   reliability win: most users open → use → background → resume,
+   and that resume is now an update-check moment.
+
+Don't replace the snackbar with a modal/banner — that's exactly the
+intrusive-prompt direction v9.3 walked away from. Don't tighten the
+30-min poll to compensate for visibility-resume; doubling polling is
+wasteful and the resume hook already covers the gap.
 
 **No native browser dialogs anywhere (v9.8).** Every confirm / alert /
 prompt in the app routes through `confirmSheet({...})` or

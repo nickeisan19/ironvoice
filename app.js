@@ -353,6 +353,7 @@ window.addEventListener('load', () => {
     maybeShowInstallHint();
     handleShortcutAction();
     showScreen('home');   // mark Home tab active on first load
+    acknowledgeVersionLanding();
     // v8: auto-sync triggers
     document.addEventListener('visibilitychange', onVisibilityChange);
     // Boot-time catch-up: if the page was killed before a previous sync
@@ -405,6 +406,10 @@ function initServiceWorker() {
         // Guard on .controller so the very first install (no prior version)
         // doesn't trigger a redundant reload.
         if (reg.waiting && navigator.serviceWorker.controller) {
+            // v9.10 — drop the veil before the swap so the controllerchange
+            // reload doesn't sandwich a paint of the stale shell between the
+            // boot render and the fresh shell render.
+            document.body.classList.add('app-updating');
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
             return;
         }
@@ -459,8 +464,32 @@ function initSWMessages() {
 
 function applyUpdate() {
     if (!pendingSWUpdate) return;
+    // v9.10 — same veil treatment as the cold-start path. Hides the shell
+    // for the ~50–300ms between SKIP_WAITING and the controllerchange
+    // reload so users don't see a stale paint on the way out.
+    document.body.classList.add('app-updating');
     pendingSWUpdate.postMessage({ type: 'SKIP_WAITING' });
     $('update-toast').classList.remove('active');
+}
+
+// v9.10 — Most updates land via the auto-apply / cold-start swap, which is
+// invisible by design. Without a post-reload signal a tester can't tell
+// whether the swap happened — the only proof is the Profile footer, which
+// nobody looks at. Compare the persisted last-seen version with the
+// running APP_VERSION on boot; if they differ, surface a one-shot snackbar
+// so the version bump is acknowledged. First install (no prior key) is
+// silent — there's nothing meaningful to celebrate yet.
+function acknowledgeVersionLanding() {
+    try {
+        const KEY = 'ironLastSeenVersion';
+        const current = self.APP_VERSION;
+        if (!current) return;
+        const previous = localStorage.getItem(KEY);
+        if (previous && previous !== current) {
+            showSnackbar(`Updated to v${current}`, { duration: 3500 });
+        }
+        localStorage.setItem(KEY, current);
+    } catch (_) { /* localStorage unavailable — skip */ }
 }
 
 function initOnlineHandler() {
@@ -4670,6 +4699,19 @@ async function autoSync(reason) {
 function onVisibilityChange() {
     if (document.visibilityState === 'hidden') {
         autoSync('page-hidden');
+    } else if (document.visibilityState === 'visible') {
+        // v9.10 — When the PWA returns to the foreground (lock-screen
+        // unlock, app-switch back, etc.), poke the SW to re-check for a
+        // new version. Cheap conditional GET; if we're already on the
+        // latest, the browser short-circuits with a 304 and nothing
+        // happens. This shifts "next update check" from "up to 30 min"
+        // (the setInterval poll) to "the moment the user looks at the
+        // app" — by far the most common moment a user would benefit.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration()
+                .then(reg => reg?.update())
+                .catch(() => {});
+        }
     }
 }
 
