@@ -187,7 +187,44 @@
                     <label class="row-input"><span>Weight (lb)</span><input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0"></label>
                     <label class="row-input"><span>Reps</span><input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0"></label>
                 </div>
-                <div class="section-foot">Same exercise, new weight × reps. Pre-filled from the previous set.</div>
+                <div class="section-foot" id="quick-add-foot">Same exercise, new weight × reps. Pre-filled from the previous set.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.6 — Set action sheet. Opened by tapping any set pill on the active
+         workout screen or in the History day-detail view. Surfaces a small
+         summary of the set (exercise · meta · weight × reps · est 1RM · PR
+         badge if it's the current PR) and offers Edit / Delete actions.
+         Replaces the v9.2 long-press-to-delete gesture, which was invisible
+         to sighted users and absent from the help sheet. Active workout pills
+         had no delete path at all before this. -->
+    <div id="set-action-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="set-action-title">
+            <div class="sheet-header sheet-header-3col">
+                <button class="sheet-close cancel" data-action="closeSetAction">Cancel</button>
+                <span class="sheet-title-text" id="set-action-title">Set details</span>
+                <span></span>
+            </div>
+            <div class="sheet-body">
+                <div class="set-action-summary">
+                    <div class="set-action-head">
+                        <span class="muscle-tag" id="set-action-muscle"></span>
+                        <span class="set-action-name" id="set-action-name">—</span>
+                        <span class="item-pr-tag" id="set-action-pr" hidden>PR</span>
+                    </div>
+                    <div class="set-action-meta" id="set-action-meta"></div>
+                    <div class="set-action-numbers">
+                        <span class="set-action-weight" id="set-action-weight">—</span>
+                        <span class="set-action-x">×</span>
+                        <span class="set-action-reps" id="set-action-reps">—</span>
+                    </div>
+                    <div class="set-action-onerm" id="set-action-onerm"></div>
+                </div>
+                <div class="set-action-actions">
+                    <button type="button" class="primary-btn" data-action="editFromSetAction">Edit set</button>
+                    <button type="button" class="primary-btn danger" data-action="deleteFromSetAction">Delete set</button>
+                </div>
             </div>
         </div>
     </div>
@@ -269,6 +306,7 @@
                 <div class="grouped-list help-list">
                     <div class="help-row"><span class="help-cmd">"Undo"</span><span class="help-desc">Removes the most recent log</span></div>
                     <div class="help-row"><span class="help-cmd">"Delete that"</span><span class="help-desc">Same as Undo</span></div>
+                    <div class="help-row"><span class="help-cmd">Tap a set pill</span><span class="help-desc">Edit weight × reps, or delete (5s undo)</span></div>
                 </div>
 
                 <div class="section-foot" style="margin-top:18px">In Profile → Voice, turn on Workout Mode to keep the mic open between sets — no need to tap each time.</div>

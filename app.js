@@ -1920,6 +1920,9 @@ function initActionDispatcher() {
         closePRCelebrate, downloadCelebrate, shareCelebrate,
         // v9.2 — quick-add another set for the same exercise during a workout
         openQuickAdd, closeQuickAdd, saveQuickAdd,
+        // v9.6 — tap a pill → action sheet (Edit / Delete). Replaces the
+        // v9.2 long-press gesture.
+        openSetAction, closeSetAction, editFromSetAction, deleteFromSetAction,
         // a11y: surfaces an explanatory snackbar on browsers without
         // SpeechRecognition (iOS Safari, etc.). The mic's data-action is
         // rewritten to this in initSpeech() when SR is unavailable.
@@ -2999,15 +3002,24 @@ function closePlate() { $('plate-overlay').classList.remove('active'); }
 // from the "+ Add set" pill on each session-set-group during an active
 // workout. Pre-fills the weight/reps inputs with the previous set's values
 // so the common case (same weight × same reps) is one tap → Save.
+//
+// v9.6 — The same overlay also serves Edit mode: when _quickAddEditId is
+// set (by openEditSet), the title reads "Edit set", the inputs pre-fill
+// from the entry being edited, and Save routes to updateEntry instead of
+// buildEntry/saveAndSyncUI. This avoids duplicating the input markup.
 let _quickAddExercise = null;
+let _quickAddEditId = null;
+let _setActionId = null;
 
 async function openQuickAdd(el) {
     const exercise = el?.dataset?.exercise;
     if (!exercise) return;
     _quickAddExercise = exercise;
+    _quickAddEditId = null;   // explicit Add path
 
     const lib = exerciseLibrary.find(ex => ex.name === exercise);
     const muscle = lib?.muscle || muscleOf(exercise) || 'core';
+    $('quick-add-title').textContent = 'Add set';
     $('quick-add-name').textContent = titleCase(exercise);
     const tagEl = $('quick-add-muscle');
     if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
@@ -3030,6 +3042,8 @@ async function openQuickAdd(el) {
     $('quick-add-prev').textContent = prev
         ? `Previous set: ${prev.weight} × ${prev.reps}`
         : 'No previous sets — enter weight and reps.';
+    const foot = $('quick-add-foot');
+    if (foot) foot.textContent = 'Same exercise, new weight × reps. Pre-filled from the previous set.';
 
     $('quick-add-overlay').classList.add('active');
     setTimeout(() => $('quick-add-w').focus({ preventScroll: true }), 350);
@@ -3038,6 +3052,7 @@ async function openQuickAdd(el) {
 function closeQuickAdd() {
     $('quick-add-overlay').classList.remove('active');
     _quickAddExercise = null;
+    _quickAddEditId = null;
 }
 
 async function saveQuickAdd() {
@@ -3048,10 +3063,132 @@ async function saveQuickAdd() {
         haptic([20, 50, 20]);
         return;
     }
+    if (_quickAddEditId != null) {
+        const id = _quickAddEditId;
+        closeQuickAdd();
+        await updateEntry(id, w, r);
+        haptic(15);
+        return;
+    }
     const entry = buildEntry(exercise, w, r);
     closeQuickAdd();
     await saveAndSyncUI(entry);
     haptic(15);
+}
+
+// v9.6 — Open the quick-add overlay in Edit mode for an existing entry.
+// Same overlay markup as Add; differs in title, prefilled values (current
+// entry, not previous set), and the Save handler routes to updateEntry.
+async function openEditSet(id) {
+    const entry = await performDB('workouts', 'get', id);
+    if (!entry || entry.deleted) return;
+    _quickAddExercise = entry.exercise;
+    _quickAddEditId = id;
+
+    const lib = exerciseLibrary.find(ex => ex.name === entry.exercise);
+    const muscle = lib?.muscle || muscleOf(entry.exercise) || 'core';
+    $('quick-add-title').textContent = 'Edit set';
+    $('quick-add-name').textContent = titleCase(entry.exercise);
+    const tagEl = $('quick-add-muscle');
+    if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
+
+    $('quick-add-w').value = String(entry.weight);
+    $('quick-add-r').value = String(entry.reps);
+    $('quick-add-prev').textContent =
+        `Logged ${new Date(entry.id).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    const foot = $('quick-add-foot');
+    if (foot) foot.textContent = 'Edits update this set in place — its order and timestamp are preserved.';
+
+    $('quick-add-overlay').classList.add('active');
+    setTimeout(() => $('quick-add-w').focus({ preventScroll: true }), 350);
+}
+
+// v9.6 — Update an existing set's weight/reps. Mirrors deleteEntry's
+// re-render fan-out so PR badges, charts, and the active session card
+// reflect the new value immediately. PR is recomputed (not just compared)
+// because an edit can move the PR up OR down.
+async function updateEntry(id, weight, reps) {
+    try {
+        const entry = await performDB('workouts', 'get', id);
+        if (!entry || entry.deleted) return;
+        entry.weight = weight;
+        entry.reps = reps;
+        entry.oneRM = epley(weight, reps);
+        entry.modifiedAt = Date.now();
+        await performDB('workouts', 'put', entry);
+        markUnsynced();
+        await recomputePR(entry.exercise);
+        await renderHistory();
+        await renderStrengthTrajectory();
+        await renderTrainingRhythm();
+        await renderBalance();
+        await renderStrain();
+        await renderInsights();
+        await refreshLatestStats();
+        await refreshSessionCard();
+        showSnackbar(`Updated ${titleCase(entry.exercise)}`, { duration: 3000 });
+    } catch (err) { console.error('Edit failed', err); }
+}
+
+// v9.6 — Set action sheet. Tap a pill on the active workout screen or in
+// History day-detail to open this; surfaces a summary plus Edit / Delete.
+// Replaces the v9.2 long-press-to-delete gesture, which sighted users
+// couldn't discover. Active-workout pills had no delete path before this.
+async function openSetAction(el) {
+    const id = parseInt(el?.dataset?.id, 10);
+    if (!Number.isFinite(id)) return;
+    const entry = await performDB('workouts', 'get', id);
+    if (!entry || entry.deleted) return;
+    _setActionId = id;
+
+    const lib = exerciseLibrary.find(ex => ex.name === entry.exercise);
+    const muscle = lib?.muscle || muscleOf(entry.exercise) || 'core';
+
+    const muscleEl = $('set-action-muscle');
+    if (muscleEl) muscleEl.style.background = muscleColor[muscle] || '#888';
+    $('set-action-name').textContent = titleCase(entry.exercise);
+    $('set-action-weight').textContent = String(entry.weight);
+    $('set-action-reps').textContent = `${entry.reps} reps`;
+    $('set-action-onerm').textContent =
+        `est 1RM ${Number.isFinite(entry.oneRM) ? entry.oneRM.toFixed(1) : '—'} lb`;
+
+    // Compute "Set N of M" within (sessionId, exercise). Untagged sets fall
+    // back to the day's bucket so the meta line still gives useful context.
+    const sameContext = (await performDB('workouts', 'getAll')).filter(w => {
+        if (w.deleted) return false;
+        if (w.exercise !== entry.exercise) return false;
+        if (entry.sessionId) return w.sessionId === entry.sessionId;
+        return w.date === entry.date && !w.sessionId;
+    }).sort((a, b) => a.id - b.id);
+    const setIdx = sameContext.findIndex(w => w.id === id);
+    const setNumber = setIdx >= 0 ? setIdx + 1 : 1;
+    const setTotal = sameContext.length || 1;
+    const timeLabel = new Date(entry.id).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('set-action-meta').textContent = `Set ${setNumber} of ${setTotal} · ${timeLabel}`;
+
+    // PR badge: only show if this entry IS the current PR for its exercise.
+    const pr = await performDB('prs', 'get', entry.exercise);
+    const prBadge = $('set-action-pr');
+    if (prBadge) prBadge.hidden = !(pr && pr.achievedAt === id);
+
+    $('set-action-overlay').classList.add('active');
+}
+
+function closeSetAction() {
+    $('set-action-overlay').classList.remove('active');
+    _setActionId = null;
+}
+
+function editFromSetAction() {
+    const id = _setActionId;
+    closeSetAction();
+    if (id != null) openEditSet(id);
+}
+
+function deleteFromSetAction() {
+    const id = _setActionId;
+    closeSetAction();
+    if (id != null) deleteEntry(id);
 }
 
 function renderPlate() {
@@ -3620,8 +3757,12 @@ function renderSessionSets(container, sets) {
         // Order within an exercise: chronological (oldest first) so reading
         // left to right matches the order you actually did the sets in.
         const orderedSets = [...exSets].sort((a, b) => a.id - b.id);
+        // v9.6 — pills are now buttons that open the set-action sheet so the
+        // user can edit or delete the set. Same visual as before; the button
+        // styling is handled by the existing .session-set-pill rules + the
+        // shared interaction states from .history-pill.
         const setPills = orderedSets.map(s =>
-            `<span class="session-set-pill">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span></span>`
+            `<button type="button" class="session-set-pill history-pill" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${escapeHtml(String(s.weight))} pounds for ${escapeHtml(String(s.reps))} reps. Tap to edit or delete.">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span></button>`
         ).join('');
         // v9.2 — trailing "+ Add set" pill opens the quick-add sheet so the
         // user can log another set of the same exercise without re-typing
@@ -4042,12 +4183,13 @@ async function renderHistoryDayDetail(date, allWorkouts) {
     }
     empty.style.display = 'none';
 
-    // v9.2 — History day detail now mirrors the active-workout pill layout:
+    // v9.2 — History day detail mirrors the active-workout pill layout:
     // for each session of the day we render one or more session-set-group
     // cards (one per exercise) with horizontal pills for each set, instead
-    // of the old per-row swipe-to-delete list. Long-press a pill to delete
-    // it (same Undo snackbar as before). Tap the group header to open the
-    // exercise sheet.
+    // of the old per-row swipe-to-delete list. Tap the group header to open
+    // the exercise sheet. v9.6 — tapping a pill opens the set-action sheet
+    // (Edit / Delete); the dispatcher handles the click via the pill's
+    // data-action attribute, so no per-pill JS wiring is needed here.
     const allSessions = await performDB('sessions', 'getAll');
     const sessionMap = Object.fromEntries(allSessions.map(s => [s.id, s]));
     const prs = await performDB('prs', 'getAll');
@@ -4143,7 +4285,7 @@ async function renderHistoryDayDetail(date, allWorkouts) {
 
             const pills = exSets.map(s => {
                 const isPR = prMap[s.exercise] === s.id;
-                return `<button type="button" class="session-set-pill history-pill${isPR ? ' is-pr' : ''}" data-id="${s.id}" aria-label="Set ${escapeHtml(String(s.weight))} pounds for ${escapeHtml(String(s.reps))} reps. Long-press to delete.">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span>${isPR ? '<span class="pill-pr-tag">PR</span>' : ''}</button>`;
+                return `<button type="button" class="session-set-pill history-pill${isPR ? ' is-pr' : ''}" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${escapeHtml(String(s.weight))} pounds for ${escapeHtml(String(s.reps))} reps. Tap to edit or delete.">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span>${isPR ? '<span class="pill-pr-tag">PR</span>' : ''}</button>`;
             }).join('');
 
             bodyHtml += `
@@ -4159,50 +4301,14 @@ async function renderHistoryDayDetail(date, allWorkouts) {
     }
     groups.innerHTML = bodyHtml || '';
 
-    // Wire interactions: tap header → exercise sheet, long-press pill → delete.
+    // Tap a group header to open the exercise sheet. Pill taps are handled
+    // by the global dispatcher via data-action="openSetAction".
     groups.querySelectorAll('.history-group-header').forEach(btn => {
         btn.addEventListener('click', () => {
             const ex = btn.dataset.historyExercise;
             if (ex) openExercise(ex);
         });
     });
-    groups.querySelectorAll('.history-pill').forEach(attachPillLongPress);
-}
-
-// v9.2 — Long-press (500ms) on a history pill triggers deleteEntry, which
-// already shows a 5-second Undo snackbar. A regular tap is a no-op so
-// accidentally brushing a pill while scrolling is safe.
-function attachPillLongPress(pill) {
-    let timer = null;
-    let pointerId = null;
-    let startX = 0, startY = 0;
-    const cancel = () => {
-        if (timer) { clearTimeout(timer); timer = null; }
-        pill.classList.remove('long-pressing');
-        pointerId = null;
-    };
-    pill.addEventListener('pointerdown', e => {
-        if (e.button && e.button !== 0) return;
-        pointerId = e.pointerId;
-        startX = e.clientX; startY = e.clientY;
-        pill.classList.add('long-pressing');
-        timer = setTimeout(() => {
-            const id = parseInt(pill.dataset.id, 10);
-            if (Number.isFinite(id)) {
-                haptic([30, 50, 30]);
-                deleteEntry(id);
-            }
-            cancel();
-        }, 500);
-    });
-    pill.addEventListener('pointermove', e => {
-        if (e.pointerId !== pointerId) return;
-        // Treat any meaningful drag as scroll intent → cancel the long-press.
-        if (Math.abs(e.clientX - startX) > 8 || Math.abs(e.clientY - startY) > 8) cancel();
-    });
-    pill.addEventListener('pointerup', cancel);
-    pill.addEventListener('pointercancel', cancel);
-    pill.addEventListener('pointerleave', cancel);
 }
 
 // Items 7 + 9: incremental sync + restore-typo detection.

@@ -347,10 +347,37 @@ the old `.week-day-dot`. Computed in `renderHistoryScreen()`.
 **History day detail uses the active-workout pill layout (v9.2).** The
 day-detail view mirrors how an in-progress session looks: each exercise
 group renders as muscle dot + exercise name + a horizontal row of
-weight × reps pills. PR sets get an inline gold pill tag. Long-press a
-pill to delete (existing 5s Undo snackbar applies). Tapping an exercise
-group header opens the exercise sheet. The old swipe-to-delete row list
-and `attachSwipe` helper are gone — don't resurrect them.
+weight × reps pills. PR sets get an inline gold pill tag. Tapping an
+exercise group header opens the exercise sheet. The old swipe-to-delete
+row list and `attachSwipe` helper are gone — don't resurrect them.
+
+**Set pill = tap to edit/delete via action sheet (v9.6).** Tapping any
+set pill (active workout OR history day-detail) opens
+`#set-action-overlay` — a small bottom sheet showing the set summary
+(muscle dot, exercise, "Set N of M · time", weight × reps in big type,
+est 1RM, PR badge if applicable) plus an Edit and a red Delete button.
+This is the **single canonical edit/delete path** across both surfaces.
+
+- **Pills are `<button data-action="openSetAction" data-id="${id}">`**
+  in both `renderSessionSets()` and `renderDayDetail()`. The dispatcher
+  routes the click; no per-pill JS wiring needed.
+- **Edit** reuses `#quick-add-overlay` in edit mode: `_quickAddEditId` is
+  set, the title flips to "Edit set", inputs prefill with the entry's
+  current values (not the previous set), Save routes to `updateEntry()`
+  instead of `buildEntry()`+`saveAndSyncUI()`. The id is preserved so
+  chronological order/timestamp don't change.
+- **Delete** calls the existing `deleteEntry(id)`, which already handles
+  tombstone + PR recompute + 5s Undo snackbar.
+- **`updateEntry(id, w, r)`** at app.js mirrors `deleteEntry`'s render
+  fan-out (history, strength/rhythm/balance, strain, insights, latest
+  stats, session card) and calls `recomputePR(exercise)` because an edit
+  can move the PR up OR down. Snackbar is "Updated …" with no Undo —
+  edits are reversible by editing again.
+- **The v9.2 long-press handler (`attachPillLongPress`) is deleted** —
+  invisible to sighted users, undocumented in the help sheet, replaced
+  by the discoverable tap-to-sheet path. Don't bring it back; don't add
+  a per-pill `×` glyph; don't add swipe (already prohibited above).
+  Voice "undo" remains as the hands-free path.
 
 **Root font-size is 17px, not the browser default 16 (v9.2).** All
 rem-based text scales up ~6%. Smallest body-text floor moves from

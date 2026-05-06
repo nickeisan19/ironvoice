@@ -2057,16 +2057,16 @@ button.card-button:focus-visible {
 }
 .session-set-add-label { font-weight: 600; }
 
-/* History pill: same visuals as session-set-pill but a button so it can
-   handle long-press for delete and bear a PR badge inline. */
+/* History/active-workout pill: same visuals as session-set-pill but a
+   button so it can be tapped to open the set-action sheet (v9.6). The
+   v9.2 long-press handler is gone — tap is the only gesture. */
 .history-pill {
   font-family: inherit;
   cursor: pointer;
   position: relative;
   transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
 }
-.history-pill:active,
-.history-pill.long-pressing {
+.history-pill:active {
   background: var(--surface-2);
   transform: scale(0.96);
   box-shadow: inset 0 0 0 1px var(--label-tertiary);
@@ -2138,6 +2138,69 @@ button.card-button:focus-visible {
   color: var(--label-secondary);
   font-feature-settings: "tnum";
 }
+
+/* v9.6 — Set action sheet (Edit / Delete). Opened by tapping a session
+   or history pill. Mirrors the quick-add sheet's visual rhythm so the
+   pair feels like one family. */
+.set-action-summary {
+  padding: 8px 4px 18px;
+  text-align: center;
+}
+.set-action-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.set-action-head .muscle-tag { width: 12px; height: 12px; margin: 0; }
+.set-action-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--label);
+}
+.set-action-meta {
+  font-size: 0.85rem;
+  color: var(--label-secondary);
+  font-feature-settings: "tnum";
+  margin-bottom: 18px;
+}
+.set-action-numbers {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-feature-settings: "tnum";
+}
+.set-action-weight,
+.set-action-reps {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--label);
+}
+.set-action-x {
+  font-size: 1.6rem;
+  color: var(--label-tertiary);
+  font-weight: 500;
+}
+.set-action-onerm {
+  font-size: 0.9rem;
+  color: var(--label-secondary);
+  font-feature-settings: "tnum";
+}
+.set-action-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.primary-btn.danger {
+  background: var(--red);
+}
+.primary-btn.danger:active { background: #c63a30; }
 
 /* ==========================================================================
    PRs screen
