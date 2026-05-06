@@ -2466,10 +2466,20 @@ function startRestTimer(seconds) {
     }, 1000);
 }
 
-function dismissTimer() {
+// v9.7 — extracted so endWorkoutSession can reuse the timer cleanup
+// without firing a haptic blip on top of the end-workout vibration.
+function clearRestTimer() {
     if (restTimerHandle) { clearInterval(restTimerHandle); restTimerHandle = null; }
     if (restCompleteTimeout) { clearTimeout(restCompleteTimeout); restCompleteTimeout = null; }
-    $('rest-timer').classList.remove('active');
+    const pill = $('rest-timer');
+    if (pill) {
+        pill.classList.remove('active');
+        pill.classList.remove('complete');
+    }
+}
+
+function dismissTimer() {
+    clearRestTimer();
     haptic(10);
 }
 
@@ -3531,6 +3541,11 @@ async function startWorkoutSession() {
 
 async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = {}) {
     if (!activeSession) return null;
+    // v9.7 — Rest is workout-scoped: clear the rest pill the moment the
+    // workout ends (or is cancelled via the empty-discard path below).
+    // Without this, the orange "rest" pill keeps ticking after End and
+    // competes with the post-end snackbar for attention.
+    clearRestTimer();
     const session = activeSession;
     session.endedAt = atTimestamp;
     session.durationMs = atTimestamp - session.startedAt;
