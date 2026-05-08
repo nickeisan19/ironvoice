@@ -190,6 +190,28 @@ let voiceURI = localStorage.getItem('ironVoiceURI') || '';
 // v6: workout sessions
 let activeSession = null;        // current in-progress session, or null
 let _sessionTickerTimer = null;  // setInterval handle for live time updates
+
+// Screen Wake Lock — held only while a workout session is active so the
+// phone doesn't dim/lock between sets when set down on a bench. Browser
+// auto-releases on tab hide; the visibilitychange handler re-acquires
+// on return. iOS Safari ≥16.4, Chrome/Edge ≥84. Older browsers no-op.
+let _screenWakeLock = null;
+async function acquireScreenWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    if (_screenWakeLock) return;
+    try {
+        _screenWakeLock = await navigator.wakeLock.request('screen');
+        _screenWakeLock.addEventListener('release', () => { _screenWakeLock = null; });
+    } catch (_) {
+        _screenWakeLock = null;
+    }
+}
+async function releaseScreenWakeLock() {
+    if (!_screenWakeLock) return;
+    const lock = _screenWakeLock;
+    _screenWakeLock = null;
+    try { await lock.release(); } catch (_) {}
+}
 // v6: PR screen tab
 let prTab = 'weight';            // 'weight' | 'weight-reps'
 // v6: history screen state
@@ -3719,6 +3741,7 @@ async function startWorkoutSession({ silent = false } = {}) {
     await performDB('sessions', 'put', activeSession);
     markUnsynced();   // v8
     startSessionTicker();
+    acquireScreenWakeLock();
     await refreshSessionCard();
     updateWorkoutTabUI();
     // v9.1: flip Home tiles + header subtitle into "in session" mode now,
@@ -3755,6 +3778,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
         activeSession = null;
         localStorage.removeItem(ACTIVE_SESSION_KEY);
         stopSessionTicker();
+        releaseScreenWakeLock();
         await refreshSessionCard();
         updateWorkoutTabUI();
         // v9.1: flip Home back to idle copy.
@@ -3770,6 +3794,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     activeSession = null;
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     stopSessionTicker();
+    releaseScreenWakeLock();
     await refreshSessionCard();
     updateWorkoutTabUI();
     // v9.1: flip Home tiles + subtitle back to idle now that the session ended.
@@ -4089,6 +4114,7 @@ async function resumeOrPromptSession() {
         // Recent activity — resume silently.
         activeSession = stored;
         startSessionTicker();
+        acquireScreenWakeLock();
         return;
     }
 
@@ -4113,6 +4139,7 @@ async function resumeOrPromptSession() {
     } else {
         activeSession = stored;
         startSessionTicker();
+        acquireScreenWakeLock();
     }
 }
 
@@ -4818,6 +4845,9 @@ function onVisibilityChange() {
                 .then(reg => reg?.update())
                 .catch(() => {});
         }
+        // Browser auto-releases the screen wake lock on hide; re-acquire
+        // if we're returning mid-session.
+        if (activeSession) acquireScreenWakeLock();
     }
 }
 

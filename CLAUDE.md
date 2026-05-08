@@ -652,6 +652,32 @@ even for quick prototypes — the visual mismatch was the trigger for
 this rewrite, and a single fast-path exception will leak the system
 dialog back into a release.
 
+**Screen Wake Lock is held only during an active workout session
+(v9.12).** `acquireScreenWakeLock()` / `releaseScreenWakeLock()` in
+[app.js](app.js) bracket the existing `activeSession` lifecycle:
+acquired alongside `startSessionTicker()` in `startWorkoutSession()`
+and on every resume branch in `resumeOrPromptSession()`; released
+alongside `stopSessionTicker()` in `endWorkoutSession()` (both real
+end and the empty-discard short-circuit). The browser auto-releases
+on `visibilitychange → hidden`, so `onVisibilityChange()` re-acquires
+on the `'visible'` branch when `activeSession` is still set —
+otherwise re-foregrounding mid-session would leave the screen
+dimmable until the next manual session transition. Helpers are
+idempotent and feature-detected via `'wakeLock' in navigator`; on
+unsupported browsers (iOS <16.4) they early-return silently and the
+session lifecycle is unaffected. Scope is **session-only by design** —
+mic-listening outside a session (PR queries, plate breakdowns) does
+not acquire the lock because those are seconds-long. **Don't add a
+Profile toggle for this** without a concrete user complaint: the
+"keep screen on while actively lifting" behavior is the obvious
+correct default, a toggle adds a Profile row + localStorage key + a
+help-string for a behavior with no realistic objection, and the
+manual lock button still works if someone wants to lock the phone
+mid-workout. **Don't widen the scope** to "always on while the app
+is open" — battery cost without a reason. The centralized helpers
+make a future toggle a one-line change if the situation actually
+warrants it.
+
 ---
 
 ## Conventions Nick follows
