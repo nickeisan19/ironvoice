@@ -224,9 +224,15 @@ icon strip (top right), not the tab bar. This was iterated to.
   running. Voice commands ("start workout") still call
   `toggleWorkoutSession()` directly — the screen's CTA wires to the same
   function. Don't conflate navigation with action again.
-- **End workout lives inside the active session card (v9.2)** as a compact
-  red pill, gated by a `confirm()` that surfaces session stats. Voice
-  ("end workout") still bypasses the confirm for hands-busy use. The old
+- **End workout lives inside the active session card (v9.2, restyled
+  v9.11).** A solid-red rectangular button matching the `.add-btn`
+  shape (was a faded-red pill before v9.11), gated by `confirmSheet()`
+  (v9.8) that surfaces session stats. Voice ("end workout") still
+  bypasses the confirm for hands-busy use. The button sits in
+  `.session-card-right` with `justify-content: space-between`, so it
+  aligns with the bottom of the meta column — when the rest timer is
+  active and the meta column grows, End drops to the same baseline as
+  the REST/0:58 line instead of pushing the green card taller. The old
   `#workout-active-actions` footer container has been removed — don't
   reintroduce a screen-level End button.
 - **Per-exercise "+ Add set" pill (v9.2).** Each exercise group on the
@@ -242,6 +248,55 @@ icon strip (top right), not the tab bar. This was iterated to.
 - **Manual quick-add lives on Workout, not Home.** The `#ex-search`,
   `#manual-w`, `#manual-r`, `#ex-dropdown` IDs are now inside
   `<section data-screen="workout">`. Home is a pure dashboard.
+
+**Sessions auto-start silently on the first set (v9.11).** Sessions are
+invisible plumbing, not a feature to opt into. `saveAndSyncUI()` checks
+`activeSession` at the top of its `try` block; if absent, it calls
+`startWorkoutSession({ silent: true })` and re-tags `entry.sessionId`
+before the workouts row is written. The `silent` flag suppresses the
+`[15, 40, 15]` triple-pulse haptic so the set's own log haptic isn't
+doubled — the user sees the green session card appear without ceremony,
+no prompt, no toast, no spoken confirmation. The old
+`maybePromptStartOnFirstSet` function and its `setTimeout` call site
+are deleted; the throttle helpers (`isPromptThrottled`,
+`throttlePrompts`, `PROMPT_THROTTLE_KEY`) stay because the launch-time
+prompt (`maybePromptStartOnLaunch`, fires after >12h inactivity) still
+uses them. Don't reintroduce the per-set "Start a workout?" prompt;
+the explicit Start button on the Workout screen and the Home primary
+action remain the manual paths. Voice "start workout" routes through
+`toggleWorkoutSession` → `startWorkoutSession()` *without* `silent`,
+because explicit user action gets the confirmation pulse.
+
+**Session-card layout (v9.11).** All session-running surfaces sit in
+the green `.session-card`. Three structural rules:
+
+1. **Rest timer is in-card, not a bottom-fixed pill.** `#rest-timer`
+   lives inside `.session-card-meta`, stacked under
+   `IN PROGRESS / 0:38` as a third row (label `REST` in blue,
+   followed by the time in 1.8rem matching the elapsed time). The SVG
+   progress ring was removed in v9.11; only the time + label remain.
+   The `.timer-pill.complete` state still flips both label and time
+   to green when the countdown hits zero (the celebratory "Go" state).
+   Voice "rest 90" without an active session is a non-goal: rest UI
+   is workout-scoped now.
+2. **SET / VOLUME labels above values, in blue.** Stats column
+   (`.session-card-stats`) flipped from
+   number-on-top/`<small>`-label-below to label-on-top with values in
+   1.4rem below. Labels use `.session-card-label-blue` (`var(--blue)`),
+   mirroring the REST label color. `IN PROGRESS` stays green to signal
+   "session is alive"; the blue labels are the metrics. All three top
+   labels (`IN PROGRESS / SET / VOLUME`) sit on the same baseline.
+3. **End workout aligns with the rest-timer line.** `.session-card-row`
+   uses `align-items: stretch` so the right column (`.session-card-right`)
+   matches the meta column's height. The right column is a flex
+   column with `justify-content: space-between`, so SET/VOLUME stay
+   at the top while End workout drops to the bottom. When rest is
+   active and meta grows, End tracks the bottom of meta — keeps the
+   card height roughly invariant whether or not rest is showing.
+
+Don't move the rest timer back to a fixed pill; don't put the End
+button below the row; don't restore the `<small>` stat labels. The
+v9.11 layout was iterated to over multiple turns — it's the answer.
 
 **Hero Load is the home page's primary signal.** A full-width card at the
 top of Home (`.hero-load`, id `#strain-card`) shows the readiness state in
@@ -267,8 +322,13 @@ top to bottom:
 
 The primary action pill (`.home-primary-action`, id `#home-primary-action`)
 says "Start workout" idle / "Resume workout · Nm" with a green pulsing
-icon when a session is active. Both states navigate to the Workout screen
-via `data-screen-target="workout"`.
+icon when a session is active. **v9.11**: tapping the idle state both
+*starts* a session and navigates to the Workout screen in one tap (was
+navigate-only). Wired via `data-action="startWorkoutFromHome"`, which
+calls `showScreen('workout')` then `startWorkoutSession()` if none is
+active. The Resume case (active session) just navigates — calling
+`startWorkoutSession` twice is a no-op anyway, but the conditional
+keeps intent explicit.
 
 `#today-card` is **state-aware** via `renderTodayCard()`:
   - active session → "In progress · Nm · K sets / vol"
@@ -416,6 +476,53 @@ weight × reps pills. PR sets get an inline gold pill tag. Tapping an
 exercise group header opens the exercise sheet. The old swipe-to-delete
 row list and `attachSwipe` helper are gone — don't resurrect them.
 
+**History time rollups — Total / Workout / Rest (v9.11).** The History
+tab surfaces three time totals at three granularities. None of this
+required a new IndexedDB store; the only schema change is one field
+on entries.
+
+- **Schema:** `buildEntry()` stamps `restDurationMs: restDuration * 1000`
+  on every new entry — captures *what the rest setting was at log time*,
+  so later preference changes don't corrupt historical rollups. Free-form
+  JSON in IndexedDB; no migration. Worker pass-through; [worker.js](worker.js)
+  unchanged.
+- **`computeSessionTimes(session, sets)`** ([app.js](app.js)) returns
+  `{ totalMs, restMs, workoutMs }`. Per-set rest is
+  `min(scheduled, gap-to-next-set or session end)` — the user's
+  observation that real rest gets cut short when you log the next set
+  drove this. Entries lacking `restDurationMs` (pre-v9.11, or backfilled
+  estimated sessions) fall back to the current `restDuration` setting
+  silently. Workout = Total − Rest, which folds plate changes / walking
+  / overrun rest into "workout" — that tradeoff is documented; real
+  time-under-tension would need per-set durations the model doesn't
+  carry.
+- **`formatDurationCompact(ms)`** renders `"1h 12m"` / `"47m"` / `"—"`
+  for summary chips. Distinct from `formatElapsed()` (h:mm:ss for live
+  clocks); both coexist — don't merge.
+- **Three render hooks:**
+  - **Per-session** — each session header in `renderHistoryDayDetail`
+    has a sub-row showing `1h 12m total · 47m work · 25m rest`. The
+    bare-minute `dur` was removed (Total replaced it). The `~estimated`
+    badge stays where applicable.
+  - **Per-day** — `#history-day-rollup` (above session headers) shows
+    the day's totals when ≥1 real session contributed. Hidden on
+    untagged-only days.
+  - **Per-week** — `#history-week-rollup` (above the volume strip)
+    sums sessions whose `startedAt` falls in the visible week. Hidden
+    on empty weeks. Powered by `renderRollupTotals(elId, sessions, ...)`
+    and the shared `rollupCellsHtml()` markup helper.
+- **Visual:** three-cell grid `.history-rollup` with small uppercase
+  labels above bold values. The Rest cell renders blue
+  (`.history-rollup-cell-rest`) — mirrors the green session card's
+  REST label color so "rest" reads consistently across screens. Don't
+  color all three cells blue; the asymmetry makes the rest number
+  scannable.
+
+Don't reintroduce the bare-minute `dur` in session headers (Total chip
+covers it). Don't compute rest as `sets × restDuration` — that ignores
+the cap, which is the whole point. Untagged sets contribute zero to
+rollups; their existing "no session timer" header stays unchanged.
+
 **Set pill = tap to edit/delete via action sheet (v9.6).** Tapping any
 set pill (active workout OR history day-detail) opens
 `#set-action-overlay` — a small bottom sheet showing the set summary
@@ -450,12 +557,24 @@ rem-based text scales up ~6%. Smallest body-text floor moves from
 Keep this in mind when sizing new text elements: prefer rem so the
 scale stays consistent.
 
-**iOS status-bar mask (v9.2).** `body::before` paints a solid bar of
-height `env(safe-area-inset-top)` so page content doesn't bleed behind
-the iPhone status bar (time, cellular, battery). Z-indexed above the
-sticky header, below overlays. No-op on devices without a notch
-(safe-area-inset-top resolves to 0). Don't add another top spacer or
-sticky-header margin to "fix" the status bar — this is the fix.
+**iOS status-bar mask (v9.2, extended for overlays in v9.11).**
+`body::before` paints a solid bar of height `env(safe-area-inset-top)`
+so page content doesn't bleed behind the iPhone status bar (time,
+cellular, battery). Z-indexed above the sticky header, below overlays.
+No-op on devices without a notch (safe-area-inset-top resolves to 0).
+Don't add another top spacer or sticky-header margin to "fix" the
+status bar — this is the fix.
+
+**v9.11 enforcement for sheets:** `.modal` `max-height` is now
+`calc(100vh - env(safe-area-inset-top) - 16px)` (was a fixed `92vh`).
+On Dynamic Island phones the safe-area is ~47px, so the modal top
+sits at minimum ~63px below the viewport top — and with the modal's
+own 28px top padding, the sheet-header's Done button is ≥91px from
+the very top, comfortably clear of the time/battery zone. On
+non-iOS / desktop where safe-area is 0, the cap behaves like the
+old `~92vh`. The previous fixed `92vh` could place a tall sheet's top
+edge under the status bar on small iPhones — the fix is the
+safe-area-anchored cap, not nudging individual overlays.
 
 **PWA update flow has three paths (v9.3, refined v9.10):**
 - **Cold start with already-waiting SW** — if a service worker is in the
@@ -651,6 +770,10 @@ When adding a command, also add it to the help sheet (`#help-overlay` in
   date: "2025-01-15",       // ISO date string, local timezone
   modifiedAt: 1735847234567, // for sync conflict resolution
   sessionId: 1735847000000, // optional, if logged during a session
+  restDurationMs: 90000,    // v9.11 — scheduled rest captured at log time
+                            //         (drives History rollups). Absent on
+                            //         pre-v9.11 entries; falls back to the
+                            //         current restDuration setting.
   deleted: false,           // tombstone flag
 }
 ```
@@ -667,15 +790,21 @@ When adding a command, also add it to the help sheet (`#help-overlay` in
 }
 ```
 
-**PR** (`prs` store, keyPath `exercise`):
+**PR** (`prs` store, keyPath `exercise`) — v9.9 shape:
 ```js
 {
   exercise: "bench press",
-  maxWeight: 245,
-  max1RM: 275.6,
+  maxWeight: 245, maxWeightReps: 3,            // heaviest weight ever lifted
+  max1RM: 275.6, max1RMWeight: 235, max1RMReps: 5,  // best estimated 1RM + its source set
   achievedAt: 1735847234567,
+  prType: "weight",                             // "weight" | "1rm" — drives the share card
 }
 ```
+`maxWeight` and `max1RM` track *independently* (a 1RM-only PR doesn't
+clobber the stored max-weight set). Combo PRs that fire both flags on
+the same set store `prType: "weight"` because weight on the bar wins
+the headline. Both `recomputePR()` (client) and `recomputePRs()`
+(Worker) rebuild this deterministically from the workout log.
 
 **Custom exercise** (`customExercises` store, keyPath `name`):
 ```js
