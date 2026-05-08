@@ -212,6 +212,23 @@ async function releaseScreenWakeLock() {
     _screenWakeLock = null;
     try { await lock.release(); } catch (_) {}
 }
+
+// Workout-screen clock — H:MM AM/PM, scoped visually to the Workout
+// screen via #workout-clock (every other screen hides the section).
+// Aligns to the next minute boundary so updates land at HH:MM:00.
+function updateWorkoutClock() {
+    const el = document.getElementById('workout-clock');
+    if (!el) return;
+    el.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+function startWorkoutClockTick() {
+    updateWorkoutClock();
+    const msToNextMinute = 60000 - (Date.now() % 60000);
+    setTimeout(() => {
+        updateWorkoutClock();
+        setInterval(updateWorkoutClock, 60000);
+    }, msToNextMinute);
+}
 // v6: PR screen tab
 let prTab = 'weight';            // 'weight' | 'weight-reps'
 // v6: history screen state
@@ -375,6 +392,7 @@ window.addEventListener('load', () => {
     maybeShowInstallHint();
     handleShortcutAction();
     showScreen('home');   // mark Home tab active on first load
+    startWorkoutClockTick();
     acknowledgeVersionLanding();
     // v8: auto-sync triggers
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -4241,7 +4259,7 @@ function showScreen(name) {
         renderHomePrimaryAction();
         renderHeaderSubtitle();
     }
-    if (name === 'workout') renderWorkoutScreen();
+    if (name === 'workout') { renderWorkoutScreen(); updateWorkoutClock(); }
     if (name === 'profile') renderProfileScreen();
     // Scroll to top so the new screen always starts at the top.
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -4848,6 +4866,8 @@ function onVisibilityChange() {
         // Browser auto-releases the screen wake lock on hide; re-acquire
         // if we're returning mid-session.
         if (activeSession) acquireScreenWakeLock();
+        // The clock can be many minutes stale if the page was suspended.
+        updateWorkoutClock();
     }
 }
 

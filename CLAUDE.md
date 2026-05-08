@@ -678,6 +678,28 @@ is open" — battery cost without a reason. The centralized helpers
 make a future toggle a one-line change if the situation actually
 warrants it.
 
+**Workout-screen clock (v9.13).** A live `H:MM AM/PM` clock sits at
+the right edge of the Workout screen header (`#workout-clock` in
+[index.html](index.html), `.workout-clock` rule in [style.css](style.css)
+mirrors the h2 typography exactly so they read as a paired title
+row). Format is locale-aware via `toLocaleTimeString([], { hour:
+'numeric', minute: '2-digit' })` — produces `6:42 PM` in en-US, no
+zero-padding on the hour by design (matches iOS lock-screen
+convention, which is the role this clock fills when the user wants
+the time mid-workout without hunting for the iOS status bar).
+`tabular-nums` keeps digit width fixed so the clock doesn't jiggle
+as minutes change. `startWorkoutClockTick()` aligns the first
+interval to the next minute boundary so updates land at HH:MM:00
+instead of drifting. Re-rendered on `showScreen('workout')` and on
+visibility resume so it isn't stale after iOS suspends the page.
+**Workout screen only, by design** — don't add a clock to other
+screens (the iOS status bar already shows the time globally; the
+Workout-screen clock is for the "phone face down on the bench"
+moment when the system clock is obscured). **Don't add seconds.**
+The minute-boundary tick is deliberate — per-second updates churn
+the layout for no value, and the elapsed timer in the session card
+already covers the sub-minute case.
+
 ---
 
 ## Conventions Nick follows
