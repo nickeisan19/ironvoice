@@ -220,7 +220,12 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   max-width: 540px;
   border-top: 1px solid var(--hairline-strong);
   animation: slide-up 0.45s var(--spring);
-  max-height: 92vh;
+  /* Cap height to keep the modal top below the iOS status-bar zone
+     (env(safe-area-inset-top), ~47px on Dynamic Island phones, 0 on
+     desktop / non-iOS). The 16px gap leaves a visible breathing strip
+     of dimmed backdrop above the sheet so the Done button at the top
+     of .sheet-header is never tucked under the time/battery icons. */
+  max-height: calc(100vh - env(safe-area-inset-top) - 16px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1447,10 +1452,6 @@ button.card-button:focus-visible {
   max-width: calc(100vw - 32px);
 }
 .snackbar.active { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
-/* When a rest timer is on screen, lift the snackbar above the timer pill
-   so the two don't stack on the same baseline. JS toggles `.over-timer`
-   whenever a snackbar appears while #rest-timer is .active. */
-.snackbar.over-timer { bottom: calc(180px + env(safe-area-inset-bottom)); }
 .snackbar-text {
   color: var(--label);
   font-size: 0.88rem;
@@ -1695,40 +1696,41 @@ button.card-button:focus-visible {
   50%      { opacity: 0.78; transform: translate3d(-50%, 0, 0) scale(0.96); }
 }
 
+/* Rest timer — lives inside .session-card-meta as a third stack under
+   "In progress / 0:38". Visually mirrors that label-above-time pattern,
+   so a running rest countdown reads as a peer of the elapsed time
+   instead of a separate UI element. No SVG ring. */
 .timer-pill {
-  position: fixed;
-  bottom: calc(128px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%) translateY(20px);
   display: none;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 8px;
-  background: var(--frosted-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 0.5px solid var(--hairline-strong);
-  border-radius: 100px;
-  z-index: 49;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transition: transform 0.4s var(--spring), opacity 0.3s var(--ease);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  cursor: pointer;
 }
-.timer-pill.active { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
-.timer-pill.complete { background: rgba(48, 209, 88, 0.2); border-color: rgba(48, 209, 88, 0.5); }
-.timer-pill.complete .timer-fg { stroke: var(--green); }
+.timer-pill.active { display: flex; }
+.timer-pill.complete .timer-text { color: var(--green); }
+.timer-pill.complete .timer-label { color: var(--green); }
 
-.timer-ring { width: 32px; height: 32px; transform: rotate(-90deg); flex-shrink: 0; }
-.timer-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 3; }
-.timer-fg {
-  fill: none; stroke: var(--blue);
-  stroke-width: 3; stroke-linecap: round;
-  stroke-dasharray: 100.53; stroke-dashoffset: 0;
-  transition: stroke-dashoffset 1s linear, stroke 0.3s var(--ease);
+.timer-text {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--label);
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
 }
-
-.timer-text { font-size: 0.95rem; font-weight: 700; color: var(--label); letter-spacing: -0.02em; }
-.timer-label { font-size: 0.72rem; font-weight: 500; color: var(--label-secondary); text-transform: uppercase; letter-spacing: 0.08em; }
+.timer-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--blue);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
 /* ==========================================================================
    Animations
@@ -1910,15 +1912,28 @@ button.card-button:focus-visible {
   border-radius: 18px;
   padding: 14px 18px;
   margin: 0 0 16px;
-  /* Column layout so the compact End-workout pill can self-align to the
-     trailing edge below the existing meta/stats row. */
-  display: flex;
-  flex-direction: column;
 }
 .session-card-row {
   display: flex;
-  align-items: center;
+  /* stretch so the right column matches the meta column's height — this
+     lets the End workout button drop to bottom-right and align with the
+     REST/0:58 line when rest is active. justify-content: space-between
+     inside the right column does the actual top/bottom split. The labels
+     still align at the top because both columns put their content there
+     by default. */
+  align-items: stretch;
   justify-content: space-between;
+  gap: 18px;
+}
+/* Right column: SET/VOLUME stats at the top, End workout button at the
+   bottom. Stretches to match the meta column's height so the End button
+   tracks the bottom of meta — keeps the green card from growing
+   vertically when the rest timer appears. */
+.session-card-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
   gap: 12px;
 }
 .session-card-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -1929,6 +1944,10 @@ button.card-button:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+/* Blue variant — used by the SET / VOLUME stats and (via the timer-pill
+   block below) the REST label. Visually grouped: the green label is the
+   "session is alive" state, the blue labels are the metrics. */
+.session-card-label-blue { color: var(--blue); }
 .session-card-time {
   font-size: 1.8rem;
   font-weight: 700;
@@ -1938,22 +1957,19 @@ button.card-button:focus-visible {
 }
 .session-card-stats {
   display: flex; gap: 18px;
-  align-items: center;
+  align-items: flex-start;
 }
 .session-card-stats > div {
   display: flex; flex-direction: column;
-  align-items: center;
-  font-size: 1.05rem;
+  align-items: flex-start;
+  gap: 2px;
+}
+.session-card-stats > div > span {
+  font-size: 1.4rem;
   font-weight: 700;
   color: var(--label);
-}
-.session-card-stats small {
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--label-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 1px;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
 }
 
 /* ==========================================================================
@@ -2398,6 +2414,10 @@ button.card-button:focus-visible {
   flex-shrink: 0;
 }
 .session-header-icon svg { width: 13px; height: 13px; }
+/* Two-line content block: identity row (start time / set count / est)
+   on top, Total/Workout/Rest chips below. The icon centers against
+   the whole content. */
+.session-header-content { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .session-header-meta {
   display: flex; gap: 14px; flex: 1;
   font-weight: 600;
@@ -2407,6 +2427,53 @@ button.card-button:focus-visible {
   font-weight: 500;
   font-size: 0.78rem;
 }
+.session-header-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--label-secondary);
+  font-weight: 500;
+}
+.session-header-times strong {
+  color: var(--label);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  margin-right: 3px;
+}
+.session-header-times .rest-chip strong { color: var(--blue); }
+
+/* History rollup card — three-cell grid used for both per-week (above
+   the strip) and per-day (above the session headers) totals. The Rest
+   cell is blue to mirror the green session card's REST label, so the
+   "rest" semantic reads consistently across History and Workout. */
+.history-rollup {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 8px 0 14px;
+  padding: 12px 14px;
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-md);
+}
+.history-rollup-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.history-rollup-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--label-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.history-rollup-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--label);
+  font-feature-settings: "tnum";
+  letter-spacing: -0.01em;
+}
+.history-rollup-cell-rest .history-rollup-label,
+.history-rollup-cell-rest .history-rollup-value { color: var(--blue); }
 
 .history-day-detail .day-group { margin-bottom: 4px; }
 .history-day-detail .day-header { display: none; }   /* week strip is the date */
@@ -2476,23 +2543,20 @@ button.card-button:focus-visible {
 .workout-start-cta-title { font-size: 1.15rem; font-weight: 700; }
 .workout-start-cta-sub { font-size: 0.82rem; opacity: 0.85; font-weight: 500; }
 
-/* v9.2 — End workout: compact pill self-aligned to the trailing edge of
-   the in-progress card. Same red palette as before, sized like the small
-   .add-btn on the manual-entry row so it doesn't dominate the card. Tap →
-   confirmEndWorkout (prompt) → endWorkoutSession. */
+/* End workout: rectangular button matching the .add-btn shape on the
+   manual-entry row, but solid red instead of blue. Positioned at the
+   bottom of .session-card-right so it lines up with the REST/0:58 line
+   inside the meta column when the rest timer is active. */
 .end-workout-btn {
-  align-self: flex-end;
-  margin-top: 12px;
-  padding: 7px 16px;
-  background: rgba(255, 69, 58, 0.20);
-  color: var(--red);
-  border: 0.5px solid rgba(255, 69, 58, 0.45);
-  border-radius: 100px;
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: -0.01em;
+  padding: 14px 22px;
+  background: var(--red);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.95rem;
 }
-.end-workout-btn:active { background: rgba(255, 69, 58, 0.32); }
+.end-workout-btn:active { background: #d70015; }
 
 .last-workout-card {
   background: var(--surface-1);

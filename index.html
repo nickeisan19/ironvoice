@@ -416,7 +416,7 @@
                     <div class="hero-load-value" id="strain-text">—</div>
                     <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
                 </div>
-                <button type="button" class="home-primary-action" id="home-primary-action" data-screen-target="workout" aria-label="Start workout">
+                <button type="button" class="home-primary-action" id="home-primary-action" data-action="startWorkoutFromHome" aria-label="Start workout">
                     <span class="hpa-icon" id="hpa-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="6 4 20 12 6 20 6 4"/>
@@ -525,21 +525,36 @@
             <!-- Active session: visible only while a workout is running. v9.2:
                  the End button now lives inside this card (was a separate
                  footer below the screen) and routes through confirmEndWorkout
-                 so a misplaced tap can't accidentally close out a session. -->
+                 so a misplaced tap can't accidentally close out a session.
+                 The rest timer also lives inside this card (in-flow, not a
+                 bottom-fixed pill) so all session timing surfaces — elapsed
+                 time, set/vol stats, rest countdown — sit together. -->
             <div id="session-card" class="session-card" style="display:none">
                 <div class="session-card-row">
                     <div class="session-card-meta">
                         <div class="session-card-label">In progress</div>
                         <div class="session-card-time" id="session-card-time">0:00</div>
+                        <button type="button" id="rest-timer" class="timer-pill" data-action="dismissTimer" aria-label="Dismiss rest timer">
+                            <span class="timer-label">Rest</span>
+                            <span class="timer-text" id="timer-text">1:30</span>
+                        </button>
                     </div>
-                    <div class="session-card-stats">
-                        <div><span id="session-card-sets">0</span><small>sets</small></div>
-                        <div><span id="session-card-vol">0</span><small>vol</small></div>
+                    <div class="session-card-right">
+                        <div class="session-card-stats">
+                            <div>
+                                <div class="session-card-label session-card-label-blue">Set</div>
+                                <span id="session-card-sets">0</span>
+                            </div>
+                            <div>
+                                <div class="session-card-label session-card-label-blue">Volume</div>
+                                <span id="session-card-vol">0</span>
+                            </div>
+                        </div>
+                        <button type="button" class="end-workout-btn" data-action="confirmEndWorkout">
+                            End workout
+                        </button>
                     </div>
                 </div>
-                <button type="button" class="end-workout-btn" data-action="confirmEndWorkout">
-                    End workout
-                </button>
             </div>
 
             <!-- Quick-add: search, weight, reps. Same logic as the old home
@@ -739,25 +754,17 @@
                 </button>
             </div>
             <div id="history-week-label" class="history-week-label">This week</div>
+            <div id="history-week-rollup" class="history-rollup" style="display:none"></div>
             <div id="history-week-strip" class="history-week-strip"></div>
 
             <div id="history-day-detail" class="history-day-detail">
                 <div id="history-day-empty" class="empty-state">Pick a day above.</div>
+                <div id="history-day-rollup" class="history-rollup" style="display:none"></div>
                 <div id="history-session-headers"></div>
                 <div id="history-day-groups"></div>
             </div>
         </section>
     </main>
-
-    <!-- Rest timer floating pill -->
-    <button type="button" id="rest-timer" class="timer-pill" data-action="dismissTimer" aria-label="Dismiss rest timer">
-        <svg class="timer-ring" viewBox="0 0 36 36" aria-hidden="true">
-            <circle cx="18" cy="18" r="16" class="timer-bg"/>
-            <circle cx="18" cy="18" r="16" class="timer-fg" id="timer-arc"/>
-        </svg>
-        <span class="timer-text" id="timer-text">1:30</span>
-        <span class="timer-label">Rest</span>
-    </button>
 
     <button id="mic-btn" type="button" data-action="toggleListening" aria-label="Voice log" aria-pressed="false">
         <svg class="mic-icon" viewBox="0 0 24 24" fill="white" aria-hidden="true">

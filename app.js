@@ -855,11 +855,25 @@ function buildEntry(exercise, weight, reps) {
         // v6: tag this set with the active session if any. Untagged sets
         // are fine (they pre-date sessions or were logged outside one).
         sessionId: activeSession?.id ?? null,
+        // Scheduled rest after this set, captured at log time so later
+        // preference changes don't corrupt rollups for older sets. 0 means
+        // rest was Off. Used by the History rollups (Total / Workout / Rest)
+        // to clamp each set's rest by min(scheduled, gap-to-next-set).
+        restDurationMs: restDuration * 1000,
     };
 }
 
 async function saveAndSyncUI(entry) {
     try {
+        // Auto-start a session if there isn't one — sessions are invisible
+        // plumbing, not a feature to opt into. buildEntry resolved
+        // sessionId synchronously before this call, so re-tag the entry
+        // with the new session id once it exists. Silent so the set's own
+        // haptic isn't doubled by the session-start pulse.
+        if (!activeSession) {
+            await startWorkoutSession({ silent: true });
+            entry.sessionId = activeSession?.id ?? null;
+        }
         await performDB('workouts', 'put', entry);
         const oldPR = await performDB('prs', 'get', entry.exercise);
         // Track max weight and max 1RM independently. The PR card branches
@@ -898,12 +912,6 @@ async function saveAndSyncUI(entry) {
         // v6: keep the live session card in sync if a session is active.
         await refreshSessionCard();
         if (restDuration > 0) startRestTimer(restDuration);
-        // v8: if no session is active and we haven't recently asked, offer
-        // to start one. Defer slightly so the new set has visibly rendered
-        // before the prompt appears — feels reactive rather than blocking.
-        if (!activeSession) {
-            setTimeout(() => maybePromptStartOnFirstSet(), 400);
-        }
     } catch (err) {
         console.error('Save failed:', err);
         setStatus('Save failed', 'error');
@@ -1800,10 +1808,6 @@ function showSnackbar(text, { actionLabel = '', onAction = null, duration = 5000
         btn.style.display = 'none';
         _snackbarOnAction = null;
     }
-    // Lift the snackbar above the rest-timer pill if one is currently
-    // visible — both default to bottom: 128 + safe-area, which would stack.
-    const timerActive = $('rest-timer')?.classList.contains('active');
-    bar.classList.toggle('over-timer', !!timerActive);
     bar.classList.add('active');
     if (_snackbarTimer) clearTimeout(_snackbarTimer);
     if (duration > 0) {
@@ -2026,6 +2030,9 @@ function initActionDispatcher() {
         undoLastDelete,
         // v6 additions
         goPRs, toggleWorkoutSession,
+        // Home screen primary action — navigate to Workout AND start the
+        // session in one tap (was a navigate-only data-screen-target).
+        startWorkoutFromHome,
         // v9.2 — End-workout confirm wrapper (button only; voice bypasses)
         confirmEndWorkout,
         // v9.1: Today-card tap routes state-aware (active → Workout, else → History)
@@ -2567,11 +2574,8 @@ function startRestTimer(seconds) {
     if (restTimerHandle) clearInterval(restTimerHandle);
     if (restCompleteTimeout) clearTimeout(restCompleteTimeout);
     const pill = $('rest-timer');
-    const arc = $('timer-arc');
     const text = $('timer-text');
-    const total = seconds;
     let remaining = seconds;
-    const circumference = 100.53;
 
     pill.classList.remove('complete');
     pill.classList.add('active');
@@ -2580,7 +2584,6 @@ function startRestTimer(seconds) {
         const m = Math.floor(remaining / 60);
         const s = remaining % 60;
         text.textContent = `${m}:${String(s).padStart(2, '0')}`;
-        arc.style.strokeDashoffset = circumference * (1 - remaining / total);
     };
     update();
 
@@ -3702,7 +3705,7 @@ const BACKFILL_DONE_KEY = 'ironSessionsBackfilled';
 
 // --- start / end ---
 
-async function startWorkoutSession() {
+async function startWorkoutSession({ silent = false } = {}) {
     if (activeSession) return activeSession;
     const id = Date.now();
     activeSession = {
@@ -3723,7 +3726,11 @@ async function startWorkoutSession() {
     await renderTodayCard();
     await renderHomePrimaryAction();
     await renderHeaderSubtitle();
-    haptic([15, 40, 15]);
+    // Silent path is the auto-start-on-set hook in saveAndSyncUI: the set
+    // log already fires its own haptic via updateUI, so the session-start
+    // triple-pulse on top reads as "two events happened" — exactly the
+    // opposite of "invisible plumbing" that the auto-start path is for.
+    if (!silent) haptic([15, 40, 15]);
     return activeSession;
 }
 
@@ -3785,6 +3792,18 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
 async function toggleWorkoutSession() {
     if (activeSession) await endWorkoutSession();
     else await startWorkoutSession();
+}
+
+// Home screen "Start workout" / "Resume workout" button. Two responsibilities
+// in one tap: (1) navigate to the Workout screen so the user lands on the
+// session UI, (2) actually start a session if one isn't already running.
+// Without this, the home button only navigated and the user had to tap
+// Start again on the Workout screen — two taps for the most common action.
+// When a session is active, this is the Resume path: just navigate, don't
+// fire the toggle (which would end the workout).
+async function startWorkoutFromHome() {
+    showScreen('workout');
+    if (!activeSession) await startWorkoutSession();
 }
 
 // v9.2 — Click-only path for the End workout button. Asks for confirmation
@@ -3849,6 +3868,40 @@ function formatElapsed(ms) {
     const s = totalSec % 60;
     if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// Compact duration for History rollup chips ("1h 12m" / "47m" / "—").
+// formatElapsed renders h:mm:ss for live clocks; that's the wrong shape
+// for summary numbers, hence a second formatter rather than a flag.
+function formatDurationCompact(ms) {
+    if (!ms || ms <= 0) return '—';
+    const totalMin = Math.round(ms / 60000);
+    if (totalMin < 60) return `${totalMin}m`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+// Per-session Total / Workout / Rest. Caller passes the session record
+// and its sets sorted chronologically (non-deleted). Each set's rest
+// contribution is min(scheduled, gap-to-next-set); the last set is
+// capped by the session's end (or now, if active). Workout = Total −
+// Rest, which folds in plate changes / walking / overrun rest into
+// "workout" — see plan's non-goals for the tradeoff.
+function computeSessionTimes(session, sets) {
+    const endedAt = session.endedAt ?? Date.now();
+    const totalMs = Math.max(0, endedAt - session.startedAt);
+    let restMs = 0;
+    for (let i = 0; i < sets.length; i++) {
+        const cur = sets[i];
+        const nextAt = sets[i + 1]?.id ?? endedAt;
+        // Fall back to the user's current rest preference for entries
+        // that predate the restDurationMs schema field.
+        const scheduled = cur.restDurationMs ?? (restDuration * 1000);
+        restMs += Math.min(scheduled, Math.max(0, nextAt - cur.id));
+    }
+    const workoutMs = Math.max(0, totalMs - restMs);
+    return { totalMs, restMs, workoutMs };
 }
 
 function renderSessionCardTime() {
@@ -4376,19 +4429,84 @@ async function renderHistoryScreen() {
         });
     });
 
+    // Sessions are needed both here (per-week rollup) and inside the
+    // day-detail. Pull once and pass through to avoid a double-fetch.
+    const allSessions = await performDB('sessions', 'getAll');
+
+    // Per-week rollup: sum Total/Workout/Rest across sessions whose
+    // startedAt falls in the visible week. Hidden when the week has
+    // no sessions.
+    const weekDateSet = new Set(weekIsoSet);
+    const weekSessions = allSessions.filter(s =>
+        weekDateSet.has(isoForLocalDate(new Date(s.startedAt)))
+    );
+    renderRollupTotals('history-week-rollup', weekSessions, allWorkouts);
+
     // Render the selected day's detail
-    await renderHistoryDayDetail(historySelectedDate, allWorkouts);
+    await renderHistoryDayDetail(historySelectedDate, allWorkouts, allSessions);
 }
 
-async function renderHistoryDayDetail(date, allWorkouts) {
+// Builds the {totalMs, restMs, workoutMs} sum across a list of sessions
+// (using the workouts pool to find each session's sets), then writes
+// the three-cell HTML into the target element. Hides the element when
+// there's nothing to show. Reused by per-week and per-day rollups.
+function renderRollupTotals(elId, sessions, allWorkouts) {
+    const el = $(elId);
+    if (!el) return;
+    if (!sessions.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+    const setsBySession = new Map();
+    for (const w of allWorkouts) {
+        if (!w.sessionId) continue;
+        if (!setsBySession.has(w.sessionId)) setsBySession.set(w.sessionId, []);
+        setsBySession.get(w.sessionId).push(w);
+    }
+    for (const arr of setsBySession.values()) arr.sort((a, b) => a.id - b.id);
+
+    let totalMs = 0, restMs = 0, workoutMs = 0;
+    for (const s of sessions) {
+        const sets = setsBySession.get(s.id) || [];
+        const t = computeSessionTimes(s, sets);
+        totalMs += t.totalMs;
+        restMs += t.restMs;
+        workoutMs += t.workoutMs;
+    }
+    if (totalMs <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+    el.style.display = '';
+    el.innerHTML = rollupCellsHtml({ totalMs, workoutMs, restMs });
+}
+
+// Three-cell grid markup shared by week/day rollups. The Rest cell is
+// blue to mirror the green session card's REST label color, so the
+// "rest" semantic is consistent across screens.
+function rollupCellsHtml({ totalMs, workoutMs, restMs }) {
+    return `
+        <div class="history-rollup-cell">
+            <div class="history-rollup-label">Total</div>
+            <div class="history-rollup-value">${escapeHtml(formatDurationCompact(totalMs))}</div>
+        </div>
+        <div class="history-rollup-cell">
+            <div class="history-rollup-label">Workout</div>
+            <div class="history-rollup-value">${escapeHtml(formatDurationCompact(workoutMs))}</div>
+        </div>
+        <div class="history-rollup-cell history-rollup-cell-rest">
+            <div class="history-rollup-label">Rest</div>
+            <div class="history-rollup-value">${escapeHtml(formatDurationCompact(restMs))}</div>
+        </div>`;
+}
+
+async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
     const empty = $('history-day-empty');
     const headers = $('history-session-headers');
     const groups = $('history-day-groups');
+    const dayRollup = $('history-day-rollup');
     const dayWorkouts = allWorkouts.filter(w => w.date === date);
 
     if (!dayWorkouts.length) {
         headers.innerHTML = '';
         groups.innerHTML = '';
+        if (dayRollup) { dayRollup.style.display = 'none'; dayRollup.innerHTML = ''; }
         empty.style.display = '';
         empty.textContent = 'No sets on this day.';
         return;
@@ -4402,7 +4520,7 @@ async function renderHistoryDayDetail(date, allWorkouts) {
     // the exercise sheet. v9.6 — tapping a pill opens the set-action sheet
     // (Edit / Delete); the dispatcher handles the click via the pill's
     // data-action attribute, so no per-pill JS wiring is needed here.
-    const allSessions = await performDB('sessions', 'getAll');
+    if (!allSessions) allSessions = await performDB('sessions', 'getAll');
     const sessionMap = Object.fromEntries(allSessions.map(s => [s.id, s]));
     const prs = await performDB('prs', 'getAll');
     const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
@@ -4428,29 +4546,59 @@ async function renderHistoryDayDetail(date, allWorkouts) {
         });
     if (sessionBuckets.has('untagged')) orderedKeys.push('untagged');
 
-    // Top-of-detail summary header(s) — keep the existing time/duration
-    // metadata bar so users can scan the day at a glance.
+    // Top-of-detail summary header(s) — start time + set count on the
+    // first line, Total/Workout/Rest chips on a second sub-row. The
+    // bare-minute "dur" was redundant once the rollup chips landed.
+    // Track per-day totals as we iterate so we can render the per-day
+    // rollup above the headers in a single pass.
     let headerHtml = '';
+    let dayTotalMs = 0, dayRestMs = 0, dayWorkoutMs = 0;
+    let realSessionCount = 0;
     for (const key of orderedKeys) {
         if (key === 'untagged') continue;
         const s = sessionMap[key];
         if (!s) continue;
         const setsInSession = sessionBuckets.get(key);
         const startTime = new Date(s.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        const dur = s.durationMs > 0 ? `${Math.round(s.durationMs / 60000)}m` : '—';
+        const t = computeSessionTimes(s, setsInSession);
+        dayTotalMs   += t.totalMs;
+        dayRestMs    += t.restMs;
+        dayWorkoutMs += t.workoutMs;
+        realSessionCount++;
         const estimatedFlag = s.estimated ? `<span class="estimated">~estimated</span>` : '';
         headerHtml += `
             <div class="session-header-row">
                 <div class="session-header-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
-                <div class="session-header-meta">
-                    <span>${escapeHtml(startTime)}</span>
-                    <span>${escapeHtml(dur)}</span>
-                    <span>${setsInSession.length} sets</span>
-                    ${estimatedFlag}
+                <div class="session-header-content">
+                    <div class="session-header-meta">
+                        <span>${escapeHtml(startTime)}</span>
+                        <span>${setsInSession.length} sets</span>
+                        ${estimatedFlag}
+                    </div>
+                    <div class="session-header-times">
+                        <span><strong>${escapeHtml(formatDurationCompact(t.totalMs))}</strong> total</span>
+                        <span><strong>${escapeHtml(formatDurationCompact(t.workoutMs))}</strong> work</span>
+                        <span class="rest-chip"><strong>${escapeHtml(formatDurationCompact(t.restMs))}</strong> rest</span>
+                    </div>
                 </div>
             </div>`;
+    }
+
+    // Per-day rollup: only meaningful if at least one real session
+    // contributed. Untagged-only days fall through to the existing
+    // "no session timer" header below without a rollup row.
+    if (dayRollup) {
+        if (realSessionCount > 0 && dayTotalMs > 0) {
+            dayRollup.style.display = '';
+            dayRollup.innerHTML = rollupCellsHtml({
+                totalMs: dayTotalMs, workoutMs: dayWorkoutMs, restMs: dayRestMs,
+            });
+        } else {
+            dayRollup.style.display = 'none';
+            dayRollup.innerHTML = '';
+        }
     }
     const untaggedSets = sessionBuckets.get('untagged');
     if (untaggedSets && !sessionMap[orderedKeys[0]]) {
@@ -4603,48 +4751,6 @@ async function maybePromptStartOnLaunch() {
         showSnackbar('Workout started', { duration: 2500 });
     }
 }
-
-// First-set prompt — call this when a set is logged with no active session.
-// Throttled the same way so a single workout doesn't get pestered repeatedly.
-async function maybePromptStartOnFirstSet() {
-    if (activeSession) return;                  // already in a session
-    if (isPromptThrottled()) return;
-    const ok = await confirmSheet({
-        title: 'Start a workout?',
-        body: 'Track session time for this and future sets — the one you just logged will be included.',
-        confirmLabel: 'Start workout',
-        cancelLabel: 'Not now',
-    });
-    throttlePrompts();
-    if (!ok) return;
-    // Backdate the session to just before the set we just logged so the
-    // set is captured in the session.
-    const sessionStart = Date.now() - 5000;   // 5s ago
-    activeSession = {
-        id: sessionStart,
-        startedAt: sessionStart,
-        endedAt: null,
-        durationMs: 0,
-        modifiedAt: Date.now(),
-    };
-    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession));
-    await performDB('sessions', 'put', activeSession);
-    markUnsynced();
-    // Tag the most recent set with this session so it's part of the workout.
-    const all = (await performDB('workouts', 'getAll'))
-        .filter(w => !w.deleted)
-        .sort((a, b) => b.id - a.id);
-    if (all.length && !all[0].sessionId) {
-        all[0].sessionId = activeSession.id;
-        all[0].modifiedAt = Date.now();
-        await performDB('workouts', 'put', all[0]);
-    }
-    startSessionTicker();
-    await refreshSessionCard();
-    updateWorkoutTabUI();
-    showSnackbar('Workout started', { duration: 2500 });
-}
-
 
 //
 // Sync fires automatically without user action in three situations:
