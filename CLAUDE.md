@@ -202,26 +202,6 @@ Whisper, not anything that requires a server-side audio pipeline. The whole
 point is "open mic, get text, parse intent, log." Browser-native is fast and
 works offline-ish.
 
-**iOS is gated as voice-unsupported (v9.14).** iOS exposes
-`webkitSpeechRecognition` on `window`, so the naive
-`if (!SR)` check in `initSpeech()` lets it through — but the recognizer
-doesn't actually function in a home-screen PWA (and is unreliable in
-mobile Safari). Symptom before the gate: tap mic, FAB enters
-`.listening`, 5-bar EQ appears, no `onresult` ever fires, 30s
-`VOICE_SESSION_MS` timeout trips `endSession()`, FAB goes back to blue.
-Second tap looks even worse — the audio context from the first attempt
-hasn't fully torn down, so the meter bars don't animate. The fix in
-[app.js](app.js) `initSpeech()` is a UA + iPadOS-touch detection that
-forces `SR` to `false` on iOS, routing iPhones into the existing
-`maybeShowVoiceUnsupportedBanner()` + `voiceUnsupportedHint` path: dim
-FAB, one-time "Voice logging needs Chrome" snackbar, manual entry still
-works. Don't remove this gate without a real fix for iOS — and "real
-fix" means the Capacitor + `SFSpeechRecognizer` roadmap item, not a
-different Web Speech wrapper. Chrome/Firefox/Edge on iPhone don't help
-either: Apple forces every iOS browser onto WebKit, so they all share
-the same broken STT. (EU DMA carve-out for third-party engines on
-iOS 17.4+ is not in scope — US-only user.)
-
 **No analytics, no telemetry, no error reporting service.** This is a personal
 app; no Sentry, no Mixpanel, no anything that phones home. Console logging
 is the debugger.
@@ -759,8 +739,25 @@ verify the file actually arrived where you think it did.
 sensitive — picks up ambient noise as garbage final results. Mitigations
 already in place: prompt-once-per-session, TTS-suspend-recognizer, continuous
 mode with restart-on-end. Don't undo these without understanding why
-they exist. **iOS:** see the v9.14 settled-decision entry above — the API
-is exposed but non-functional, the gate is in `initSpeech()`.
+they exist.
+
+**Don't gate iOS as voice-unsupported based on assumed WebKit STT
+limitations (v9.14 was reverted in v9.15).** I shipped v9.14 confident
+that iPhone PWA `webkitSpeechRecognition` doesn't function, citing the
+roadmap line "Web Speech doesn't work in WKWebView." The user confirmed
+the big mic FAB *was* working on iPhone PWA prior — voice was logging
+sets. The bug they reported ("5 bars appear, nothing happens, FAB
+reverts") was a regression, not a platform limit. v9.14 papered over a
+working feature; v9.15 reverted it. The original regression is still
+unresolved as of this writing — the next attempt should NOT be another
+gate. It should be a real diagnosis: Safari Web Inspector connected to
+the iPhone, capture which of `recognition.onstart` / `onresult` /
+`onerror` / `onend` fire (and what `e.error` is, if `onerror` fires).
+Candidate root causes to rule out: mic permission state, getUserMedia
+conflict with the parallel mic-level meter, the continuous-mode
+restart loop hitting an iOS rate limit, network/dictation-backend
+failure. The CLAUDE.md roadmap note about WKWebView predates iOS 14.5's
+Web Speech support and is not authoritative for current iOS behavior.
 
 **Service worker cache invalidation is asymmetric.** On every deploy, bump
 `APP_VERSION` in `version.js` so existing devices see the new shell. The

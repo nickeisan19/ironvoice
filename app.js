@@ -1153,22 +1153,13 @@ function stopMicLevelMeter() {
 }
 
 function initSpeech() {
-    // iOS exposes `webkitSpeechRecognition` on `window` but the recognizer
-    // doesn't actually function in a home-screen PWA (and is unreliable in
-    // mobile Safari). Without this gate the constructor succeeds, start()
-    // doesn't throw, the FAB enters .listening — but no onresult ever fires.
-    // The 30s session timer eventually trips endSession() and the user sees
-    // a mic that "looks active but does nothing." Treat iOS as unsupported
-    // so it takes the honest dim-FAB + banner path below.
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const SR = !isIOS && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
         // iOS Safari is the main offender — WebKit ships SpeechSynthesis
-        // (TTS) but not a functioning SpeechRecognition (STT). Without this
-        // branch the mic looks broken: tap, nothing happens. Dim the FAB,
-        // swap its tap behavior to a clear status message, and (on iOS) show
-        // a one-time banner explaining the limitation. Manual entry still
+        // (TTS) but not SpeechRecognition (STT). Without this branch the
+        // mic looks broken: tap, nothing happens. Dim the FAB, swap its
+        // tap behavior to a clear status message, and (on iOS) show a
+        // one-time banner explaining the limitation. Manual entry still
         // works — the rest of the app is fine.
         const mic = $('mic-btn');
         mic.style.opacity = '0.4';
