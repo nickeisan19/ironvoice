@@ -1285,6 +1285,20 @@ function toggleListening() {
     }
     // Cancel any leftover TTS so the mic starts on a clean audio frame.
     try { window.speechSynthesis?.cancel(); } catch (_) {}
+    // v9.18: iOS only lets speechSynthesis produce audio if it's been
+    // primed inside a recent user-gesture context. By the time
+    // recognition.onresult fires (after STT processes audio), the gesture
+    // window has closed and speak() runs silently. A zero-volume utterance
+    // queued during this tap handler "unlocks" the synthesis engine for
+    // the session. Inaudible on every platform; no-op on platforms that
+    // already allow background TTS.
+    try {
+        if ('speechSynthesis' in window) {
+            const warmup = new SpeechSynthesisUtterance(' ');
+            warmup.volume = 0;
+            window.speechSynthesis.speak(warmup);
+        }
+    } catch (_) {}
     try {
         recognition.continuous = true;
         recognition.start();
@@ -1503,6 +1517,10 @@ function speak(text) {
     u.onend = resume;
     u.onerror = resume;
 
+    // v9.18: iOS speechSynthesis can drift into a paused state across
+    // sessions where queued utterances never start. resume() is a no-op
+    // when not paused and unblocks the queue when it is.
+    try { window.speechSynthesis.resume(); } catch (_) {}
     window.speechSynthesis.speak(u);
 }
 
@@ -2169,41 +2187,359 @@ function initActionDispatcher() {
 }
 
 // ============================================================================
-// v9.4: Insight-led Trends — three cards on Home (Strength, Rhythm, Balance).
-// Replaces the old 14-day Volume bar chart and absolute Muscle distribution.
-// Each card leads with a one-line takeaway and a small visual underneath.
+// v9.18: Plan — prescriptive Home cards (Focus + Recommended next).
+//
+// Home pivoted from a stats dashboard to a coach. The old Trends section
+// (Strength Trajectory, Training Rhythm, Balance vs Your Norm) and the
+// Insights deload alert showed numbers without telling the user what to do
+// with them. They're replaced by two cards driven by the same data:
+//
+//   Focus (14d)         — six muscle rows with set count over the last two
+//                          weeks; headline calls out what's trailing.
+//   Recommended next    — an ad-hoc workout the app picks for the user:
+//                          1-2 exercises per trailing muscle, sets sized to
+//                          their median session length, plus a CTA that
+//                          starts a session and queues the suggestions as
+//                          tap-to-fill chips on the Workout screen.
+//
+// All data inputs are existing: workouts (per-muscle set counts), sessions
+// (median workout time + sec-per-set), exerciseLibrary + customExercises
+// (the catalog the recommender picks from). No new IndexedDB store.
 // ============================================================================
 
-// Shared 4-week aggregator: returns 4 rolling 7-day buckets, oldest first.
-// bucket[0] = days 21-27 ago, bucket[3] = last 7 days. Each entry is the
-// raw workouts array for that window so callers can derive any metric.
-function fourWeekBuckets(workouts) {
-    const buckets = [[], [], [], []];
-    for (let b = 0; b < 4; b++) {
-        const startOffset = (3 - b) * 7 + 6;   // older edge, inclusive
-        const endOffset = (3 - b) * 7;         // newer edge, inclusive
-        const startISO = isoForOffset(startOffset);
-        const endISO = isoForOffset(endOffset);
-        buckets[b] = workouts.filter(w => w.date >= startISO && w.date <= endISO);
+// Trailing-window per-muscle set count. Counts ENTRIES, not volume — set
+// count is the right unit for "did you train it" vs "how hard". Returns
+// the canonical 6-muscle object so callers can iterate MUSCLES safely.
+async function computeMuscleCoverage(days = 14) {
+    const cutoff = isoForOffset(days - 1);
+    const all = await getActiveWorkouts();
+    const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    all.filter(w => w.date >= cutoff).forEach(w => {
+        counts[muscleOf(w.exercise)]++;
+    });
+    return counts;
+}
+
+// Median workout-minutes from real sessions in the last N weeks. Skips the
+// active session and any estimated/backfilled session (those have synthetic
+// durations and would pull the median around). Falls back to 45 min when
+// the user has no real sessions yet — a reasonable default workout length.
+async function computeMedianSessionMinutes(weeks = 4) {
+    const cutoff = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000;
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff
+                  && (!activeSession || s.id !== activeSession.id));
+    if (!sessions.length) return 45;
+    const allWorkouts = await getActiveWorkouts();
+    const minutes = sessions.map(s => {
+        const sets = allWorkouts
+            .filter(w => w.sessionId === s.id)
+            .sort((a, b) => a.id - b.id);
+        return computeSessionTimes(s, sets).workoutMs / 60000;
+    }).filter(m => m > 0).sort((a, b) => a - b);
+    if (!minutes.length) return 45;
+    const mid = Math.floor(minutes.length / 2);
+    return minutes.length % 2 ? minutes[mid] : (minutes[mid - 1] + minutes[mid]) / 2;
+}
+
+// Average seconds-per-set across recent real sessions. Used to size the
+// recommended workout to the user's median session length.
+async function computeMedianSecPerSet(weeks = 4) {
+    const cutoff = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000;
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff
+                  && (!activeSession || s.id !== activeSession.id));
+    if (!sessions.length) return 90;   // fallback: 90s/set
+    const allWorkouts = await getActiveWorkouts();
+    let totalSec = 0, totalSets = 0;
+    sessions.forEach(s => {
+        const sets = allWorkouts
+            .filter(w => w.sessionId === s.id)
+            .sort((a, b) => a.id - b.id);
+        if (!sets.length) return;
+        totalSec += computeSessionTimes(s, sets).workoutMs / 1000;
+        totalSets += sets.length;
+    });
+    return totalSets ? Math.max(45, Math.min(180, totalSec / totalSets)) : 90;
+}
+
+// Build the candidate catalog: built-in exerciseLibrary + user's custom
+// exercises (non-tombstoned), de-duped by name. Custom takes precedence so
+// the user's own canonical naming wins.
+async function buildExerciseCatalog() {
+    const customs = (await performDB('customExercises', 'getAll'))
+        .filter(c => !c.deleted);
+    const byName = new Map();
+    exerciseLibrary.forEach(e => byName.set(e.name, { name: e.name, muscle: e.muscle, isCustom: false }));
+    customs.forEach(c => byName.set(c.name, { name: c.name, muscle: c.muscle, isCustom: true }));
+    return [...byName.values()];
+}
+
+// Pick an ad-hoc workout targeted at the user's neglected muscles. The
+// algorithm is intentionally simple — pick the bottom-2 muscles by set
+// count, find catalog entries for them, rank by how often the user has
+// logged the exercise (familiarity), then size sets so total duration
+// lands near the user's median session length.
+async function generateRecommendedWorkout() {
+    const coverage = await computeMuscleCoverage(14);
+    const all = await getActiveWorkouts();
+    const totalSets14d = Object.values(coverage).reduce((a, b) => a + b, 0);
+
+    // Cold-start guard: need at least ~5 logged sets across history before
+    // we can sensibly say anything about focus. Below that, return null and
+    // the renderer shows a "log a few sets" empty state.
+    if (all.length < 5) return null;
+
+    // Bottom 2 by set count over the 14-day window. Ties broken alphabetically
+    // for determinism so repeated calls don't flip-flop.
+    const ranked = [...MUSCLES].sort((a, b) => coverage[a] - coverage[b] || a.localeCompare(b));
+    const targets = ranked.slice(0, 2);
+
+    // Per-exercise log frequency, across all history. Drives the "familiar
+    // = good pick" preference. Variety jitter is a small index-based salt
+    // so the same 2 exercises don't show every single day.
+    const freq = {};
+    all.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
+    const dayJitter = new Date().getDate();   // 1..31, rotates daily
+
+    const catalog = await buildExerciseCatalog();
+    const picks = [];
+    targets.forEach((m, ti) => {
+        const candidates = catalog
+            .filter(c => c.muscle === m)
+            .map((c, idx) => ({
+                name: c.name,
+                muscle: c.muscle,
+                familiarity: freq[c.name] || 0,
+                jitter: (idx + dayJitter + ti * 7) % 5,
+            }))
+            // Familiar exercises first; jitter only matters within the
+            // unfamiliar tail so daily rotation doesn't dethrone the
+            // user's actual go-to lifts.
+            .sort((a, b) => b.familiarity - a.familiarity || a.jitter - b.jitter);
+        // 1-2 exercises per target muscle, skipping any already picked.
+        let added = 0;
+        for (const c of candidates) {
+            if (picks.find(p => p.name === c.name)) continue;
+            picks.push({ name: c.name, muscle: c.muscle });
+            added++;
+            if (added >= 2) break;
+        }
+    });
+
+    if (!picks.length) return null;
+
+    // Size sets to fit the user's median session length. Floor at 2 sets,
+    // cap at 4 — beyond that range the recommendation stops looking like a
+    // real workout and starts looking like a punishment.
+    const targetMinutes = await computeMedianSessionMinutes(4);
+    const secPerSet = await computeMedianSecPerSet(4);
+    const targetSeconds = targetMinutes * 60;
+    let setsPer = Math.round(targetSeconds / secPerSet / picks.length);
+    setsPer = Math.max(2, Math.min(4, setsPer || 3));
+
+    // Trim to 3 exercises if the budget is tight; expand to 4 if it's loose.
+    let exercises = picks.map(p => ({ ...p, sets: setsPer }));
+    let estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
+    if (estSeconds > targetSeconds * 1.25 && exercises.length > 2) {
+        exercises = exercises.slice(0, exercises.length - 1);
+        estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
+    } else if (estSeconds < targetSeconds * 0.75 && exercises.length < 4) {
+        // Pull one more from the trailing muscles' candidate pools.
+        const used = new Set(exercises.map(e => e.name));
+        for (const m of targets) {
+            const extra = catalog
+                .filter(c => c.muscle === m && !used.has(c.name))
+                .sort((a, b) => (freq[b.name] || 0) - (freq[a.name] || 0))[0];
+            if (extra) {
+                exercises.push({ name: extra.name, muscle: extra.muscle, sets: setsPer });
+                break;
+            }
+        }
+        estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
     }
-    return buckets;
+
+    return {
+        exercises,
+        estimatedMinutes: Math.max(1, Math.round(estSeconds / 60)),
+        targets,
+    };
 }
 
 // ----------------------------------------------------------------------------
-// Card 1 — Strength Trajectory
+// Focus card — six muscle rows with set count over the trailing 14 days.
 //
-// For the user's top 3 most-frequent exercises in the last 4 weeks, surface
-// the change in best estimated 1RM from week-1 to week-4. The headline gives
-// a single-glance answer to "am I getting stronger?"; the per-row sparkline
-// shows the shape underneath. Tapping a row opens the existing exercise
-// sheet (which has the full-history trend chart).
+// Sorted descending by set count so the over-trained muscles sit at the
+// top and the trailing pair lands at the bottom — the same pair the
+// Recommended-next card will target. The headline calls out the trailing
+// muscle(s) when they're <50% of the leading muscle, otherwise reports
+// "Balanced across muscle groups".
 // ----------------------------------------------------------------------------
-async function renderStrengthTrajectory() {
-    const list = $('strength-list');
-    const headline = $('strength-headline');
+async function renderFocus() {
+    const list = $('focus-list');
+    const headline = $('focus-headline');
     if (!list || !headline) return;
     list.innerHTML = "";
 
+    const coverage = await computeMuscleCoverage(14);
+    const total = Object.values(coverage).reduce((a, b) => a + b, 0);
+
+    if (!total) {
+        headline.textContent = 'No sets in the last 14 days — log one to get a recommendation.';
+        return;
+    }
+
+    const sorted = [...MUSCLES].sort((a, b) => coverage[b] - coverage[a]);
+    const max = coverage[sorted[0]] || 1;
+
+    // Trailing muscles: count is <50% of the leading muscle. Only flag two
+    // at most so the headline stays scannable.
+    const trailing = sorted.filter(m => coverage[m] < max * 0.5).slice(-2);
+    if (trailing.length && coverage[trailing[trailing.length - 1]] === 0) {
+        // At least one muscle has zero sets — name them explicitly.
+        const zeroes = sorted.filter(m => coverage[m] === 0);
+        const named = zeroes.slice(0, 2).map(titleCase).join(' and ');
+        headline.textContent = `${named} untouched in the last 14 days.`;
+    } else if (trailing.length) {
+        const named = trailing.map(titleCase).join(' and ');
+        headline.textContent = `${named} trailing — balance those next.`;
+    } else {
+        headline.textContent = 'Balanced across muscle groups.';
+    }
+
+    sorted.forEach(m => {
+        const v = coverage[m];
+        const pct = max ? (v / max) * 100 : 0;
+        const row = document.createElement('div');
+        row.className = 'focus-row';
+        row.innerHTML = `
+            <span class="focus-name"><span class="muscle-tag" style="background:${muscleColor[m]}"></span>${titleCase(m)}</span>
+            <div class="focus-track"><div class="focus-fill" style="width:${pct.toFixed(1)}%;background:${muscleColor[m]}"></div></div>
+            <span class="focus-count">${v}</span>
+        `;
+        list.appendChild(row);
+    });
+}
+
+// ----------------------------------------------------------------------------
+// Recommended next card — an ad-hoc workout picked to target the user's
+// trailing muscles, sized to their median session length.
+//
+// Renders the exercise list, an estimated duration ("≈ 42 min · targets
+// legs, core"), and a CTA that starts a session with the picks queued as
+// tap-to-fill chips on the Workout screen. Empty state fires when the
+// user has fewer than ~5 logged sets total.
+// ----------------------------------------------------------------------------
+async function renderRecommendedNext() {
+    const list = $('recommended-list');
+    const headline = $('recommended-headline');
+    const dur = $('recommended-duration');
+    const cta = $('recommended-cta');
+    if (!list || !headline) return;
+
+    const rec = await generateRecommendedWorkout();
+    if (!rec) {
+        headline.textContent = 'Log a few sets and I’ll recommend your next workout.';
+        list.innerHTML = '';
+        if (dur) dur.textContent = '';
+        if (cta) cta.style.display = 'none';
+        return;
+    }
+
+    const targetsLabel = rec.targets.map(titleCase).join(', ');
+    headline.textContent = `Targets ${targetsLabel.toLowerCase()}.`;
+    if (dur) dur.textContent = `≈ ${rec.estimatedMinutes} min`;
+
+    list.innerHTML = rec.exercises.map(ex => `
+        <div class="recommended-row">
+            <span class="recommended-name"><span class="muscle-tag" style="background:${muscleColor[ex.muscle]}"></span>${escapeHtml(titleCase(ex.name))}</span>
+            <span class="recommended-sets">${ex.sets} sets</span>
+        </div>
+    `).join('');
+
+    if (cta) cta.style.display = '';
+}
+
+// ----------------------------------------------------------------------------
+// Suggested-queue (Workout screen) — chips above the active session that
+// reflect the recommendation the user tapped on Home. Each chip shows
+// "exercise · logged/target"; tapping opens quick-add prefilled. The queue
+// lives in localStorage under ironSuggestedQueue and is cleared in
+// endWorkoutSession. Not synced — ephemeral session state.
+// ----------------------------------------------------------------------------
+const SUGGESTED_QUEUE_KEY = 'ironSuggestedQueue';
+
+function readSuggestedQueue() {
+    try {
+        const raw = localStorage.getItem(SUGGESTED_QUEUE_KEY);
+        if (!raw) return null;
+        const q = JSON.parse(raw);
+        return Array.isArray(q) ? q : null;
+    } catch { return null; }
+}
+
+function writeSuggestedQueue(q) {
+    if (!q || !q.length) localStorage.removeItem(SUGGESTED_QUEUE_KEY);
+    else localStorage.setItem(SUGGESTED_QUEUE_KEY, JSON.stringify(q));
+}
+
+function clearSuggestedQueue() {
+    localStorage.removeItem(SUGGESTED_QUEUE_KEY);
+    const el = $('suggested-queue');
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+async function renderSuggestedQueue() {
+    const el = $('suggested-queue');
+    if (!el) return;
+    const queue = readSuggestedQueue();
+    if (!activeSession || !queue?.length) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+    }
+    // Recompute per-exercise set counts from the active session so chips
+    // reflect reality even after edits/deletes/voice logs.
+    const sessionSets = (await performDB('workouts', 'getAll'))
+        .filter(w => w.sessionId === activeSession.id && !w.deleted);
+    const counts = {};
+    sessionSets.forEach(w => { counts[w.exercise] = (counts[w.exercise] || 0) + 1; });
+
+    el.style.display = '';
+    el.innerHTML = `
+        <div class="suggested-queue-label">Suggested</div>
+        <div class="suggested-queue-chips">
+            ${queue.map(q => {
+                const done = counts[q.name] || 0;
+                const complete = done >= q.sets;
+                return `<button type="button" class="suggested-chip${complete ? ' done' : ''}" data-action="openQuickAdd" data-exercise="${escapeHtml(q.name)}" aria-label="Log ${escapeHtml(titleCase(q.name))}, ${done} of ${q.sets} sets logged">
+                    <span class="suggested-chip-dot" style="background:${muscleColor[q.muscle] || '#888'}"></span>
+                    <span class="suggested-chip-name">${escapeHtml(titleCase(q.name))}</span>
+                    <span class="suggested-chip-count">${done}/${q.sets}</span>
+                </button>`;
+            }).join('')}
+        </div>
+    `;
+}
+
+// CTA handler — wired into ACTIONS as startRecommendedWorkout. Stashes the
+// current recommendation as the suggested queue, starts a session (silent
+// so the explicit-action haptic on the session card doesn't double the
+// queue-stash haptic), and routes to Workout so the user lands on the
+// suggested chips ready to log.
+async function startRecommendedWorkout() {
+    const rec = await generateRecommendedWorkout();
+    if (!rec) return;   // CTA shouldn't be visible in this case; defensive
+    writeSuggestedQueue(rec.exercises.map(e => ({
+        name: e.name, muscle: e.muscle, sets: e.sets,
+    })));
+    showScreen('workout');
+    if (!activeSession) await startWorkoutSession();
+    await renderSuggestedQueue();
+    haptic(15);
+}
+
+async function _REMOVED_BLOCK_TO_DELETE() {
     const workouts = await getActiveWorkouts();
     const buckets = fourWeekBuckets(workouts);
     const all4w = buckets.flat();
@@ -3698,13 +4034,15 @@ async function drawPRCanvas(canvasId, exerciseName) {
     ctx.textAlign = 'center';
     ctx.fillText(titleCase(exerciseName), W / 2, 420);
 
-    // Headline number — weight or 1RM depending on which milestone the
-    // PR represents. Records that pre-date the prType field default to
-    // the legacy 1RM-forward presentation.
+    // Headline is always the actual barbell weight — the milestone the user
+    // physically lifted. Max-weight variant shows the all-time heaviest lift;
+    // rep-PR variant shows the bar weight on the PR-earning set, with the
+    // estimated 1RM demoted to the secondary line. Legacy records (pre-v9.9)
+    // lack max1RMWeight; fall through to maxWeight.
     const prType = pr.prType === 'weight' ? 'weight' : '1rm';
     const headline = prType === 'weight'
         ? Math.round(pr.maxWeight)
-        : Math.round(pr.max1RM);
+        : Math.round(Number(pr.max1RMWeight) || pr.maxWeight);
     ctx.font = '800 360px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif';
     const goldGrad = ctx.createLinearGradient(0, H * 0.4, 0, H * 0.7);
     goldGrad.addColorStop(0, '#ffd60a');
@@ -3715,26 +4053,20 @@ async function drawPRCanvas(canvasId, exerciseName) {
     // Tag below headline
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '500 56px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.fillText(prType === 'weight' ? 'LB · NEW MAX WEIGHT' : 'LB · ESTIMATED 1RM', W / 2, H * 0.66);
+    ctx.fillText(prType === 'weight' ? 'LB · NEW MAX WEIGHT' : 'LB · NEW REP PR', W / 2, H * 0.66);
 
-    // Secondary line — context for the headline. For a weight PR show
-    // the rep count + estimated 1RM; for a 1RM PR show the source set
-    // (the rep work that drove the Epley up). Older PR records that
-    // lack the new fields fall back gracefully to weight-only context.
+    // Secondary line — supporting context for the headline. Both variants
+    // share the same structure (`for N reps · est. M lb 1RM`) so the cards
+    // read as parallel milestones differentiated only by the tag line.
     ctx.fillStyle = '#ffffff';
     ctx.font = '600 64px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    let secondary;
-    if (prType === 'weight') {
-        const reps = Number(pr.maxWeightReps) || 0;
-        const oneRM = Math.round(pr.max1RM);
-        secondary = reps > 0
-            ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} lb 1RM`
-            : `est. ${oneRM} lb 1RM`;
-    } else {
-        const w = Number(pr.max1RMWeight) || pr.maxWeight || 0;
-        const r = Number(pr.max1RMReps)   || 0;
-        secondary = (w && r) ? `from ${w} × ${r}` : `from ${w || pr.maxWeight} lb`;
-    }
+    const reps = prType === 'weight'
+        ? Number(pr.maxWeightReps) || 0
+        : Number(pr.max1RMReps)    || 0;
+    const oneRM = Math.round(pr.max1RM);
+    const secondary = reps > 0
+        ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} lb 1RM`
+        : `est. ${oneRM} lb 1RM`;
     ctx.fillText(secondary, W / 2, H * 0.78);
 
     // Date
