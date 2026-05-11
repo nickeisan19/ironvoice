@@ -741,6 +741,21 @@ already in place: prompt-once-per-session, TTS-suspend-recognizer, continuous
 mode with restart-on-end. Don't undo these without understanding why
 they exist.
 
+**Every voice response also surfaces as a snackbar (v9.17).** `speak()`
+([app.js](app.js)) calls `showSnackbar(text, { duration: 3500 })` for
+every utterance — set readbacks, query answers, error prompts, the
+hint message, all of it. The motivation is iOS-specific: the hardware
+ringer switch silences `speechSynthesis` entirely on iPhone, so a
+muted phone (the common case at a gym) made voice queries appear to
+fail. Logged sets had visual proof in the set list; pure queries
+(`lastSet`, PR query, weekly volume, plates) had no visual output and
+were invisible when muted. The snackbar is the always-on visual
+channel; TTS stays as the primary when audible. Don't strip snackbars
+off non-query intents to "reduce noise" — the muted-phone case
+needs them on logs too, otherwise the readback distinction (which
+visually feels redundant when TTS works) becomes invisible failure
+when TTS doesn't.
+
 **iOS skips the v9.0 mic-level meter (v9.16).** `startMicLevelMeter()`
 ([app.js](app.js)) opens a parallel `getUserMedia` stream to drive the
 5-bar EQ on the FAB. On Chrome / Android / desktop this works fine

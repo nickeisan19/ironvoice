@@ -1452,6 +1452,15 @@ async function executeIntent(intent) {
 }
 
 function speak(text) {
+    // v9.17: every spoken response also surfaces as a snackbar so voice
+    // works on muted phones (the common case at a gym). On iOS the
+    // hardware ringer switch silences speechSynthesis entirely, which
+    // made queries like "what was my last bench" appear to fail — the
+    // answer was being spoken into the void. The snackbar is the
+    // always-on visual mirror; TTS remains the primary channel when
+    // audible.
+    showSnackbar(text, { duration: 3500 });
+
     if (!('speechSynthesis' in window)) return;
 
     // If the recognizer is live, mute it for the duration of TTS. Without
