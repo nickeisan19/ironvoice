@@ -741,6 +741,25 @@ already in place: prompt-once-per-session, TTS-suspend-recognizer, continuous
 mode with restart-on-end. Don't undo these without understanding why
 they exist.
 
+**iOS skips the v9.0 mic-level meter (v9.16).** `startMicLevelMeter()`
+([app.js](app.js)) opens a parallel `getUserMedia` stream to drive the
+5-bar EQ on the FAB. On Chrome / Android / desktop this works fine
+alongside `SpeechRecognition`. On iOS it doesn't: iOS has exclusive
+audio session ownership at the system level, and `getUserMedia` +
+`SpeechRecognition` can coexist on the *first* attempt but the
+hardware-level release lags past `stopMicLevelMeter()`'s
+`MediaStreamTrack.stop()` calls — the next tap fails to get the mic
+back, the recognizer wedges, and the FAB shows frozen bars. Symptom is
+"first set logs via voice, second set silently does nothing, app close
+doesn't recover." Module-level `IS_IOS` constant
+([app.js](app.js) near `VOICE_SESSION_MS`) gates the meter to a no-op
+on iOS. `initSpeech()` adds `body.ios` so [style.css](style.css) can
+keep the mic icon visible (with the breathing animation) instead of
+showing static EQ bars. **Don't try to re-enable the meter on iOS
+without first solving the audio-session-release timing** — the visual
+cost (static bars vs animated bars) is much smaller than the
+functional cost (voice not working on the second rep).
+
 **Don't gate iOS as voice-unsupported based on assumed WebKit STT
 limitations (v9.14 was reverted in v9.15).** I shipped v9.14 confident
 that iPhone PWA `webkitSpeechRecognition` doesn't function, citing the

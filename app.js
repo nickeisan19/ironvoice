@@ -1038,6 +1038,17 @@ function normalizeSpokenNumbers(text) {
 const VOICE_SESSION_MS = 30000;
 let _sessionTimer = null;
 
+// iOS has exclusive audio session ownership: SpeechRecognition and a
+// parallel getUserMedia stream (the v9.0 mic-level meter) can't coexist
+// after the first session — iOS holds the mic at the system level past
+// the JS-level release, so the second meter open fails and wedges the
+// recognizer too. We detect iOS here and skip the meter in
+// startMicLevelMeter(); style.css uses `body.ios` to keep the mic icon
+// visible instead of the static-bar fallback. The breathing animation
+// on `#mic-btn.listening` still signals "I'm listening." See v9.16.
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 // Limit the spoken "Try saying..." hint to once per session. Without this,
 // desktop laptop mics pick up typing/fan/ambient noise as garbage final
 // results, the prompt fires, and the prompt's own TTS audio gets re-heard
@@ -1087,6 +1098,13 @@ let _micStream = null;
 let _micAnimFrame = null;
 
 async function startMicLevelMeter() {
+    // iOS: skip entirely. The parallel getUserMedia stream conflicts with
+    // SpeechRecognition's audio session and breaks voice on the second
+    // recognition attempt (mic stays held at the system level past JS
+    // release). The mic icon stays visible via the `body.ios` CSS override
+    // and the breathing animation provides the listening feedback. See
+    // the IS_IOS comment block above for the full reasoning.
+    if (IS_IOS) return;
     // Skip if Audio APIs aren't available (Safari sometimes restricts).
     if (!window.AudioContext && !window.webkitAudioContext) return;
     if (_micAudioCtx) return;   // already running
@@ -1153,6 +1171,10 @@ function stopMicLevelMeter() {
 }
 
 function initSpeech() {
+    // Tag the body so CSS can branch on iOS without per-rule UA sniffing.
+    // Drives the .ios overrides that keep the mic icon visible when
+    // listening (the EQ bars are hidden on iOS — see startMicLevelMeter).
+    if (IS_IOS) document.body.classList.add('ios');
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
         // iOS Safari is the main offender — WebKit ships SpeechSynthesis
