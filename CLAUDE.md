@@ -202,6 +202,26 @@ Whisper, not anything that requires a server-side audio pipeline. The whole
 point is "open mic, get text, parse intent, log." Browser-native is fast and
 works offline-ish.
 
+**iOS is gated as voice-unsupported (v9.14).** iOS exposes
+`webkitSpeechRecognition` on `window`, so the naive
+`if (!SR)` check in `initSpeech()` lets it through — but the recognizer
+doesn't actually function in a home-screen PWA (and is unreliable in
+mobile Safari). Symptom before the gate: tap mic, FAB enters
+`.listening`, 5-bar EQ appears, no `onresult` ever fires, 30s
+`VOICE_SESSION_MS` timeout trips `endSession()`, FAB goes back to blue.
+Second tap looks even worse — the audio context from the first attempt
+hasn't fully torn down, so the meter bars don't animate. The fix in
+[app.js](app.js) `initSpeech()` is a UA + iPadOS-touch detection that
+forces `SR` to `false` on iOS, routing iPhones into the existing
+`maybeShowVoiceUnsupportedBanner()` + `voiceUnsupportedHint` path: dim
+FAB, one-time "Voice logging needs Chrome" snackbar, manual entry still
+works. Don't remove this gate without a real fix for iOS — and "real
+fix" means the Capacitor + `SFSpeechRecognizer` roadmap item, not a
+different Web Speech wrapper. Chrome/Firefox/Edge on iPhone don't help
+either: Apple forces every iOS browser onto WebKit, so they all share
+the same broken STT. (EU DMA carve-out for third-party engines on
+iOS 17.4+ is not in scope — US-only user.)
+
 **No analytics, no telemetry, no error reporting service.** This is a personal
 app; no Sentry, no Mixpanel, no anything that phones home. Console logging
 is the debugger.
@@ -739,7 +759,8 @@ verify the file actually arrived where you think it did.
 sensitive — picks up ambient noise as garbage final results. Mitigations
 already in place: prompt-once-per-session, TTS-suspend-recognizer, continuous
 mode with restart-on-end. Don't undo these without understanding why
-they exist.
+they exist. **iOS:** see the v9.14 settled-decision entry above — the API
+is exposed but non-functional, the gate is in `initSpeech()`.
 
 **Service worker cache invalidation is asymmetric.** On every deploy, bump
 `APP_VERSION` in `version.js` so existing devices see the new shell. The
