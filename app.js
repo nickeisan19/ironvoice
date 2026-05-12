@@ -2391,11 +2391,15 @@ async function renderFocus() {
     if (!list || !headline) return;
     list.innerHTML = "";
 
-    // Hide the card entirely when the user has logged nothing — the
-    // welcome hint at the bottom of Home covers the zero-data case, so
-    // stacking three empty-state messages would just feel noisy.
+    // Hide the card (and the Plan section header — owned by renderFocus
+    // since it runs first in renderAll) entirely when the user has logged
+    // nothing. The welcome hint at the bottom of Home covers the
+    // zero-data case, so stacking three empty-state messages would just
+    // feel noisy.
     const all = await getActiveWorkouts();
+    const header = $('plan-section-header');
     if (card) card.style.display = all.length ? '' : 'none';
+    if (header) header.style.display = all.length ? '' : 'none';
     if (!all.length) return;
 
     const coverage = await computeMuscleCoverage(14);

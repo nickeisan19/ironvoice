@@ -428,7 +428,7 @@ whichever set has the more recent `id` (ties go to weight). This keeps
 the stored variant honest even after deletes, edits, or a fresh
 restore from the server.
 
-**PR card has two variants (v9.9, headline rule refined v9.17).**
+**PR card has two variants (v9.9, headline rule refined v9.20).**
 `drawPRCanvas` ([app.js](app.js)) branches on `pr.prType`:
 
 - `'weight'` → headline is the rounded `maxWeight` with tag
@@ -456,7 +456,7 @@ to `pr.maxWeight` when `max1RMWeight` is absent — so legacy cards
 still render a real bar weight, never `NaN`. The prior literal-`reps`
 bug (`${pr.maxWeight} × reps for the record`, which rendered the
 word "reps" instead of a number) was fixed in the v9.9 rewrite; the
-v9.17 change kept that fix and only touched the headline + tag + the
+v9.20 change kept that fix and only touched the headline + tag + the
 1RM-variant secondary.
 
 **PR card has the IronVoice mark at top-left (v9.9).** A 120×120 draw
