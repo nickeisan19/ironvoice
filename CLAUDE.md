@@ -103,8 +103,8 @@ at a screenshot from someone's phone) exactly which build is running.
 **Single source of truth: `version.js`.** Two constants:
 
 ```js
-self.APP_VERSION    = '7.1';        // MAJOR.MINOR
-self.APP_BUILD_DATE = '2026-05-05'; // local YYYY-MM-DD
+self.APP_VERSION    = '9.20';       // MAJOR.MINOR
+self.APP_BUILD_DATE = '2026-05-11'; // local YYYY-MM-DD
 ```
 
 **Format is `MAJOR.MINOR`** — two components, no patch. Bumping rules:
@@ -118,7 +118,7 @@ self.APP_BUILD_DATE = '2026-05-05'; // local YYYY-MM-DD
 
 **The bump propagates automatically:**
 
-1. Profile-screen footer renders `IronVoice Pro · v7.1 · 2026-05-05` from
+1. Profile-screen footer renders `IronVoice Pro · v9.20 · 2026-05-11` from
    `renderVersionFooter()` in `app.js`.
 2. `sw.js` derives `CACHE_VERSION = ironvoice-v${APP_VERSION}` via
    `importScripts('./version.js')` — so the cache is invalidated on every
@@ -317,8 +317,8 @@ top to bottom:
 3. A 2-up tile row: `#today-card` and `#week-card`. These replaced the old
    Current + Latest PR cards (and their `#last-lift` / `#pr-display` IDs),
    which showed point-in-time data that went stale across visits.
-4. "Trends" section header + three insight-led cards (v9.4): Strength
-   Trajectory, Training Rhythm, Balance vs Your Norm.
+4. "Plan" section header + two prescriptive cards (v9.20): Focus and
+   Recommended next.
 
 The primary action pill (`.home-primary-action`, id `#home-primary-action`)
 says "Start workout" idle / "Resume workout · Nm" with a green pulsing
@@ -344,36 +344,78 @@ set count, distinct workout days, plus a `+/-N% vs prior` delta line in
 (rare twice-in-one-day cases miscount; acceptable for a summary tile).
 Tap → History.
 
-**Trends section is three insight-led cards (v9.4).** Each leads with a
-one-line headline takeaway and uses a small visual as supporting evidence.
-Replaces the old 14d Volume bar chart + absolute Muscle distribution,
-which were demoted in v9.1/v9.2 and removed entirely in v9.4 because
-they didn't answer questions the Today/Week tiles already covered.
+**Plan section is two prescriptive cards (v9.20).** Replaces the v9.4
+Trends section (Strength Trajectory + Training Rhythm + Balance vs Your
+Norm) and the auto-deload Insights card. The old cards presented
+analytics without a verb — numbers without a "do this next." The
+replacement is a coach: surface what's been under-trained and recommend
+a concrete workout that fits the user's typical session length.
 
-1. **Strength Trajectory (4w)** — `renderStrengthTrajectory()`. Top 3
-   most-frequent exercises over the last 4 weeks, each row showing
-   weekly best estimated 1RM as an inline SVG sparkline (`.sr-spark`).
-   Headline format: "Bench +5 · Squat — · Deadlift +15". Tap a row to
-   open the exercise sheet.
-2. **Training Rhythm (4w)** — `renderTrainingRhythm()`. Four weekly
-   bars (rolling 7-day buckets) with a workout-day count badge under
-   each; current week highlighted in gold. Headline shows
-   workouts/week average with a delta vs the prior 4-week window.
-   The Volume/Sets toggle (`initChartFilters()`) is preserved and
-   drives this card.
-3. **Balance vs Your Norm (7d vs 30d)** — `renderBalance()`. Per-muscle
-   horizontal bars with a baseline marker at the user's 30-day rolling
-   weekly average (`.br-baseline`). Bars above the marker mean trained
-   more than usual; below means trailing. Headline calls out the most
-   under-trained muscle when deviation > 25%, otherwise reports
-   "Balanced — within 25% of your norm".
+1. **Focus (14d)** — `renderFocus()`. Six muscle rows (chest / back /
+   legs / shoulders / arms / core) showing **set count** over the
+   trailing 14 days, sorted descending. Bar width is proportional to
+   the leading muscle's count, colored by `muscleColor[m]`. Headline
+   logic in priority order: zero-set muscles → "Chest and Legs
+   untouched in the last 14 days"; muscles under 50% of the leading
+   muscle → "Legs and Core trailing — balance those next"; otherwise
+   "Balanced across muscle groups." Card tap routes to History via
+   `data-screen-target="history"`. Set count (not volume) is the
+   right unit here — answers "did you train it" rather than "how
+   hard," which is the question the recommender needs.
+2. **Recommended next** — `renderRecommendedNext()` driven by
+   `generateRecommendedWorkout()`. Picks the 2 trailing muscles from
+   the Focus card, then for each pulls 1–2 exercises from the catalog
+   (`exerciseLibrary` + the user's `customExercises`, de-duped),
+   ranked by familiarity (how often the user has logged each
+   exercise — frequent = comfortable = good pick) with a tiny daily
+   index jitter on the unfamiliar tail so the suggestion isn't
+   identical every day. Caps at 4 exercises total. Sets-per-exercise
+   sized by `computeMedianSessionMinutes(4)` / chosen exercise count
+   / `computeMedianSecPerSet(4)`, floored at 2 and capped at 4; if
+   the estimated duration drifts >25% from the user's median, drops
+   or adds one exercise to fit. Renders `≈ NN min` in the meta slot
+   and `Targets legs, core.` as the headline. CTA
+   (`data-action="startRecommendedWorkout"`) starts a session and
+   stashes the picks in the Workout screen's suggested-queue.
+3. **Suggested-queue on the Workout screen** — `renderSuggestedQueue()`.
+   Horizontal chip strip (`#suggested-queue`) above the manual-entry
+   inputs, one chip per recommended exercise showing `name · done/target`.
+   Tap → opens the existing quick-add overlay prefilled with that
+   exercise via `data-action="openQuickAdd"` + `data-exercise=…` (same
+   path the per-group "+ Add set" pill uses, so logging flows through
+   `buildEntry` → `saveAndSyncUI` exactly as voice and manual entry do).
+   Chip progress recomputes from `activeSession`'s sets on every render,
+   so logging / editing / deleting all stay correct. Completed chips fade
+   (`.suggested-chip.done`, opacity 0.5) but stay tappable for an extra
+   set. Queue lives in `localStorage` under `ironSuggestedQueue` —
+   **ephemeral session state, not synced**. Cleared in
+   `endWorkoutSession` on both paths (real end + empty-discard) via
+   `clearSuggestedQueue()`.
 
-Implementation notes: the old `renderChart()` and
-`renderMuscleDistribution()` are gone; don't resurrect them. New helper
-`fourWeekBuckets()` powers Strength + Rhythm. All three render functions
-are wired into `renderAll`, `saveAndSyncUI`, `deleteEntry`,
-`undoLastDelete`. Sparklines are inline SVG — no charting library, no
-build step.
+The empty-state contract: when the user has zero logged workouts, both
+Plan cards AND the "Plan" section header hide themselves (the welcome
+hint at the bottom of Home covers the zero-data case, and stacking
+three empty-state messages would just feel noisy). With ≥1 workout but
+fewer than 5 sets total, `generateRecommendedWorkout()` returns null
+and Recommended falls back to "Log a few sets and I'll recommend your
+next workout." Focus shows its data regardless once there's ≥1 set.
+
+Don't resurrect the deleted code. The dead names: `renderStrengthTrajectory`,
+`renderTrainingRhythm`, `renderBalance`, `renderInsights`, `fourWeekBuckets`,
+`initChartFilters`, `chartMode`, and the `ironChartMode` localStorage key.
+Their CSS (`.chart-card`, `.strength-row`, `.sr-spark`, `.rhythm-chart`,
+`.rhythm-col`, `.balance-list`, `.balance-row`, `.br-baseline`, `.br-fill`,
+`.insight-card`, `.chart-filters`, `.filter-chip`, `.trend-headline`, etc.)
+is also gone. Both `renderFocus` and `renderRecommendedNext` wire into the
+standard fan-out points (`renderAll`, `saveAndSyncUI`, `deleteEntry`,
+`undoLastDelete`, `updateEntry`). `renderSuggestedQueue` wires into
+`refreshSessionCard` plus the post-write paths so the chip counts stay
+honest.
+
+Don't add stats analytics back onto Home. If the user wants to inspect
+a long-running trend, that belongs on a per-exercise sheet or on
+History, not on the launchpad. The Plan cards are *prescriptive* by
+design — that's the whole point of the v9.20 redesign.
 
 **Header subtitle is live (v9.1).** `#header-subtitle` mirrors the same
 state machine as the Today card via `renderHeaderSubtitle()`:
