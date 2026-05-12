@@ -7,7 +7,16 @@
       "Bash(git commit -m ' *)",
       "Bash(git reset *)",
       "Bash(node -e ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node --check c:/Users/nick.eisan.ES-NEISAN2/Documents/GitHub/ironvoice/app.js)",
+      "Bash(node -e \"const fs=require\\('fs'\\);const css=fs.readFileSync\\('c:/Users/nick.eisan.ES-NEISAN2/Documents/GitHub/ironvoice/style.css','utf8'\\);let depth=0;let line=1;for\\(let i=0;i<css.length;i++\\){if\\(css[i]==='\\\\n'\\)line++;if\\(css[i]==='{'\\)depth++;if\\(css[i]==='}'\\){depth--;if\\(depth<0\\){console.log\\('Unbalanced } at line',line\\);process.exit\\(1\\);}}}console.log\\('balanced; final depth',depth\\);\")",
+      "Bash(where node *)",
+      "Bash(node -e \"const http=require\\('http'\\),fs=require\\('fs'\\),path=require\\('path'\\);const port=8765;http.createServer\\(\\(req,res\\)=>{const p=path.join\\(process.cwd\\(\\),req.url==='/'?'index.html':req.url\\);fs.readFile\\(p,\\(e,d\\)=>{if\\(e\\){res.writeHead\\(404\\);res.end\\('not found'\\);}else{res.writeHead\\(200\\);res.end\\(d\\);}}\\);}\\).listen\\(port,'127.0.0.1',\\(\\)=>console.log\\('listening on '+port\\)\\);\")",
+      "Bash(curl -s -o NUL -w \"index.html HTTP %{http_code} - %{size_download} bytes\\\\n\" http://127.0.0.1:8765/index.html)",
+      "Bash(curl -s -o NUL -w \"app.js     HTTP %{http_code} - %{size_download} bytes\\\\n\" http://127.0.0.1:8765/app.js)",
+      "Bash(curl -s -o NUL -w \"style.css  HTTP %{http_code} - %{size_download} bytes\\\\n\" http://127.0.0.1:8765/style.css)",
+      "Bash(curl -s -o NUL -w \"version.js HTTP %{http_code} - %{size_download} bytes\\\\n\" http://127.0.0.1:8765/version.js)",
+      "Bash(node --check app.js)"
     ]
   }
 }
