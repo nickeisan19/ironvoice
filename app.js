@@ -181,7 +181,6 @@ let editingTemplate = null;
 let restDuration = parseInt(localStorage.getItem('ironRest') || '90', 10);
 let restTimerHandle = null;
 let restCompleteTimeout = null;
-let chartMode = localStorage.getItem('ironChartMode') || 'volume';
 let theme = localStorage.getItem('ironTheme') || 'dark';
 let workoutMode = localStorage.getItem('ironWorkoutMode') === 'on';
 let serverSyncedAt = parseInt(localStorage.getItem('ironServerSyncedAt') || '0', 10);
@@ -383,7 +382,6 @@ window.addEventListener('load', () => {
     initOutsideClick();
     initServiceWorker();
     initSegmented();
-    initChartFilters();
     initOnlineHandler();
     initSWMessages();
     initJournalDelegation();
@@ -595,24 +593,6 @@ function initSegmented() {
         setSegmentedActive($('custom-muscle-segment'), b => b === btn);
         editingCustomExercise.muscle = btn.dataset.val;
         haptic(8);
-    });
-}
-
-function initChartFilters() {
-    document.querySelectorAll('.chart-filters .filter-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            document.querySelectorAll('.chart-filters .filter-chip').forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            chartMode = chip.dataset.mode;
-            localStorage.setItem('ironChartMode', chartMode);
-            renderTrainingRhythm();
-            haptic(6);
-        });
-        if (chip.dataset.mode === chartMode) {
-            chip.classList.add('active');
-        } else {
-            chip.classList.remove('active');
-        }
     });
 }
 
@@ -943,14 +923,15 @@ async function saveAndSyncUI(entry) {
         markUnsynced();   // v8: flag for auto-sync triggers (background, end-of-workout)
         await updateUI(entry, isNewPR);
         await renderHistory();
-        await renderStrengthTrajectory();
-        await renderTrainingRhythm();
-        await renderBalance();
+        await renderFocus();
+        await renderRecommendedNext();
         await renderStrain();
-        await renderInsights();
         await renderTemplateProgress();
         // v6: keep the live session card in sync if a session is active.
         await refreshSessionCard();
+        // v9.18: refresh the suggested-queue chips so completed exercises
+        // tick over from incomplete to done as the user logs sets.
+        await renderSuggestedQueue();
         if (restDuration > 0) startRestTimer(restDuration);
     } catch (err) {
         console.error('Save failed:', err);
@@ -1466,14 +1447,15 @@ async function executeIntent(intent) {
 }
 
 function speak(text) {
-    // v9.17: every spoken response also surfaces as a snackbar so voice
+    // v9.17/v9.19: every spoken response also surfaces visually so voice
     // works on muted phones (the common case at a gym). On iOS the
     // hardware ringer switch silences speechSynthesis entirely, which
     // made queries like "what was my last bench" appear to fail — the
-    // answer was being spoken into the void. The snackbar is the
-    // always-on visual mirror; TTS remains the primary channel when
-    // audible.
-    showSnackbar(text, { duration: 3500 });
+    // answer was being spoken into the void. v9.19 upgraded the visual
+    // from a small bottom snackbar to a prominent top-of-screen card
+    // that stays for 10s, readable from arm's-length when the phone is
+    // on the bench.
+    showVoiceResponse(text);
 
     if (!('speechSynthesis' in window)) return;
 
@@ -1627,11 +1609,9 @@ function initVoicePicker() {
 
 async function renderAll() {
     await renderHistory();
-    await renderStrengthTrajectory();
-    await renderTrainingRhythm();
-    await renderBalance();
+    await renderFocus();
+    await renderRecommendedNext();
     await renderStrain();
-    await renderInsights();
     await refreshLatestStats();
     // v9.1: Home card row replaced. New trio drives the at-a-glance "Today"
     // section; the old refreshLatestPRCard is gone (PR tile lived in the
@@ -1909,6 +1889,28 @@ function hideSnackbar() {
     if (_snackbarTimer) { clearTimeout(_snackbarTimer); _snackbarTimer = null; }
 }
 
+// v9.19 — Voice-response overlay. Prominent top-of-screen card that
+// mirrors every TTS utterance for a configurable hold time. Sized larger
+// than a snackbar because it's the *primary* feedback when the phone is
+// silenced (iOS's hardware ringer mutes speechSynthesis), and the user
+// is typically mid-set when the response appears. Tap to dismiss early.
+let _voiceResponseTimer = null;
+function showVoiceResponse(text, { duration = 10000 } = {}) {
+    const wrap = $('voice-response');
+    const txt = $('voice-response-text');
+    if (!wrap || !txt) return;
+    txt.textContent = text;
+    wrap.classList.add('active');
+    if (_voiceResponseTimer) clearTimeout(_voiceResponseTimer);
+    if (duration > 0) {
+        _voiceResponseTimer = setTimeout(hideVoiceResponse, duration);
+    }
+}
+function hideVoiceResponse() {
+    $('voice-response')?.classList.remove('active');
+    if (_voiceResponseTimer) { clearTimeout(_voiceResponseTimer); _voiceResponseTimer = null; }
+}
+
 // v9.8 — Custom confirm/info sheet. Replaces native confirm()/alert() so
 // the IronVoice sheet aesthetic is consistent across destructive prompts
 // (End workout, Wipe, Sign out, Delete template, etc.) and boot-time
@@ -1988,12 +1990,11 @@ async function undoLastDelete() {
         await performDB('workouts', 'put', entry);
         await recomputePR(entry.exercise);
         await renderHistory();
-        await renderStrengthTrajectory();
-        await renderTrainingRhythm();
-        await renderBalance();
+        await renderFocus();
+        await renderRecommendedNext();
         await renderStrain();
-        await renderInsights();
         await refreshLatestStats();
+        await renderSuggestedQueue();
         haptic(15);
     } catch (err) { console.error('Undo failed', err); }
     hideSnackbar();
@@ -2140,6 +2141,14 @@ function initActionDispatcher() {
         // SpeechRecognition (iOS Safari, etc.). The mic's data-action is
         // rewritten to this in initSpeech() when SR is unavailable.
         voiceUnsupportedHint,
+        // v9.18: Home "Recommended next" card CTA. Stashes the picks as
+        // the suggested-queue in localStorage, starts a session, routes
+        // to Workout. Missing this entry would silently no-op the button.
+        startRecommendedWorkout,
+        // v9.19: tap-to-dismiss for the voice-response overlay (the big
+        // top-of-screen card that mirrors TTS replies). Without this the
+        // card is dismiss-only via its 10s auto-hide.
+        hideVoiceResponse,
     };
     const INPUT_ACTIONS = { filterExercises };
     const FOCUS_ACTIONS = { showExercises };
@@ -2376,10 +2385,18 @@ async function generateRecommendedWorkout() {
 // "Balanced across muscle groups".
 // ----------------------------------------------------------------------------
 async function renderFocus() {
+    const card = $('focus-card');
     const list = $('focus-list');
     const headline = $('focus-headline');
     if (!list || !headline) return;
     list.innerHTML = "";
+
+    // Hide the card entirely when the user has logged nothing — the
+    // welcome hint at the bottom of Home covers the zero-data case, so
+    // stacking three empty-state messages would just feel noisy.
+    const all = await getActiveWorkouts();
+    if (card) card.style.display = all.length ? '' : 'none';
+    if (!all.length) return;
 
     const coverage = await computeMuscleCoverage(14);
     const total = Object.values(coverage).reduce((a, b) => a + b, 0);
@@ -2431,11 +2448,18 @@ async function renderFocus() {
 // user has fewer than ~5 logged sets total.
 // ----------------------------------------------------------------------------
 async function renderRecommendedNext() {
+    const card = $('recommended-card');
     const list = $('recommended-list');
     const headline = $('recommended-headline');
     const dur = $('recommended-duration');
     const cta = $('recommended-cta');
     if (!list || !headline) return;
+
+    // Hide the card entirely when the user has logged nothing — see the
+    // same rationale in renderFocus().
+    const all = await getActiveWorkouts();
+    if (card) card.style.display = all.length ? '' : 'none';
+    if (!all.length) return;
 
     const rec = await generateRecommendedWorkout();
     if (!rec) {
@@ -2539,287 +2563,6 @@ async function startRecommendedWorkout() {
     haptic(15);
 }
 
-async function _REMOVED_BLOCK_TO_DELETE() {
-    const workouts = await getActiveWorkouts();
-    const buckets = fourWeekBuckets(workouts);
-    const all4w = buckets.flat();
-
-    if (!all4w.length) {
-        headline.textContent = 'Log a few sets to see your strength trajectory.';
-        return;
-    }
-
-    // Per-exercise: max oneRM in each of the 4 weekly buckets, plus a
-    // session-count for ranking. A "session" = a distinct date with a set.
-    const byEx = {};
-    buckets.forEach((bucket, weekIdx) => {
-        bucket.forEach(w => {
-            if (!byEx[w.exercise]) byEx[w.exercise] = { weeks: [0, 0, 0, 0], dates: new Set() };
-            if (w.oneRM > byEx[w.exercise].weeks[weekIdx]) byEx[w.exercise].weeks[weekIdx] = w.oneRM;
-            byEx[w.exercise].dates.add(w.date);
-        });
-    });
-
-    const ranked = Object.entries(byEx)
-        .map(([ex, d]) => ({ ex, weeks: d.weeks, sessions: d.dates.size }))
-        .sort((a, b) => b.sessions - a.sessions)
-        .slice(0, 3);
-
-    if (!ranked.length) {
-        headline.textContent = 'Log a few sets to see your strength trajectory.';
-        return;
-    }
-
-    // Headline: summarize the deltas across the top exercises. Each gets a
-    // short "Bench +5" / "Squat —" fragment; we join with a middle dot.
-    const headlineFrags = ranked.map(r => {
-        const first = r.weeks.find(v => v > 0) || 0;
-        const last = [...r.weeks].reverse().find(v => v > 0) || 0;
-        const delta = first && last ? last - first : 0;
-        const name = titleCase(r.ex.split(' ').slice(0, 2).join(' '));
-        if (!first || !last || first === last || Math.abs(delta) < 1) return `${name} —`;
-        const sign = delta > 0 ? '+' : '';
-        return `${name} ${sign}${Math.round(delta)}`;
-    });
-    headline.textContent = headlineFrags.join(' · ');
-
-    // Rows: name, delta pill, sparkline
-    ranked.forEach(r => {
-        const first = r.weeks.find(v => v > 0) || 0;
-        const last = [...r.weeks].reverse().find(v => v > 0) || 0;
-        const delta = first && last ? last - first : 0;
-
-        let pillCls = 'flat';
-        let pillText = '—';
-        if (first && last && Math.abs(delta) >= 1) {
-            if (delta > 0) { pillCls = 'up'; pillText = `+${Math.round(delta)}`; }
-            else { pillCls = 'down'; pillText = `${Math.round(delta)}`; }
-        }
-
-        // Sparkline. Plot only the non-zero weeks (zero = no session that week,
-        // not a regression to 0 lbs). One point = render a single dot; <2
-        // points overall means no sparkline, just the dot for the latest.
-        const points = r.weeks
-            .map((v, i) => ({ x: i, v }))
-            .filter(p => p.v > 0);
-        const maxV = Math.max(...points.map(p => p.v), 1);
-        const minV = Math.min(...points.map(p => p.v));
-        const range = Math.max(maxV - minV, 1);
-        // viewBox 0 0 70 28 — match container px so coords map 1:1
-        const px = (p) => ({
-            x: 4 + (p.x / 3) * 62,
-            y: 4 + (1 - (p.v - minV) / range) * 20,
-        });
-        const coords = points.map(px);
-        const polyline = coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
-        const endDot = coords[coords.length - 1];
-        const sparkSvg = coords.length >= 2
-            ? `<svg class="sr-spark ${pillCls}" viewBox="0 0 70 28" preserveAspectRatio="none">
-                   <polyline class="line" points="${polyline}"/>
-                   <circle class="end-dot" cx="${endDot.x.toFixed(1)}" cy="${endDot.y.toFixed(1)}" r="2.5"/>
-               </svg>`
-            : `<svg class="sr-spark ${pillCls}" viewBox="0 0 70 28" preserveAspectRatio="none">
-                   ${endDot ? `<circle class="end-dot" cx="${endDot.x.toFixed(1)}" cy="${endDot.y.toFixed(1)}" r="2.5"/>` : ''}
-               </svg>`;
-
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'strength-row';
-        row.dataset.exercise = r.ex;
-        row.setAttribute('aria-label', `Open ${titleCase(r.ex)} details`);
-        row.innerHTML = `
-            <span class="sr-name">${escapeHtml(titleCase(r.ex))}</span>
-            <span class="sr-delta ${pillCls}">${escapeHtml(pillText)} lb</span>
-            ${sparkSvg}
-        `;
-        row.addEventListener('click', () => openExercise(r.ex));
-        list.appendChild(row);
-    });
-}
-
-// ----------------------------------------------------------------------------
-// Card 2 — Training Rhythm
-//
-// Four weekly bars (rolling 7-day buckets) with a workout-count badge under
-// each. Replaces the old 14-day Volume chart at a more useful timescale.
-// Headline: avg workouts/week + delta vs prior 4-week window when available.
-// Volume/Sets toggle reuses the existing chartMode state.
-// ----------------------------------------------------------------------------
-async function renderTrainingRhythm() {
-    const chart = $('rhythm-chart');
-    const headline = $('rhythm-headline');
-    if (!chart || !headline) return;
-    chart.innerHTML = "";
-
-    const workouts = await getActiveWorkouts();
-    const buckets = fourWeekBuckets(workouts);
-    const all4w = buckets.flat();
-
-    const metric = (bucket) => chartMode === 'sets'
-        ? bucket.length
-        : bucket.reduce((s, w) => s + w.weight * w.reps, 0);
-
-    const values = buckets.map(metric);
-    const dayCounts = buckets.map(b => new Set(b.map(w => w.date)).size);
-    const max = Math.max(1, ...values);
-
-    // Headline. Two-pass logic:
-    //   1) avg workouts/week over the last 4 weeks
-    //   2) delta vs prior 4 weeks (days 28-55 ago) when there's enough data
-    const totalDays4w = dayCounts.reduce((a, b) => a + b, 0);
-    const avg = totalDays4w / 4;
-
-    // Prior 4-week window for comparison — straight count of distinct dates.
-    const priorStart = isoForOffset(55);
-    const priorEnd = isoForOffset(28);
-    const priorDates = new Set(
-        workouts.filter(w => w.date >= priorStart && w.date <= priorEnd).map(w => w.date)
-    );
-    const priorAvg = priorDates.size / 4;
-
-    if (!totalDays4w) {
-        headline.textContent = 'No workouts logged in the last 4 weeks.';
-    } else {
-        let head = `${avg.toFixed(1)} workouts/week avg`;
-        if (priorAvg > 0) {
-            const diff = avg - priorAvg;
-            if (Math.abs(diff) >= 0.25) {
-                const sign = diff > 0 ? '+' : '';
-                head += ` · ${sign}${diff.toFixed(1)} vs prior`;
-            } else {
-                head += ` · steady`;
-            }
-        }
-        headline.textContent = head;
-    }
-
-    // Bars
-    buckets.forEach((bucket, i) => {
-        const v = values[i];
-        const days = dayCounts[i];
-        const isCurrent = (i === 3);
-
-        const col = document.createElement('div');
-        col.className = 'rhythm-col';
-        if (v > 0) col.classList.add('active');
-        if (isCurrent) col.classList.add('current');
-
-        const heightPct = Math.max(4, (v / max) * 100);
-        const labelVal = chartMode === 'sets'
-            ? `${v} set${v === 1 ? '' : 's'}`
-            : `${Math.round(v).toLocaleString()} lbs`;
-        col.title = `${i === 3 ? 'This week' : `${(3 - i)}w ago`}: ${labelVal}, ${days} day${days === 1 ? '' : 's'}`;
-
-        col.innerHTML = `
-            <div class="rc-bar-wrap"><div class="rc-bar" style="height:${heightPct}%"></div></div>
-            <div class="rc-count">${days}d</div>
-        `;
-        chart.appendChild(col);
-    });
-}
-
-// ----------------------------------------------------------------------------
-// Card 3 — Balance vs Your Norm
-//
-// For each muscle group, compare last-7-day volume to the user's 30-day
-// rolling weekly average for that muscle. Renders a horizontal bar with a
-// baseline marker; the headline calls out the most under-trained muscle if
-// it's >25% below baseline, otherwise reports "balanced". Replaces the
-// old absolute-percentage muscle distribution which had no reference.
-// ----------------------------------------------------------------------------
-async function renderBalance() {
-    const list = $('balance-list');
-    const headline = $('balance-headline');
-    if (!list || !headline) return;
-    list.innerHTML = "";
-
-    const workouts = await getActiveWorkouts();
-    const cutoff7 = isoForOffset(6);    // last 7 days inclusive
-    const cutoff30 = isoForOffset(29);  // last 30 days inclusive
-
-    const recent7 = workouts.filter(w => w.date >= cutoff7);
-    const recent30 = workouts.filter(w => w.date >= cutoff30);
-
-    const sumByMuscle = (entries) => {
-        const totals = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
-        entries.forEach(w => { totals[muscleOf(w.exercise)] += w.weight * w.reps; });
-        return totals;
-    };
-    const cur = sumByMuscle(recent7);
-    const baseline30 = sumByMuscle(recent30);
-    const baselineWeekly = {};
-    MUSCLES.forEach(m => { baselineWeekly[m] = baseline30[m] / (30 / 7); });
-
-    const grandCur = Object.values(cur).reduce((a, b) => a + b, 0);
-    const grandBase = Object.values(baselineWeekly).reduce((a, b) => a + b, 0);
-
-    if (!grandCur && !grandBase) {
-        headline.textContent = 'No volume in the last 30 days.';
-        return;
-    }
-    if (!grandBase) {
-        // First-week user — no baseline yet, just show this week's spread.
-        headline.textContent = 'Building your baseline — keep logging.';
-    } else if (!grandCur) {
-        headline.textContent = 'Nothing logged in the last 7 days.';
-    } else {
-        // Most under-trained muscle vs baseline (only when baseline has
-        // meaningful volume for it). Surface only if deviation > 25%.
-        let worst = null;
-        MUSCLES.forEach(m => {
-            if (baselineWeekly[m] < 100) return; // ignore muscles with negligible baseline
-            const dev = (cur[m] - baselineWeekly[m]) / baselineWeekly[m];
-            if (dev < -0.25 && (!worst || dev < worst.dev)) worst = { m, dev };
-        });
-        if (worst) {
-            headline.textContent = `${titleCase(worst.m)} ${Math.round(Math.abs(worst.dev) * 100)}% below your norm.`;
-        } else {
-            headline.textContent = `Balanced — within 25% of your norm.`;
-        }
-    }
-
-    // Each row: muscle name, track with current fill + baseline marker, pct delta
-    // The track scales to the *max* of (current, baseline) across all muscles
-    // so bars and markers share a consistent x-axis.
-    const trackMax = Math.max(
-        1,
-        ...MUSCLES.map(m => Math.max(cur[m], baselineWeekly[m]))
-    );
-
-    MUSCLES.forEach(m => {
-        const curV = cur[m];
-        const baseV = baselineWeekly[m];
-        const fillPct = (curV / trackMax) * 100;
-        const baselinePct = (baseV / trackMax) * 100;
-
-        let cls = '';
-        let pctText = '—';
-        if (baseV >= 100) {
-            const dev = (curV - baseV) / baseV;
-            const devPct = Math.round(dev * 100);
-            if (dev > 0.1) { cls = 'above'; pctText = `+${devPct}%`; }
-            else if (dev < -0.1) { cls = 'below'; pctText = `${devPct}%`; }
-            else { pctText = '~norm'; }
-        } else if (curV > 0) {
-            pctText = 'new';
-        } else {
-            pctText = '—';
-        }
-
-        const row = document.createElement('div');
-        row.className = `balance-row ${cls}`;
-        row.innerHTML = `
-            <span class="br-name">${titleCase(m)}</span>
-            <div class="br-track">
-                <div class="br-fill" style="width:${fillPct.toFixed(1)}%;background:${muscleColor[m]}"></div>
-                ${baseV > 0 ? `<div class="br-baseline" style="left:${baselinePct.toFixed(1)}%" title="30d avg"></div>` : ''}
-            </div>
-            <span class="br-pct">${escapeHtml(pctText)}</span>
-        `;
-        list.appendChild(row);
-    });
-}
-
 // ============================================================================
 // Strain / recovery score
 // ============================================================================
@@ -2873,49 +2616,6 @@ async function renderStrain() {
 }
 
 // ============================================================================
-// Insights — auto-deload detection
-// ============================================================================
-
-async function renderInsights() {
-    const card = $('insights-card');
-    const workouts = await getActiveWorkouts();
-    if (!workouts.length) { card.style.display = 'none'; return; }
-
-    // Group by exercise + date, take max 1RM per session
-    const byEx = {};
-    workouts.forEach(w => {
-        if (!byEx[w.exercise]) byEx[w.exercise] = {};
-        const day = byEx[w.exercise][w.date] || 0;
-        if (w.oneRM > day) byEx[w.exercise][w.date] = w.oneRM;
-    });
-
-    const stale = [];
-    const cutoff = isoForOffset(21); // ignore exercises not done in last 3 weeks
-    for (const [ex, dates] of Object.entries(byEx)) {
-        const sessions = Object.entries(dates)
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .filter(([d]) => d >= cutoff);
-        if (sessions.length < 4) continue;
-        const last4 = sessions.slice(-4);
-        let plateauedCount = 0;
-        for (let i = 1; i < last4.length; i++) {
-            if (last4[i][1] <= last4[i - 1][1] * 1.005) plateauedCount++;
-        }
-        if (plateauedCount >= 3) stale.push(ex);
-    }
-
-    if (!stale.length) { card.style.display = 'none'; return; }
-
-    $('insight-title').textContent = stale.length === 1
-        ? `${titleCase(stale[0])} has plateaued`
-        : `${stale.length} exercises plateaued`;
-    $('insight-text').textContent = stale.slice(0, 3).map(titleCase).join(', ') +
-        (stale.length > 3 ? ` and ${stale.length - 3} more` : '') +
-        '. Consider a deload week or a small variation.';
-    card.style.display = 'flex';
-}
-
-// ============================================================================
 // Swipe-to-delete
 // ============================================================================
 
@@ -2929,13 +2629,12 @@ async function deleteEntry(id, silent = false) {
         markUnsynced();   // v8
         await recomputePR(entry.exercise);
         await renderHistory();
-        await renderStrengthTrajectory();
-        await renderTrainingRhythm();
-        await renderBalance();
+        await renderFocus();
+        await renderRecommendedNext();
         await renderStrain();
-        await renderInsights();
         await refreshLatestStats();
         await refreshSessionCard();   // v8: keep workout dashboard in sync if a session set was removed
+        await renderSuggestedQueue();
         if (!silent) {
             haptic(20);
             // Stage the entry for one-tap undo; snackbar dismisses itself
@@ -3701,11 +3400,9 @@ async function updateEntry(id, weight, reps) {
         markUnsynced();
         await recomputePR(entry.exercise);
         await renderHistory();
-        await renderStrengthTrajectory();
-        await renderTrainingRhythm();
-        await renderBalance();
+        await renderFocus();
+        await renderRecommendedNext();
         await renderStrain();
-        await renderInsights();
         await refreshLatestStats();
         await refreshSessionCard();
         showSnackbar(`Updated ${titleCase(entry.exercise)}`, { duration: 3000 });
@@ -4160,6 +3857,8 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
         localStorage.removeItem(ACTIVE_SESSION_KEY);
         stopSessionTicker();
         releaseScreenWakeLock();
+        // v9.18: discard the suggested-queue alongside the empty session.
+        clearSuggestedQueue();
         await refreshSessionCard();
         updateWorkoutTabUI();
         // v9.1: flip Home back to idle copy.
@@ -4176,6 +3875,9 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     stopSessionTicker();
     releaseScreenWakeLock();
+    // v9.18: suggested-queue is session-scoped — clear on end so the next
+    // workout doesn't inherit the last recommendation's chips.
+    clearSuggestedQueue();
     await refreshSessionCard();
     updateWorkoutTabUI();
     // v9.1: flip Home tiles + subtitle back to idle now that the session ended.
@@ -4346,6 +4048,10 @@ async function refreshSessionCard() {
 
     // v8: render the in-session set list grouped by exercise
     if (sessionSets) renderSessionSets(sessionSets, setsInSession);
+
+    // v9.18: keep the suggested-queue chips in sync — counts derive from
+    // setsInSession, so logging or deleting a set bumps the chip totals.
+    await renderSuggestedQueue();
 }
 
 // v9.0: Render the Workout screen idle surface — recent templates and the

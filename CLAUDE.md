@@ -428,19 +428,36 @@ whichever set has the more recent `id` (ties go to weight). This keeps
 the stored variant honest even after deletes, edits, or a fresh
 restore from the server.
 
-**PR card has two variants (v9.9).** `drawPRCanvas` ([app.js](app.js))
-branches on `pr.prType`:
+**PR card has two variants (v9.9, headline rule refined v9.17).**
+`drawPRCanvas` ([app.js](app.js)) branches on `pr.prType`:
 
 - `'weight'` → headline is the rounded `maxWeight` with tag
-  `LB · NEW MAX WEIGHT`, secondary line `for N reps · est. M lb 1RM`
-- `'1rm'` → headline is the rounded `max1RM` with tag
-  `LB · ESTIMATED 1RM`, secondary line `from {max1RMWeight} × {max1RMReps}`
+  `LB · NEW MAX WEIGHT`
+- `'1rm'` → headline is the rounded `max1RMWeight` (the bar weight on
+  the PR-earning set, not the calculated 1RM) with tag
+  `LB · NEW REP PR`
+
+Both variants share the same secondary line: `for N reps · est. M lb 1RM`.
+The structures are parallel — only the headline number and the tag line
+differ — so the two cards read as paired milestones rather than two
+different layouts.
+
+**Why the headline is always a bar weight, never a calculated 1RM:**
+the card is shared. A number the user actually lifted is a milestone
+they can point to. An Epley estimate is supporting context, not the
+milestone. Don't put `max1RM` back on the headline; if you ever feel
+tempted because the rep-PR card's number "looks small," remember the
+secondary line already shows the 1RM and the tag already names the
+PR type.
 
 Records that pre-date the `prType` field (legacy data, never re-PR'd
-since v9.9) default to the `'1rm'` path so the card never breaks. The
-prior literal-`reps` bug (`${pr.maxWeight} × reps for the record`,
-which rendered the word "reps" instead of a number) is fixed by this
-rewrite — the secondary line is constructed from real fields now.
+since v9.9) default to the `'1rm'` path, and the headline falls back
+to `pr.maxWeight` when `max1RMWeight` is absent — so legacy cards
+still render a real bar weight, never `NaN`. The prior literal-`reps`
+bug (`${pr.maxWeight} × reps for the record`, which rendered the
+word "reps" instead of a number) was fixed in the v9.9 rewrite; the
+v9.17 change kept that fix and only touched the headline + tag + the
+1RM-variant secondary.
 
 **PR card has the IronVoice mark at top-left (v9.9).** A 120×120 draw
 of `icon-512.png` sits at (96, 120) on the 1080×1920 canvas, with the
@@ -741,20 +758,38 @@ already in place: prompt-once-per-session, TTS-suspend-recognizer, continuous
 mode with restart-on-end. Don't undo these without understanding why
 they exist.
 
-**Every voice response also surfaces as a snackbar (v9.17).** `speak()`
-([app.js](app.js)) calls `showSnackbar(text, { duration: 3500 })` for
-every utterance — set readbacks, query answers, error prompts, the
-hint message, all of it. The motivation is iOS-specific: the hardware
+**Every voice response also surfaces visually (v9.17 → v9.19).**
+`speak()` ([app.js](app.js)) calls `showVoiceResponse(text)` for every
+utterance — set readbacks, query answers, error prompts, the hint
+message, all of it. The motivation is iOS-specific: the hardware
 ringer switch silences `speechSynthesis` entirely on iPhone, so a
 muted phone (the common case at a gym) made voice queries appear to
 fail. Logged sets had visual proof in the set list; pure queries
 (`lastSet`, PR query, weekly volume, plates) had no visual output and
-were invisible when muted. The snackbar is the always-on visual
-channel; TTS stays as the primary when audible. Don't strip snackbars
-off non-query intents to "reduce noise" — the muted-phone case
-needs them on logs too, otherwise the readback distinction (which
-visually feels redundant when TTS works) becomes invisible failure
-when TTS doesn't.
+were invisible when muted. **v9.17** introduced this as a snackbar
+mirror; **v9.19** upgraded to a prominent top-of-screen card
+(`#voice-response`, `.voice-response` in [style.css](style.css)) with
+1.55rem text and a 10s hold, designed to be readable from arm's-length
+with the phone resting on the bench. Tap to dismiss early via
+`data-action="hideVoiceResponse"`. Snackbar is reserved for non-voice
+status messages now (Undo, sync, snackbar-action callbacks). TTS stays
+as the primary channel when audible; the overlay is the always-on
+visual mirror. Don't strip the overlay off non-query intents to
+"reduce noise" — the muted-phone case needs them on logs too,
+otherwise the readback distinction (which visually feels redundant
+when TTS works) becomes invisible failure when TTS doesn't.
+
+**iOS TTS warmup pattern (v9.18).** On iOS, `speechSynthesis` only
+produces audio when called inside a recent user-gesture context. By
+the time `recognition.onresult` fires (after STT processing), the
+gesture window has closed and the downstream `speak()` runs silently.
+Workaround in `toggleListening()` ([app.js](app.js)): queue a
+zero-volume utterance inside the tap handler itself; this marks the
+synthesis engine as user-initiated and unlocks later `speak()` calls
+for the session. Plus a defensive `speechSynthesis.resume()` before
+every `speak()` to unblock the queue if it's drifted into a paused
+state. Both are no-ops on Chrome/Android/desktop. Don't remove either
+without a real fix for the iOS audio-gesture binding.
 
 **iOS skips the v9.0 mic-level meter (v9.16).** `startMicLevelMeter()`
 ([app.js](app.js)) opens a parallel `getUserMedia` stream to drive the

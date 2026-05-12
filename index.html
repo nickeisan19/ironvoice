@@ -318,6 +318,12 @@
         <button class="snackbar-action" id="snackbar-action" type="button"></button>
     </div>
 
+    <!-- v9.19 — Voice-response overlay. Large prominent card that mirrors
+         every spoken TTS response. 10s auto-dismiss, tap to dismiss early. -->
+    <div id="voice-response" class="voice-response" role="status" aria-live="polite" data-action="hideVoiceResponse">
+        <div class="voice-response-text" id="voice-response-text"></div>
+    </div>
+
     <!-- v9.8 — Custom confirm/info sheet. Replaces every native confirm()
          and alert() in the app so destructive prompts (End workout, Wipe
          data, Sign out, Delete template/custom exercise, etc.) and boot-time
@@ -446,54 +452,30 @@
                 </button>
             </div>
 
-            <div id="insights-card" class="insight-card" style="display:none">
-                <div class="insight-icon">⚡</div>
-                <div class="insight-body">
-                    <div class="insight-title" id="insight-title">—</div>
-                    <div class="insight-text" id="insight-text">—</div>
-                </div>
-            </div>
+            <!-- v9.18: Home pivots from dashboard to coach. The old Trends
+                 cards (Strength, Rhythm, Balance) and the auto-deload
+                 Insights card were analytics without a verb. They're
+                 replaced by two prescriptive cards that turn the same
+                 data into a concrete next action. -->
+            <div class="home-section-header"><h3>Plan</h3></div>
 
-            <!-- v9.4: Insight-led Trends. Each card leads with a one-line
-                 takeaway, then a small visual underneath as evidence. The
-                 three cards answer the questions Today/Week tiles don't:
-                 "am I getting stronger", "am I consistent over weeks",
-                 "am I balanced relative to my own norm". -->
-            <div class="home-section-header"><h3>Trends</h3></div>
-
-            <section class="chart-card card">
-                <div class="chart-header">
-                    <h3>Strength</h3>
-                    <span class="chart-meta-text">4w</span>
+            <section class="rec-card card" id="focus-card" data-screen-target="history" role="button" tabindex="0" aria-label="See muscle focus, opens History">
+                <div class="rec-header">
+                    <h3>Focus</h3>
+                    <span class="rec-meta-text">14d</span>
                 </div>
-                <div class="trend-headline" id="strength-headline">—</div>
-                <div class="strength-list" id="strength-list"></div>
+                <div class="rec-headline" id="focus-headline">—</div>
+                <div class="focus-list" id="focus-list"></div>
             </section>
 
-            <section class="chart-card card">
-                <div class="chart-header">
-                    <h3>Training rhythm</h3>
-                    <span class="chart-meta-text">4w</span>
+            <section class="rec-card card" id="recommended-card">
+                <div class="rec-header">
+                    <h3>Recommended next</h3>
+                    <span class="rec-meta-text" id="recommended-duration"></span>
                 </div>
-                <div class="trend-headline" id="rhythm-headline">—</div>
-                <div class="chart-filters">
-                    <button class="filter-chip active" data-mode="volume">Volume</button>
-                    <button class="filter-chip" data-mode="sets">Sets</button>
-                </div>
-                <div class="rhythm-chart" id="rhythm-chart"></div>
-                <div class="rhythm-axis">
-                    <span>4w ago</span>
-                    <span>This week</span>
-                </div>
-            </section>
-
-            <section class="chart-card card">
-                <div class="chart-header">
-                    <h3>Balance vs your norm</h3>
-                    <span class="chart-meta-text">7d</span>
-                </div>
-                <div class="trend-headline" id="balance-headline">—</div>
-                <div class="balance-list" id="balance-list"></div>
+                <div class="rec-headline" id="recommended-headline">—</div>
+                <div class="recommended-list" id="recommended-list"></div>
+                <button type="button" class="rec-cta" id="recommended-cta" data-action="startRecommendedWorkout" style="display:none">Start this workout</button>
             </section>
 
             <!-- First-launch empty hint. Hidden once any data exists. -->
@@ -557,6 +539,13 @@
                     </div>
                 </div>
             </div>
+
+            <!-- v9.18: Suggested-queue strip — visible only when the Home
+                 "Recommended next" card seeded the session. Each chip is
+                 an exercise the recommender picked; tap opens quick-add
+                 prefilled; the count tracks sets logged this session vs
+                 the target. Cleared on endWorkoutSession. -->
+            <div id="suggested-queue" class="suggested-queue" style="display:none"></div>
 
             <!-- Quick-add: search, weight, reps. Same logic as the old home
                  manual-entry block, just now scoped to the Workout screen. -->
