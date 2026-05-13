@@ -243,6 +243,18 @@ let hasUnsyncedChanges = localStorage.getItem('ironHasUnsynced') === '1';
 
 // ----- helpers -----
 const $ = id => document.getElementById(id);
+
+// v9.21 — Select the entire contents of a freshly focused number input so
+// the prefilled value is replaced (not appended to) when the user types.
+// iOS Safari's <input type="number"> sometimes ignores .select() silently;
+// setSelectionRange covers that gap. Both calls are try-wrapped so a quirk
+// in either path can't break the focus flow.
+function selectInputContents(el) {
+    if (!el || el.value === '' || el.value == null) return;
+    try { el.select(); } catch {}
+    try { el.setSelectionRange(0, String(el.value).length); } catch {}
+}
+
 const titleCase = s => s.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
 const todayISO = () => {
     const d = new Date();
@@ -2120,9 +2132,9 @@ function initActionDispatcher() {
         undoLastDelete,
         // v6 additions
         goPRs, toggleWorkoutSession,
-        // Home screen primary action — navigate to Workout AND start the
+        // Home pill + Workout tab — navigate to Workout AND start the
         // session in one tap (was a navigate-only data-screen-target).
-        startWorkoutFromHome,
+        enterWorkout,
         // v9.2 — End-workout confirm wrapper (button only; voice bypasses)
         confirmEndWorkout,
         // v9.1: Today-card tap routes state-aware (active → Workout, else → History)
@@ -2149,9 +2161,17 @@ function initActionDispatcher() {
         // top-of-screen card that mirrors TTS replies). Without this the
         // card is dismiss-only via its 10s auto-hide.
         hideVoiceResponse,
+        // v9.21: quick-add ± stepper buttons. data-target='w'|'r',
+        // data-step=signed decimal. Lets the user bump weight/reps
+        // without opening the keyboard mid-workout.
+        bumpQuickAdd,
     };
     const INPUT_ACTIONS = { filterExercises };
-    const FOCUS_ACTIONS = { showExercises };
+    // v9.21 — selectAll: focus handler that highlights any prefilled value
+    // in a number input so a single tap lets the user type the replacement
+    // instead of having to long-press to select. Applied via
+    // data-on-focus="selectAll" on weight/reps/plate inputs.
+    const FOCUS_ACTIONS = { showExercises, selectAll: selectInputContents };
 
     document.addEventListener('click', e => {
         // Snackbar's action button is dynamic — handle it before the dispatcher.
@@ -2229,10 +2249,114 @@ async function computeMuscleCoverage(days = 14) {
     return counts;
 }
 
-// Median workout-minutes from real sessions in the last N weeks. Skips the
-// active session and any estimated/backfilled session (those have synthetic
-// durations and would pull the median around). Falls back to 45 min when
-// the user has no real sessions yet — a reasonable default workout length.
+// v9.21 — adaptive lookback for the recommender. New users get a short
+// window so a single early workout doesn't dominate; established users get
+// a longer one so a quiet week doesn't reset their pattern. Tenure is the
+// age of the earliest workout id.
+async function computeLookbackDays() {
+    const all = await getActiveWorkouts();
+    if (!all.length) return 7;
+    let firstId = Infinity;
+    for (const w of all) if (w.id < firstId) firstId = w.id;
+    const ageDays = Math.max(0, Math.floor((Date.now() - firstId) / 86400000));
+    if (ageDays <= 14) return 7;
+    if (ageDays <= 28) return 14;
+    if (ageDays <= 56) return 21;
+    return 28;
+}
+
+// v9.21 — weekday muscle profile. For a given weekday (0=Sun..6=Sat),
+// aggregate per-muscle set counts across sessions that started on that
+// weekday within the lookback window. The "weekday lock" rule (≥3 sessions
+// AND one muscle ≥40% of weekday total) lives in the recommender; this
+// helper just produces the inputs.
+async function computeWeekdayMuscleProfile(weekday, lookbackDays) {
+    const cutoff = Date.now() - lookbackDays * 86400000;
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff
+                  && new Date(s.startedAt).getDay() === weekday);
+    const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    if (!sessions.length) return { counts, sessions: 0 };
+    const sessionIds = new Set(sessions.map(s => s.id));
+    const all = await getActiveWorkouts();
+    for (const w of all) {
+        if (sessionIds.has(w.sessionId)) counts[muscleOf(w.exercise)]++;
+    }
+    return { counts, sessions: sessions.length };
+}
+
+// v9.21 — per-muscle trend over the lookback window. Splits the window in
+// half, compares recent volume to older volume, returns a -1..1 score per
+// muscle. Positive = trending up, negative = trending down. The recommender
+// uses negative trend as a "this is slipping, recommend it" boost.
+async function computeMuscleTrend(lookbackDays) {
+    const all = await getActiveWorkouts();
+    const half = Math.max(1, Math.floor(lookbackDays / 2));
+    const recentCutoff = isoForOffset(half - 1);                 // last `half` days
+    const olderCutoff  = isoForOffset(lookbackDays - 1);         // window start
+    const recent = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    const older  = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    for (const w of all) {
+        const vol = (w.weight || 0) * (w.reps || 0);
+        if (w.date >= recentCutoff) recent[muscleOf(w.exercise)] += vol;
+        else if (w.date >= olderCutoff) older[muscleOf(w.exercise)] += vol;
+    }
+    const trend = {};
+    for (const m of MUSCLES) {
+        const r = recent[m], o = older[m];
+        if (!r && !o) trend[m] = 0;
+        else trend[m] = (r - o) / (r + o + 1);
+    }
+    return trend;
+}
+
+// v9.21 — per-exercise historical median sets-per-session within the
+// lookback window. Replaces the old global 2..4 cap; if the user
+// typically does 5 sets of squats, the rec says 5. Capped 2..6 to keep
+// outliers (one-off 10-set days) from leaking into a recommendation.
+async function medianSetsForExercise(name, lookbackDays) {
+    const cutoff = Date.now() - lookbackDays * 86400000;
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff);
+    if (!sessions.length) return 3;
+    const sessionIds = new Set(sessions.map(s => s.id));
+    const all = await getActiveWorkouts();
+    const setsBySession = new Map();
+    for (const w of all) {
+        if (!sessionIds.has(w.sessionId)) continue;
+        if (w.exercise !== name) continue;
+        setsBySession.set(w.sessionId, (setsBySession.get(w.sessionId) || 0) + 1);
+    }
+    if (!setsBySession.size) return 3;
+    const vals = [...setsBySession.values()].sort((a, b) => a - b);
+    const mid = Math.floor(vals.length / 2);
+    const m = vals.length % 2 ? vals[mid] : Math.round((vals[mid - 1] + vals[mid]) / 2);
+    return Math.max(2, Math.min(6, m));
+}
+
+// v9.21 — progressive-overload counter. Increments in endWorkoutSession()
+// when the just-ended session was launched as a recommendation. Every
+// 3rd recommended workout, the generator adds +1 set to one exercise.
+// localStorage-only, ephemeral; counts since the feature shipped.
+const REC_BUMP_KEY = 'ironRecBumpCount';
+function readRecBumpCount() {
+    const n = parseInt(localStorage.getItem(REC_BUMP_KEY) || '0', 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+function incrementRecBumpCount() {
+    localStorage.setItem(REC_BUMP_KEY, String(readRecBumpCount() + 1));
+}
+
+// Median total-minutes (wall clock, includes rest) from real sessions in
+// the last N weeks. Skips the active session and any estimated/backfilled
+// session (those have synthetic durations and would pull the median
+// around). Falls back to 45 min with no real sessions yet.
+//
+// v9.21 — switched from workoutMs to totalMs. The recommender uses this
+// to size workouts to what the user actually spends at the gym (including
+// rest, plate changes, walking), not just time-under-the-bar — so the
+// "≈ 32 min" line on the Plan card reads wall-clock and the user can plan
+// around it.
 async function computeMedianSessionMinutes(weeks = 4) {
     const cutoff = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000;
     const sessions = (await performDB('sessions', 'getAll'))
@@ -2244,21 +2368,23 @@ async function computeMedianSessionMinutes(weeks = 4) {
         const sets = allWorkouts
             .filter(w => w.sessionId === s.id)
             .sort((a, b) => a.id - b.id);
-        return computeSessionTimes(s, sets).workoutMs / 60000;
+        return computeSessionTimes(s, sets).totalMs / 60000;
     }).filter(m => m > 0).sort((a, b) => a - b);
     if (!minutes.length) return 45;
     const mid = Math.floor(minutes.length / 2);
     return minutes.length % 2 ? minutes[mid] : (minutes[mid - 1] + minutes[mid]) / 2;
 }
 
-// Average seconds-per-set across recent real sessions. Used to size the
-// recommended workout to the user's median session length.
+// Average total-seconds-per-set (wall clock, includes rest) across recent
+// real sessions. Used to size the recommended workout to the user's median
+// session length. v9.21 — totalMs basis; clamp widened to 60..300s/set and
+// fallback raised to 150s/set to reflect wall-clock vs work-only timing.
 async function computeMedianSecPerSet(weeks = 4) {
     const cutoff = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000;
     const sessions = (await performDB('sessions', 'getAll'))
         .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff
                   && (!activeSession || s.id !== activeSession.id));
-    if (!sessions.length) return 90;   // fallback: 90s/set
+    if (!sessions.length) return 150;
     const allWorkouts = await getActiveWorkouts();
     let totalSec = 0, totalSets = 0;
     sessions.forEach(s => {
@@ -2266,10 +2392,10 @@ async function computeMedianSecPerSet(weeks = 4) {
             .filter(w => w.sessionId === s.id)
             .sort((a, b) => a.id - b.id);
         if (!sets.length) return;
-        totalSec += computeSessionTimes(s, sets).workoutMs / 1000;
+        totalSec += computeSessionTimes(s, sets).totalMs / 1000;
         totalSets += sets.length;
     });
-    return totalSets ? Math.max(45, Math.min(180, totalSec / totalSets)) : 90;
+    return totalSets ? Math.max(60, Math.min(300, totalSec / totalSets)) : 150;
 }
 
 // Build the candidate catalog: built-in exerciseLibrary + user's custom
@@ -2284,32 +2410,60 @@ async function buildExerciseCatalog() {
     return [...byName.values()];
 }
 
-// Pick an ad-hoc workout targeted at the user's neglected muscles. The
-// algorithm is intentionally simple — pick the bottom-2 muscles by set
-// count, find catalog entries for them, rank by how often the user has
-// logged the exercise (familiarity), then size sets so total duration
-// lands near the user's median session length.
+// v9.21 — Recommender redesign. Picks two target muscles from three
+// signals (recency deficit, declining trend, day-of-week affinity), then
+// chooses 1–2 exercises per target ranked by familiarity. Sets-per-exercise
+// come from the user's historical median for that exercise in the adaptive
+// lookback window (1–4 weeks by tenure). Total session time is the budget,
+// not just time-under-the-bar. Every 3rd recommendation-launched workout
+// adds +1 set to the most familiar exercise for a slow progressive nudge.
 async function generateRecommendedWorkout() {
-    const coverage = await computeMuscleCoverage(14);
     const all = await getActiveWorkouts();
-    const totalSets14d = Object.values(coverage).reduce((a, b) => a + b, 0);
-
-    // Cold-start guard: need at least ~5 logged sets across history before
-    // we can sensibly say anything about focus. Below that, return null and
-    // the renderer shows a "log a few sets" empty state.
     if (all.length < 5) return null;
 
-    // Bottom 2 by set count over the 14-day window. Ties broken alphabetically
-    // for determinism so repeated calls don't flip-flop.
-    const ranked = [...MUSCLES].sort((a, b) => coverage[a] - coverage[b] || a.localeCompare(b));
-    const targets = ranked.slice(0, 2);
+    const lookbackDays = await computeLookbackDays();
 
-    // Per-exercise log frequency, across all history. Drives the "familiar
-    // = good pick" preference. Variety jitter is a small index-based salt
-    // so the same 2 exercises don't show every single day.
+    // ---- Signals ---------------------------------------------------------
+    const coverage = await computeMuscleCoverage(lookbackDays);
+    const trend = await computeMuscleTrend(lookbackDays);
+    const todayDow = new Date().getDay();
+    const weekdayProfile = await computeWeekdayMuscleProfile(todayDow, lookbackDays);
+    const wTotal = Object.values(weekdayProfile.counts).reduce((a, b) => a + b, 0);
+    const maxCoverage = Math.max(1, ...Object.values(coverage));
+
+    // Weekday lock: if today's weekday has ≥3 sessions historically AND
+    // one muscle accounts for ≥40% of those sessions' sets, that muscle
+    // is "the day's lift" — a near-fixed pick. Reflects routine users who
+    // have Mon = push, Tue = pull etc.
+    let weekdayLock = null;
+    if (weekdayProfile.sessions >= 3 && wTotal > 0) {
+        let bestM = null, bestShare = 0;
+        for (const m of MUSCLES) {
+            const share = weekdayProfile.counts[m] / wTotal;
+            if (share > bestShare) { bestShare = share; bestM = m; }
+        }
+        if (bestShare >= 0.4) weekdayLock = bestM;
+    }
+
+    // Combined per-muscle score = (1 − normalized recency) + decline trend.
+    // Deterministic alpha tie-break so repeated calls don't flip-flop.
+    const scored = MUSCLES.map(m => ({
+        muscle: m,
+        score: (1 - coverage[m] / maxCoverage) + Math.max(0, -trend[m]),
+    })).sort((a, b) => b.score - a.score || a.muscle.localeCompare(b.muscle));
+
+    const targets = [];
+    if (weekdayLock) targets.push(weekdayLock);
+    for (const s of scored) {
+        if (targets.includes(s.muscle)) continue;
+        targets.push(s.muscle);
+        if (targets.length >= 2) break;
+    }
+
+    // ---- Exercise picks --------------------------------------------------
     const freq = {};
-    all.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
-    const dayJitter = new Date().getDate();   // 1..31, rotates daily
+    for (const w of all) freq[w.exercise] = (freq[w.exercise] || 0) + 1;
+    const dayJitter = new Date().getDate();
 
     const catalog = await buildExerciseCatalog();
     const picks = [];
@@ -2322,11 +2476,7 @@ async function generateRecommendedWorkout() {
                 familiarity: freq[c.name] || 0,
                 jitter: (idx + dayJitter + ti * 7) % 5,
             }))
-            // Familiar exercises first; jitter only matters within the
-            // unfamiliar tail so daily rotation doesn't dethrone the
-            // user's actual go-to lifts.
             .sort((a, b) => b.familiarity - a.familiarity || a.jitter - b.jitter);
-        // 1-2 exercises per target muscle, skipping any already picked.
         let added = 0;
         for (const c of candidates) {
             if (picks.find(p => p.name === c.name)) continue;
@@ -2335,43 +2485,68 @@ async function generateRecommendedWorkout() {
             if (added >= 2) break;
         }
     });
-
     if (!picks.length) return null;
 
-    // Size sets to fit the user's median session length. Floor at 2 sets,
-    // cap at 4 — beyond that range the recommendation stops looking like a
-    // real workout and starts looking like a punishment.
+    // ---- Set sizing ------------------------------------------------------
+    // Each exercise gets the user's historical median sets-per-session for
+    // that exercise (capped 2..6 inside the helper). Trim/expand to fit the
+    // total-time budget ±25%. Total-time basis means rest is folded in, so
+    // the duration headline matches wall clock.
     const targetMinutes = await computeMedianSessionMinutes(4);
     const secPerSet = await computeMedianSecPerSet(4);
     const targetSeconds = targetMinutes * 60;
-    let setsPer = Math.round(targetSeconds / secPerSet / picks.length);
-    setsPer = Math.max(2, Math.min(4, setsPer || 3));
 
-    // Trim to 3 exercises if the budget is tight; expand to 4 if it's loose.
-    let exercises = picks.map(p => ({ ...p, sets: setsPer }));
-    let estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
-    if (estSeconds > targetSeconds * 1.25 && exercises.length > 2) {
-        exercises = exercises.slice(0, exercises.length - 1);
-        estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
-    } else if (estSeconds < targetSeconds * 0.75 && exercises.length < 4) {
-        // Pull one more from the trailing muscles' candidate pools.
+    let exercises = [];
+    for (const p of picks) {
+        const sets = await medianSetsForExercise(p.name, lookbackDays);
+        exercises.push({ ...p, sets });
+    }
+
+    const totalSets = () => exercises.reduce((s, e) => s + e.sets, 0);
+    let guard = 0;
+    while (totalSets() * secPerSet > targetSeconds * 1.25 && exercises.length > 1 && guard++ < 20) {
+        // Shrink: drop a set from the highest-set exercise; if all already
+        // at the 2-set floor, drop the trailing exercise instead.
+        let maxIdx = 0;
+        for (let i = 1; i < exercises.length; i++) {
+            if (exercises[i].sets > exercises[maxIdx].sets) maxIdx = i;
+        }
+        if (exercises[maxIdx].sets > 2) exercises[maxIdx].sets -= 1;
+        else exercises.pop();
+    }
+    if (totalSets() * secPerSet < targetSeconds * 0.75 && exercises.length < 4) {
         const used = new Set(exercises.map(e => e.name));
         for (const m of targets) {
             const extra = catalog
                 .filter(c => c.muscle === m && !used.has(c.name))
                 .sort((a, b) => (freq[b.name] || 0) - (freq[a.name] || 0))[0];
             if (extra) {
-                exercises.push({ name: extra.name, muscle: extra.muscle, sets: setsPer });
+                const sets = await medianSetsForExercise(extra.name, lookbackDays);
+                exercises.push({ name: extra.name, muscle: extra.muscle, sets });
                 break;
             }
         }
-        estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
     }
 
+    // Progressive nudge: every 3rd completed rec'd workout adds +1 to the
+    // most familiar exercise in the picks. Capped at 6 inside the helper
+    // semantics — also re-clamped here so the bump never breaks the ceiling.
+    const bumpCount = readRecBumpCount();
+    if (bumpCount > 0 && bumpCount % 3 === 0 && exercises.length) {
+        let bumpIdx = 0;
+        for (let i = 1; i < exercises.length; i++) {
+            if ((freq[exercises[i].name] || 0) > (freq[exercises[bumpIdx].name] || 0)) bumpIdx = i;
+        }
+        if (exercises[bumpIdx].sets < 6) exercises[bumpIdx].sets += 1;
+    }
+
+    const estSeconds = exercises.reduce((s, e) => s + e.sets * secPerSet, 0);
     return {
         exercises,
         estimatedMinutes: Math.max(1, Math.round(estSeconds / 60)),
         targets,
+        lookbackDays,
+        weekdayLocked: !!weekdayLock,
     };
 }
 
@@ -3277,7 +3452,11 @@ function openPlate() {
     const cur = parseFloat($('manual-w').value);
     if (!isNaN(cur) && cur > 0) $('plate-target').value = cur;
     $('plate-overlay').classList.add('active');
-    setTimeout(() => $('plate-target').focus(), 350);
+    setTimeout(() => {
+        const el = $('plate-target');
+        el.focus();
+        selectInputContents(el);
+    }, 350);
     renderPlate();
 }
 
@@ -3331,7 +3510,35 @@ async function openQuickAdd(el) {
     if (foot) foot.textContent = 'Same exercise, new weight × reps. Pre-filled from the previous set.';
 
     $('quick-add-overlay').classList.add('active');
-    setTimeout(() => $('quick-add-w').focus({ preventScroll: true }), 350);
+    setTimeout(() => {
+        const el = $('quick-add-w');
+        el.focus({ preventScroll: true });
+        selectInputContents(el);
+    }, 350);
+}
+
+// v9.21 — Quick-add stepper handler. Wired to the ± buttons flanking the
+// weight and reps inputs. Reads data-target ('w' or 'r') and data-step
+// (signed decimal: -5, -2.5, -1, +1, +2.5, +5) off the tapped button,
+// applies the delta to the corresponding input, floors at 0, writes back
+// without re-focusing — so the iOS keyboard never pops on a stepper tap
+// and the gym-floor path can stay keyboard-free.
+function bumpQuickAdd(el) {
+    if (!el) return;
+    const target = el.dataset.target === 'r' ? 'quick-add-r' : 'quick-add-w';
+    const step = parseFloat(el.dataset.step);
+    if (!isFinite(step)) return;
+    const input = $(target);
+    if (!input) return;
+    const current = parseFloat(input.value);
+    let next = (isFinite(current) ? current : 0) + step;
+    if (next < 0) next = 0;
+    // Round to one decimal so float artifacts (e.g. 225 + 2.5 - 2.5 ≠ 225
+    // through repeated taps) never leak into the rendered value. Steps
+    // are always 0.5 multiples so .1 precision is enough.
+    next = Math.round(next * 10) / 10;
+    input.value = String(next);
+    haptic(8);
 }
 
 function closeQuickAdd() {
@@ -3385,7 +3592,11 @@ async function openEditSet(id) {
     if (foot) foot.textContent = 'Edits update this set in place — its order and timestamp are preserved.';
 
     $('quick-add-overlay').classList.add('active');
-    setTimeout(() => $('quick-add-w').focus({ preventScroll: true }), 350);
+    setTimeout(() => {
+        const el = $('quick-add-w');
+        el.focus({ preventScroll: true });
+        selectInputContents(el);
+    }, 350);
 }
 
 // v9.6 — Update an existing set's weight/reps. Mirrors deleteEntry's
@@ -3879,9 +4090,15 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     stopSessionTicker();
     releaseScreenWakeLock();
+    // v9.21 — if the session was launched as a recommendation (queue
+    // still set at end time), increment the rec-bump counter so the
+    // generator's progressive-overload nudge fires every 3rd rec'd
+    // workout. Manual workouts don't count.
+    const wasRecommended = !!readSuggestedQueue();
     // v9.18: suggested-queue is session-scoped — clear on end so the next
     // workout doesn't inherit the last recommendation's chips.
     clearSuggestedQueue();
+    if (wasRecommended) incrementRecBumpCount();
     await refreshSessionCard();
     updateWorkoutTabUI();
     // v9.1: flip Home tiles + subtitle back to idle now that the session ended.
@@ -3889,6 +4106,13 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     await renderWeekCard();
     await renderHomePrimaryAction();
     await renderHeaderSubtitle();
+    // v9.21: re-evaluate the next recommendation immediately so the user
+    // lands on Home with a fresh pick ready to review. Focus + Today + Week
+    // are already covered above; the Plan card needs an explicit refresh
+    // because its inputs (coverage, trend, weekday profile) all just
+    // changed.
+    await renderFocus();
+    await renderRecommendedNext();
     // v8: auto-sync the completed workout. Fire-and-forget — the user shouldn't
     // wait for network to see "workout ended". Errors will retry on next trigger.
     autoSync('workout-end');
@@ -3906,14 +4130,14 @@ async function toggleWorkoutSession() {
     else await startWorkoutSession();
 }
 
-// Home screen "Start workout" / "Resume workout" button. Two responsibilities
-// in one tap: (1) navigate to the Workout screen so the user lands on the
-// session UI, (2) actually start a session if one isn't already running.
-// Without this, the home button only navigated and the user had to tap
-// Start again on the Workout screen — two taps for the most common action.
-// When a session is active, this is the Resume path: just navigate, don't
-// fire the toggle (which would end the workout).
-async function startWorkoutFromHome() {
+// Wired to the Home "Start/Resume workout" pill AND the bottom-tray
+// Workout tab button. Two responsibilities in one tap: navigate to the
+// Workout screen, and start a session if one isn't already running.
+// Idle → start + navigate (one tap, not two). Active → just navigate
+// (the Resume path; the !activeSession guard prevents accidentally
+// ending the workout). Renamed from startWorkoutFromHome in v9.21 when
+// the tab button started reusing the same handler.
+async function enterWorkout() {
     showScreen('workout');
     if (!activeSession) await startWorkoutSession();
 }
@@ -4582,24 +4806,38 @@ function renderRollupTotals(elId, sessions, allWorkouts) {
     for (const arr of setsBySession.values()) arr.sort((a, b) => a.id - b.id);
 
     let totalMs = 0, restMs = 0, workoutMs = 0;
+    let volume = 0, setCount = 0;
     for (const s of sessions) {
         const sets = setsBySession.get(s.id) || [];
         const t = computeSessionTimes(s, sets);
         totalMs += t.totalMs;
         restMs += t.restMs;
         workoutMs += t.workoutMs;
+        for (const w of sets) {
+            volume += (w.weight || 0) * (w.reps || 0);
+            setCount += 1;
+        }
     }
     if (totalMs <= 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
     el.style.display = '';
-    el.innerHTML = rollupCellsHtml({ totalMs, workoutMs, restMs });
+    el.innerHTML = rollupCellsHtml({ totalMs, workoutMs, restMs, volume, setCount });
 }
 
-// Three-cell grid markup shared by week/day rollups. The Rest cell is
-// blue to mirror the green session card's REST label color, so the
-// "rest" semantic is consistent across screens.
-function rollupCellsHtml({ totalMs, workoutMs, restMs }) {
+// Five-cell grid markup shared by week/day rollups. Volume + Sets come
+// first (the "how much did I do" answer), then Total / Workout / Rest
+// (the "how long did it take" answer). The Rest cell stays blue to
+// mirror the green session card's REST label color.
+function rollupCellsHtml({ totalMs, workoutMs, restMs, volume, setCount }) {
     return `
+        <div class="history-rollup-cell">
+            <div class="history-rollup-label">Volume</div>
+            <div class="history-rollup-value">${escapeHtml(formatVol(volume || 0))}</div>
+        </div>
+        <div class="history-rollup-cell">
+            <div class="history-rollup-label">Sets</div>
+            <div class="history-rollup-value">${setCount || 0}</div>
+        </div>
         <div class="history-rollup-cell">
             <div class="history-rollup-label">Total</div>
             <div class="history-rollup-value">${escapeHtml(formatDurationCompact(totalMs))}</div>
@@ -4671,6 +4909,7 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
     // rollup above the headers in a single pass.
     let headerHtml = '';
     let dayTotalMs = 0, dayRestMs = 0, dayWorkoutMs = 0;
+    let dayVolume = 0, daySetCount = 0;
     let realSessionCount = 0;
     for (const key of orderedKeys) {
         if (key === 'untagged') continue;
@@ -4683,6 +4922,13 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
         dayRestMs    += t.restMs;
         dayWorkoutMs += t.workoutMs;
         realSessionCount++;
+        // Per-session volume — feeds both the inline sub-row chip and
+        // the day-level rollup totals below. Sets count is the bucket
+        // length, which is also rendered as text on the meta line.
+        let sessionVolume = 0;
+        for (const w of setsInSession) sessionVolume += (w.weight || 0) * (w.reps || 0);
+        dayVolume += sessionVolume;
+        daySetCount += setsInSession.length;
         const estimatedFlag = s.estimated ? `<span class="estimated">~estimated</span>` : '';
         headerHtml += `
             <div class="session-header-row">
@@ -4696,6 +4942,7 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
                         ${estimatedFlag}
                     </div>
                     <div class="session-header-times">
+                        <span><strong>${escapeHtml(formatVol(sessionVolume))}</strong> vol</span>
                         <span><strong>${escapeHtml(formatDurationCompact(t.totalMs))}</strong> total</span>
                         <span><strong>${escapeHtml(formatDurationCompact(t.workoutMs))}</strong> work</span>
                         <span class="rest-chip"><strong>${escapeHtml(formatDurationCompact(t.restMs))}</strong> rest</span>
@@ -4712,6 +4959,7 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
             dayRollup.style.display = '';
             dayRollup.innerHTML = rollupCellsHtml({
                 totalMs: dayTotalMs, workoutMs: dayWorkoutMs, restMs: dayRestMs,
+                volume: dayVolume, setCount: daySetCount,
             });
         } else {
             dayRollup.style.display = 'none';

@@ -183,8 +183,22 @@
                 </div>
                 <div class="quick-add-prev" id="quick-add-prev"></div>
                 <div class="grouped-list" style="margin-top:14px">
-                    <label class="row-input"><span>Weight (lb)</span><input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0"></label>
-                    <label class="row-input"><span>Reps</span><input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0"></label>
+                    <label class="row-input row-input-stepper"><span>Weight (lb)</span>
+                        <div class="qa-input-stepper">
+                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="-5" aria-label="Weight minus 5">−5</button>
+                            <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
+                            <input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
+                            <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
+                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
+                        </div>
+                    </label>
+                    <label class="row-input row-input-stepper"><span>Reps</span>
+                        <div class="qa-input-stepper">
+                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
+                            <input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
+                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
+                        </div>
+                    </label>
                 </div>
                 <div class="section-foot" id="quick-add-foot">Same exercise, new weight × reps. Pre-filled from the previous set.</div>
             </div>
@@ -237,8 +251,8 @@
             </div>
             <div class="sheet-body">
                 <div class="grouped-list" style="margin-bottom:18px">
-                    <label class="row-input"><span>Target weight</span><input type="number" id="plate-target" inputmode="decimal" placeholder="225" enterkeyhint="done"></label>
-                    <label class="row-input"><span>Bar weight</span><input type="number" id="plate-bar" inputmode="decimal" value="45" enterkeyhint="done"></label>
+                    <label class="row-input"><span>Target weight</span><input type="number" id="plate-target" inputmode="decimal" placeholder="225" enterkeyhint="done" data-on-focus="selectAll"></label>
+                    <label class="row-input"><span>Bar weight</span><input type="number" id="plate-bar" inputmode="decimal" value="45" enterkeyhint="done" data-on-focus="selectAll"></label>
                 </div>
                 <div id="plate-result" class="plate-result"></div>
             </div>
@@ -422,7 +436,7 @@
                     <div class="hero-load-value" id="strain-text">—</div>
                     <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
                 </div>
-                <button type="button" class="home-primary-action" id="home-primary-action" data-action="startWorkoutFromHome" aria-label="Start workout">
+                <button type="button" class="home-primary-action" id="home-primary-action" data-action="enterWorkout" aria-label="Start workout">
                     <span class="hpa-icon" id="hpa-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="6 4 20 12 6 20 6 4"/>
@@ -462,7 +476,7 @@
             <section class="rec-card card" id="focus-card" data-screen-target="history" role="button" tabindex="0" aria-label="See muscle focus, opens History">
                 <div class="rec-header">
                     <h3>Focus</h3>
-                    <span class="rec-meta-text">14d</span>
+                    <span class="rec-meta-text">Sets · 14d</span>
                 </div>
                 <div class="rec-headline" id="focus-headline">—</div>
                 <div class="focus-list" id="focus-list"></div>
@@ -555,8 +569,8 @@
                     <div id="ex-dropdown" class="search-results" role="listbox"></div>
                 </div>
                 <div class="input-row">
-                    <input type="number" id="manual-w" placeholder="Lbs" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" aria-label="Weight in pounds">
-                    <input type="number" id="manual-r" placeholder="Reps" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" aria-label="Repetitions">
+                    <input type="number" id="manual-w" placeholder="Lbs" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" aria-label="Weight in pounds" data-on-focus="selectAll">
+                    <input type="number" id="manual-r" placeholder="Reps" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" aria-label="Repetitions" data-on-focus="selectAll">
                     <button class="add-btn" data-action="handleManualEntry">Add</button>
                 </div>
             </section>
@@ -791,7 +805,7 @@
             </svg>
             <span class="tab-label">History</span>
         </button>
-        <button type="button" class="tab-btn tab-workout" id="tab-workout" data-screen-target="workout" aria-label="Workout">
+        <button type="button" class="tab-btn tab-workout" id="tab-workout" data-action="enterWorkout" aria-label="Workout">
             <svg class="tab-icon" id="tab-workout-icon" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="6 4 20 12 6 20 6 4"/>
             </svg>

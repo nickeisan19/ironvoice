@@ -103,8 +103,8 @@ at a screenshot from someone's phone) exactly which build is running.
 **Single source of truth: `version.js`.** Two constants:
 
 ```js
-self.APP_VERSION    = '9.20';       // MAJOR.MINOR
-self.APP_BUILD_DATE = '2026-05-11'; // local YYYY-MM-DD
+self.APP_VERSION    = '9.21';       // MAJOR.MINOR
+self.APP_BUILD_DATE = '2026-05-13'; // local YYYY-MM-DD
 ```
 
 **Format is `MAJOR.MINOR`** — two components, no patch. Bumping rules:
@@ -118,7 +118,7 @@ self.APP_BUILD_DATE = '2026-05-11'; // local YYYY-MM-DD
 
 **The bump propagates automatically:**
 
-1. Profile-screen footer renders `IronVoice Pro · v9.20 · 2026-05-11` from
+1. Profile-screen footer renders `IronVoice Pro · v9.21 · 2026-05-13` from
    `renderVersionFooter()` in `app.js`.
 2. `sw.js` derives `CACHE_VERSION = ironvoice-v${APP_VERSION}` via
    `importScripts('./version.js')` — so the cache is invalidated on every
@@ -324,11 +324,17 @@ The primary action pill (`.home-primary-action`, id `#home-primary-action`)
 says "Start workout" idle / "Resume workout · Nm" with a green pulsing
 icon when a session is active. **v9.11**: tapping the idle state both
 *starts* a session and navigates to the Workout screen in one tap (was
-navigate-only). Wired via `data-action="startWorkoutFromHome"`, which
+navigate-only). **v9.21**: the bottom-tray Workout tab button now shares
+the same handler — tapping it from any screen starts a session (idle)
+or just navigates (active). Wired via `data-action="enterWorkout"` (was
+`startWorkoutFromHome` before the rename — function is unchanged in
+shape, just honestly named now that two surfaces use it). `enterWorkout`
 calls `showScreen('workout')` then `startWorkoutSession()` if none is
 active. The Resume case (active session) just navigates — calling
 `startWorkoutSession` twice is a no-op anyway, but the conditional
-keeps intent explicit.
+keeps intent explicit. Don't restore `data-screen-target="workout"` on
+the tab button; the rename was deliberate so the tab matches the home
+pill's "one tap, you're lifting" promise.
 
 `#today-card` is **state-aware** via `renderTodayCard()`:
   - active session → "In progress · Nm · K sets / vol"
@@ -361,22 +367,66 @@ a concrete workout that fits the user's typical session length.
    "Balanced across muscle groups." Card tap routes to History via
    `data-screen-target="history"`. Set count (not volume) is the
    right unit here — answers "did you train it" rather than "how
-   hard," which is the question the recommender needs.
+   hard," which is the question the recommender needs. **v9.21**:
+   the header meta reads `Sets · 14d` (was bare `14d`) so the per-row
+   numbers are unambiguously set counts, not volume / reps / workouts.
 2. **Recommended next** — `renderRecommendedNext()` driven by
-   `generateRecommendedWorkout()`. Picks the 2 trailing muscles from
-   the Focus card, then for each pulls 1–2 exercises from the catalog
-   (`exerciseLibrary` + the user's `customExercises`, de-duped),
-   ranked by familiarity (how often the user has logged each
-   exercise — frequent = comfortable = good pick) with a tiny daily
-   index jitter on the unfamiliar tail so the suggestion isn't
-   identical every day. Caps at 4 exercises total. Sets-per-exercise
-   sized by `computeMedianSessionMinutes(4)` / chosen exercise count
-   / `computeMedianSecPerSet(4)`, floored at 2 and capped at 4; if
-   the estimated duration drifts >25% from the user's median, drops
-   or adds one exercise to fit. Renders `≈ NN min` in the meta slot
-   and `Targets legs, core.` as the headline. CTA
-   (`data-action="startRecommendedWorkout"`) starts a session and
-   stashes the picks in the Workout screen's suggested-queue.
+   `generateRecommendedWorkout()`. **Rewritten v9.21** from a simple
+   "bottom-2 muscles by 14d coverage" picker into a multi-signal coach.
+
+   **Adaptive lookback window** via `computeLookbackDays()`: 7 days at
+   ≤14d tenure, 14d at ≤28d, 21d at ≤56d, else 28d. New users warm up
+   gradually; established users get a long enough window that one quiet
+   week doesn't reset their pattern. All three signals below consume
+   the same window.
+
+   **Three signals score the target muscles** (higher = more reason to
+   train it):
+   - *Recency deficit* (`1 − coverage[m] / maxCoverage`) — the original
+     trailing-muscle logic, generalized.
+   - *Declining trend* via `computeMuscleTrend(lookback)` — splits the
+     window in half, compares recent volume to older volume per muscle.
+     Slipping muscles get a positive boost.
+   - *Weekday lock* via `computeWeekdayMuscleProfile(dow, lookback)` —
+     if today's weekday has ≥3 historical sessions AND one muscle is
+     ≥40% of those sessions' sets, that muscle becomes the day's
+     first target slot (a near-fixed pick reflecting routines like
+     "Mon = legs"). Other signals fill the second slot.
+
+   **Sets-per-exercise come from the user's history** via
+   `medianSetsForExercise(name, lookback)` (median sets-per-session for
+   that exercise in the window, capped 2..6) — replaces the prior
+   hard-coded 2..4 floor/cap. If you typically squat 5 sets, the rec
+   says 5.
+
+   **Total-time budget**: `computeMedianSessionMinutes` /
+   `computeMedianSecPerSet` switched from `workoutMs` to `totalMs` —
+   wall-clock minutes including rest. The "≈ N min" headline reads
+   real session length, not time-under-the-bar. Trim/expand to ±25%
+   of budget: drop sets from the highest-set exercise (or drop a
+   trailing exercise if all already at the 2-set floor); expand by
+   pulling one more familiar exercise from a target's pool.
+
+   **Progressive overload nudge**: every 3rd *recommendation-launched*
+   workout, add +1 set to the most familiar exercise in the picks.
+   Counter is `ironRecBumpCount` in `localStorage`, incremented in
+   `endWorkoutSession()` only when the queue was still set at end time
+   (so manual workouts don't count). Bump is capped at 6 sets per
+   exercise. Self-reinforcing via the median: if the user follows the
+   bump, next median creeps up and the new baseline sticks.
+
+   **Re-evaluation on workout end**: `endWorkoutSession()` now calls
+   `renderFocus()` and `renderRecommendedNext()` after the normal-end
+   fan-out (the empty-discard branch skips both — no new data). The
+   user lands back on Home with the next recommendation already
+   computed.
+
+   Headline still reads `Targets legs, core.`; meta still reads
+   `≈ NN min`. CTA (`data-action="startRecommendedWorkout"`) starts a
+   session and stashes the picks in the Workout screen's
+   suggested-queue. Don't reintroduce the global 2..4 set cap; don't
+   switch the median back to `workoutMs` (the wall-clock basis is what
+   makes the duration headline usable for planning).
 3. **Suggested-queue on the Workout screen** — `renderSuggestedQueue()`.
    Horizontal chip strip (`#suggested-queue`) above the manual-entry
    inputs, one chip per recommended exercise showing `name · done/target`.
@@ -535,10 +585,13 @@ weight × reps pills. PR sets get an inline gold pill tag. Tapping an
 exercise group header opens the exercise sheet. The old swipe-to-delete
 row list and `attachSwipe` helper are gone — don't resurrect them.
 
-**History time rollups — Total / Workout / Rest (v9.11).** The History
-tab surfaces three time totals at three granularities. None of this
-required a new IndexedDB store; the only schema change is one field
-on entries.
+**History rollups — Volume / Sets / Total / Workout / Rest (v9.11,
+expanded v9.21).** The History tab surfaces five rollup cells at three
+granularities. None of this required a new IndexedDB store; the only
+schema change is one field on entries (v9.11). The v9.21 expansion
+added Volume + Sets cells to the grid, because the prior three-cell
+layout answered "how long" but not "how much" — volume was being
+computed for the week-strip bar heights and never surfaced as a number.
 
 - **Schema:** `buildEntry()` stamps `restDurationMs: restDuration * 1000`
   on every new entry — captures *what the rest setting was at log time*,
@@ -560,27 +613,43 @@ on entries.
   clocks); both coexist — don't merge.
 - **Three render hooks:**
   - **Per-session** — each session header in `renderHistoryDayDetail`
-    has a sub-row showing `1h 12m total · 47m work · 25m rest`. The
-    bare-minute `dur` was removed (Total replaced it). The `~estimated`
-    badge stays where applicable.
+    has an inline sub-row. **v9.21** leads with volume:
+    `12.4k lb vol · 1h 12m total · 47m work · 25m rest`. Set count is
+    already on the meta line above ("24 sets") so the sub-row doesn't
+    duplicate it. The `~estimated` badge stays where applicable.
   - **Per-day** — `#history-day-rollup` (above session headers) shows
     the day's totals when ≥1 real session contributed. Hidden on
-    untagged-only days.
+    untagged-only days. v9.21: 5 cells (Volume / Sets / Total /
+    Workout / Rest).
   - **Per-week** — `#history-week-rollup` (above the volume strip)
     sums sessions whose `startedAt` falls in the visible week. Hidden
     on empty weeks. Powered by `renderRollupTotals(elId, sessions, ...)`
-    and the shared `rollupCellsHtml()` markup helper.
-- **Visual:** three-cell grid `.history-rollup` with small uppercase
-  labels above bold values. The Rest cell renders blue
-  (`.history-rollup-cell-rest`) — mirrors the green session card's
-  REST label color so "rest" reads consistently across screens. Don't
-  color all three cells blue; the asymmetry makes the rest number
-  scannable.
+    and the shared `rollupCellsHtml()` markup helper. v9.21: same 5
+    cells as the day rollup.
+- **Visual:** five-cell grid `.history-rollup` (`repeat(5, 1fr)`,
+  `gap: 8px`) with small uppercase labels above bold values. v9.21
+  shrunk the value font to 1rem and label to 0.68rem to fit five
+  cells on iPhone-SE-width without wrapping. The Rest cell renders
+  blue (`.history-rollup-cell-rest`) — mirrors the green session
+  card's REST label color so "rest" reads consistently across
+  screens. Don't color other cells blue; the asymmetry makes the rest
+  number scannable.
+
+Volume uses `formatVol(volume)` (shared with the home Week card —
+`24.7k lb` / `847 lb` short forms). Set count is the bare integer
+count of non-deleted entries in scope. The session sub-row's volume
+filters entries to `sessionId === session.id`; the day rollup sums
+across that day's real sessions (untagged-only days fall through to
+the existing "no session timer" header without a rollup row); the
+week rollup sums across `weekSessions` (untagged sets are excluded
+from time *and* volume, matching the prior scope).
 
 Don't reintroduce the bare-minute `dur` in session headers (Total chip
 covers it). Don't compute rest as `sets × restDuration` — that ignores
 the cap, which is the whole point. Untagged sets contribute zero to
 rollups; their existing "no session timer" header stays unchanged.
+Don't go back to a 3-cell grid; volume + sets are load-bearing for
+"how much did I do this week" at a glance.
 
 **Set pill = tap to edit/delete via action sheet (v9.6).** Tapping any
 set pill (active workout OR history day-detail) opens
@@ -609,6 +678,53 @@ This is the **single canonical edit/delete path** across both surfaces.
   by the discoverable tap-to-sheet path. Don't bring it back; don't add
   a per-pill `×` glyph; don't add swipe (already prohibited above).
   Voice "undo" remains as the hands-free path.
+
+**Quick-add inputs feel like number fields (v9.21).** The quick-add
+sheet pre-fills weight and reps from the previous set so the common
+"same lift again" case is one-tap save. The friction *was*: when the
+user wanted a *different* weight or rep count, a single tap dropped a
+caret into the middle of the prefilled `225` and they had to long-press
+to select before retyping. Two coordinated changes fixed this:
+
+1. **Auto-select prefilled value on focus.** `selectInputContents(el)`
+   helper near the `$()` shorthand wraps `el.select()` +
+   `el.setSelectionRange(0, length)` in try/catch (iOS Safari's
+   `type="number"` ignores `.select()` silently; setSelectionRange
+   covers the gap). Wired two ways: explicit calls inside the
+   `setTimeout(..., 350)` focus blocks in `openQuickAdd`,
+   `openEditSet`, and `openPlate`; AND a delegated handler via the
+   existing `FOCUS_ACTIONS` map (`selectAll: selectInputContents`)
+   so any input marked `data-on-focus="selectAll"` inherits the
+   behavior on user tap. Inputs marked: `#quick-add-w`,
+   `#quick-add-r`, `#manual-w`, `#manual-r`, `#plate-target`,
+   `#plate-bar`. A single tap now highlights the whole value so
+   typing replaces it.
+
+2. **± stepper buttons flank the quick-add inputs.** Weight row:
+   `[−5] [−2.5] [225] [+2.5] [+5]`; reps row: `[−] [5] [+]`. Each
+   button carries `data-action="bumpQuickAdd"`, `data-target` (`w` or
+   `r`), and `data-step` (signed decimal). One handler
+   (`bumpQuickAdd(el)`) parses both, applies the delta, floors at 0,
+   rounds to one decimal so float artifacts (`225 + 2.5 − 2.5 ≠ 225`
+   through repeated taps) never leak. Fires `haptic(8)`. Crucially
+   the handler does NOT call `.focus()` on the input — so tapping a
+   stepper from the gym floor with chalky hands doesn't pop the iOS
+   keyboard. The keyboard-free path is the whole point of the
+   secondary fix.
+
+   Styled via `.qa-input-stepper` (flex row inside the `.row-input`)
+   and `.qa-step` / `.qa-step-fine` (38×38 / 42×38 px tap targets,
+   the fine variant slightly muted so the ±5 reads as the primary
+   action). The `.row-input-stepper` modifier shrinks the row label
+   to 72px so the whole layout fits iPhone-SE-width.
+
+Don't restore the bare `<input>` markup without the steppers — the
+gym-floor keyboard-free path depends on them. Don't add `tabindex="-1"`
+to the stepper buttons; they should be reachable via keyboard for
+accessibility. Don't widen the steppers to all the other number inputs
+(`#manual-w`, `#plate-target`, etc.) — those are out-of-flow surfaces
+where typing is the right interaction; the auto-select fix is the
+appropriate scope there.
 
 **Root font-size is 17px, not the browser default 16 (v9.2).** All
 rem-based text scales up ~6%. Smallest body-text floor moves from

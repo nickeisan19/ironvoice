@@ -386,6 +386,61 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 .row-input input:focus { outline: none; }
 .row-input input::placeholder { color: var(--label-tertiary); }
 
+/* v9.21 — Quick-add stepper rows. Each ± button lets the user nudge
+   weight or reps without opening the keyboard mid-workout. Weight row
+   has ±5 (coarse) + ±2.5 (fine) flanking the input; reps row has just
+   ±1. Label is shrunk to leave room for the buttons on iPhone-SE-width
+   screens. The input itself is restyled into a centered chip so it
+   visually anchors the row instead of fading into a right-aligned
+   text field. */
+.row-input-stepper > span {
+  flex: 0 0 72px;
+  font-size: 0.85rem;
+}
+.qa-input-stepper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.qa-input-stepper input {
+  flex: 0 1 auto;
+  width: 4.2em;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-3);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 8px 6px;
+}
+.qa-step {
+  background: var(--surface-3);
+  border: 0.5px solid var(--hairline);
+  color: var(--label);
+  border-radius: var(--radius-md);
+  padding: 0 6px;
+  min-width: 38px;
+  height: 38px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.qa-step-fine {
+  font-size: 0.72rem;
+  min-width: 42px;
+  color: var(--label-secondary);
+}
+.qa-step:active {
+  transform: scale(0.94);
+  background: var(--surface-2);
+}
+
 .row-action {
   display: flex; align-items: center; justify-content: space-between;
   width: 100%; background: transparent; border: none;
@@ -2473,30 +2528,32 @@ button.card-button:focus-visible {
 }
 .session-header-times .rest-chip strong { color: var(--blue); }
 
-/* History rollup card — three-cell grid used for both per-week (above
-   the strip) and per-day (above the session headers) totals. The Rest
-   cell is blue to mirror the green session card's REST label, so the
-   "rest" semantic reads consistently across History and Workout. */
+/* History rollup card — five-cell grid (Volume / Sets / Total / Workout
+   / Rest) used for both per-week (above the strip) and per-day (above
+   the session headers) totals. Stats come first ("how much did I do"),
+   time after ("how long did it take"). The Rest cell is blue to mirror
+   the green session card's REST label, so the "rest" semantic reads
+   consistently across History and Workout. */
 .history-rollup {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
   margin: 8px 0 14px;
-  padding: 12px 14px;
+  padding: 12px 12px;
   background: var(--surface-1);
   border: 0.5px solid var(--hairline);
   border-radius: var(--radius-md);
 }
-.history-rollup-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.history-rollup-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; min-width: 0; }
 .history-rollup-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--label-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 .history-rollup-value {
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--label);
   font-feature-settings: "tnum";
