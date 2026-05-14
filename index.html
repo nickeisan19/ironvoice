@@ -185,17 +185,21 @@
                 <div class="grouped-list" style="margin-top:14px">
                     <label class="row-input row-input-stepper"><span>Weight (lb)</span>
                         <div class="qa-input-stepper">
+                            <input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
+                        </div>
+                        <div class="qa-stepper-row">
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="-5" aria-label="Weight minus 5">−5</button>
                             <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
-                            <input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
                             <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
                         </div>
                     </label>
                     <label class="row-input row-input-stepper"><span>Reps</span>
                         <div class="qa-input-stepper">
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
                             <input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
+                        </div>
+                        <div class="qa-stepper-row">
+                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
                         </div>
                     </label>

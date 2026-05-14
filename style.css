@@ -394,18 +394,30 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 .row-input input::placeholder { color: var(--label-tertiary); }
 
 /* v9.21 — Quick-add stepper rows. Each ± button lets the user nudge
-   weight or reps without opening the keyboard mid-workout. Weight row
-   has ±5 (coarse) + ±2.5 (fine) flanking the input; reps row has just
-   ±1. Label is shrunk to leave room for the buttons on iPhone-SE-width
-   screens. The input itself is restyled into a centered chip so it
-   visually anchors the row instead of fading into a right-aligned
-   text field. */
+   weight or reps without opening the keyboard mid-workout. v9.23
+   restructured the layout: label + input chip share the top line, and
+   the ± buttons sit on their own row below, stretched to fill width
+   evenly. The earlier "buttons flanking the input" layout overflowed
+   on iPhone-SE width once tap targets grew to 44×44 in v9.22 — the
+   ±5 ends would clip off the right edge of the row. The stacked
+   layout also lets the buttons present as proper iOS-blue actions
+   instead of muted chips. */
+.row-input-stepper {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 10px 12px;
+}
 .row-input-stepper > span {
-  flex: 0 0 72px;
+  grid-column: 1;
+  grid-row: 1;
+  flex: 0 0 auto;
   font-size: 0.85rem;
 }
 .qa-input-stepper {
-  flex: 1;
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -413,39 +425,45 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 }
 .qa-input-stepper input {
   flex: 0 1 auto;
-  width: 4.2em;
+  width: 5em;
   text-align: center;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   background: var(--surface-3);
   border: 0.5px solid var(--hairline);
   border-radius: var(--radius-md);
-  padding: 8px 6px;
+  padding: 10px 6px;
+}
+.qa-stepper-row {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  gap: 8px;
 }
 .qa-step {
-  background: var(--surface-3);
-  border: 0.5px solid var(--hairline);
-  color: var(--label);
+  flex: 1;
+  background: var(--blue);
+  border: none;
+  color: white;
   border-radius: var(--radius-md);
   padding: 0 6px;
   min-width: 44px;
   height: 44px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  flex: 0 0 auto;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s var(--ease), transform 0.1s var(--ease);
 }
 .qa-step-fine {
-  font-size: 0.72rem;
-  min-width: 44px;
-  color: var(--label-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 .qa-step:active {
-  transform: scale(0.94);
-  background: var(--surface-2);
+  transform: scale(0.96);
+  background: #0070d8;
 }
 
 .row-action {

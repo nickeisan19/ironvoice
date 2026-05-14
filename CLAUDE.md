@@ -118,7 +118,7 @@ self.APP_BUILD_DATE = '2026-05-13'; // local YYYY-MM-DD
 
 **The bump propagates automatically:**
 
-1. Profile-screen footer renders `IronVoice Pro · v9.22 · 2026-05-14` from
+1. Profile-screen footer renders `IronVoice Pro · v9.23 · 2026-05-14` from
    `renderVersionFooter()` in `app.js`.
 2. `sw.js` derives `CACHE_VERSION = ironvoice-v${APP_VERSION}` via
    `importScripts('./version.js')` — so the cache is invalidated on every
@@ -693,7 +693,9 @@ overall visual language:
   surface.
 - `.qa-step` / `.qa-step-fine` (the quick-add ± buttons documented
   in the v9.21 section above): 38×38 / 42×38 → 44×44, stepper gap
-  4→6px.
+  4→6px. *(v9.23 follow-up: stacked the buttons below the input
+  because 44px-wide buttons stopped fitting on iPhone-SE alongside
+  the input — see the v9.21 section for the current layout.)*
 - `.hpa-icon` (Start-workout play icon on the hero pill): standalone
   38→44, hero-row override 34→44, inner svg 16/18→18/20.
 - `.sheet-close` (Cancel/Done on sheet headers): the visible button
@@ -740,24 +742,40 @@ to select before retyping. Two coordinated changes fixed this:
    `#plate-bar`. A single tap now highlights the whole value so
    typing replaces it.
 
-2. **± stepper buttons flank the quick-add inputs.** Weight row:
-   `[−5] [−2.5] [225] [+2.5] [+5]`; reps row: `[−] [5] [+]`. Each
-   button carries `data-action="bumpQuickAdd"`, `data-target` (`w` or
-   `r`), and `data-step` (signed decimal). One handler
-   (`bumpQuickAdd(el)`) parses both, applies the delta, floors at 0,
-   rounds to one decimal so float artifacts (`225 + 2.5 − 2.5 ≠ 225`
-   through repeated taps) never leak. Fires `haptic(8)`. Crucially
-   the handler does NOT call `.focus()` on the input — so tapping a
-   stepper from the gym floor with chalky hands doesn't pop the iOS
-   keyboard. The keyboard-free path is the whole point of the
-   secondary fix.
+2. **± stepper buttons sit below the quick-add inputs (v9.23
+   layout).** Weight row top: `Weight (lb)  [ 225 ]`; weight row
+   buttons: `[−5] [−2.5] [+2.5] [+5]` stretched edge-to-edge.
+   Reps row top: `Reps  [ 5 ]`; reps row buttons: `[−] [+]`.
+   Each button carries `data-action="bumpQuickAdd"`,
+   `data-target` (`w` or `r`), and `data-step` (signed decimal).
+   One handler (`bumpQuickAdd(el)`) parses both, applies the
+   delta, floors at 0, rounds to one decimal so float artifacts
+   (`225 + 2.5 − 2.5 ≠ 225` through repeated taps) never leak.
+   Fires `haptic(8)`. Crucially the handler does NOT call
+   `.focus()` on the input — so tapping a stepper from the gym
+   floor with chalky hands doesn't pop the iOS keyboard. The
+   keyboard-free path is the whole point of the secondary fix.
 
-   Styled via `.qa-input-stepper` (flex row inside the `.row-input`)
-   and `.qa-step` / `.qa-step-fine` (44×44 px tap targets as of
-   v9.22, meeting Apple HIG; the fine variant uses the same footprint
-   but smaller type so the ±5 still reads as the primary action). The
-   `.row-input-stepper` modifier shrinks the row label to 72px so the
-   whole layout fits iPhone-SE-width.
+   **Layout history:** v9.21 placed the buttons flanking the
+   input on a single line; v9.22 bumped them to 44×44 (Apple
+   HIG); v9.23 then stacked them below the input on their own
+   row because at 44×44 the four weight buttons + input no
+   longer fit iPhone-SE width — the `+5` was clipping off the
+   right edge. Don't restore the flanking layout; the
+   width-constrained iPhone-SE case is the binding constraint.
+
+   Styled via `.row-input-stepper` as a 2×2 CSS grid
+   (`72px / 1fr` columns) — span (label) and `.qa-input-stepper`
+   (input chip) share row 1; `.qa-stepper-row` spans both
+   columns on row 2 with `display: flex; gap: 8px` and each
+   `.qa-step` set to `flex: 1` so buttons divide the row evenly.
+   Buttons are iOS blue (`var(--blue)` background, white text,
+   `:active` → `#0070d8` + `scale(0.96)`) so they read as
+   first-class actions rather than muted secondary chips. The
+   `.qa-step-fine` modifier on the ±2.5 buttons shrinks type a
+   touch (1rem → 0.88rem) without changing the tap footprint —
+   subtle visual cue that ±5 is the primary nudge, ±2.5 is the
+   fine-tune.
 
 Don't restore the bare `<input>` markup without the steppers — the
 gym-floor keyboard-free path depends on them. Don't add `tabindex="-1"`
