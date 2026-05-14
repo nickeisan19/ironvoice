@@ -574,6 +574,14 @@ const WHATS_NEW = {
             'Per-session card matches the day & week rollup layout.',
         ],
     },
+    '9.36': {
+        items: [
+            'History rollups got room to breathe — Volume + Sets lead at a larger size, with Total / Workout / Rest below.',
+            'Cleaner week strip — bolder day names, the per-day volume bar is gone.',
+            'Per-session card matches the day & week rollup layout.',
+            'Fixed: History tab briefly skipped rendering after the layout pass. Sorry about that.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
