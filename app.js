@@ -841,17 +841,43 @@ async function renderSessionSearchSection(dropdown) {
     }
 }
 
-function selectExercise(name) {
+async function selectExercise(name) {
     selectedExercise = name;
     $('ex-search').value = titleCase(name);
     $('ex-dropdown').classList.remove('active');
     $('ex-search')?.setAttribute('aria-expanded', 'false');
 
-    // If active template has a target for this exercise, prefill
+    const hint = $('manual-prev');
+    if (hint) hint.textContent = '';
+
+    // Active template targets are the user's explicit plan for this session
+    // and win over history. If neither field is template-set, fall through
+    // to the history prefill below.
+    let templatePrefilled = false;
     if (activeTemplate) {
         const target = activeTemplate.exercises.find(e => e.name === name);
-        if (target?.targetWeight) $('manual-w').value = target.targetWeight;
-        if (target?.targetReps) $('manual-r').value = target.targetReps;
+        if (target?.targetWeight) { $('manual-w').value = target.targetWeight; templatePrefilled = true; }
+        if (target?.targetReps) { $('manual-r').value = target.targetReps; templatePrefilled = true; }
+    }
+
+    // First-time-in-this-workout prefill: pull the most recent non-deleted
+    // set of this exercise (any session, ever) and seed Lbs/Reps so the
+    // user has a sane starting point with zero typing. The hint is
+    // explicit that it's the last set performed — not necessarily a max —
+    // so the user doesn't read the prefill as a target.
+    if (!templatePrefilled) {
+        try {
+            const prev = (await performDB('workouts', 'getAll'))
+                .filter(w => !w.deleted && w.exercise === name)
+                .sort((a, b) => b.id - a.id)[0] || null;
+            if (prev) {
+                $('manual-w').value = String(prev.weight);
+                $('manual-r').value = String(prev.reps);
+                if (hint) hint.textContent = `Last set: ${prev.weight} × ${prev.reps}`;
+            } else if (hint) {
+                hint.textContent = 'First time logging this exercise.';
+            }
+        } catch { /* DB error — skip the prefill, the user can still type */ }
     }
 
     $('manual-w').focus();
@@ -871,6 +897,8 @@ async function handleManualEntry() {
     $('manual-w').value = '';
     $('manual-r').value = '';
     $('ex-search').value = '';
+    const hint = $('manual-prev');
+    if (hint) hint.textContent = '';
     selectedExercise = "";
     document.activeElement?.blur();
     haptic(15);
@@ -3490,24 +3518,40 @@ async function openQuickAdd(el) {
 
     // Pre-fill from the most recent set of this exercise — first try the
     // active session, then fall back to the all-time most recent so the
-    // dialog still has something useful even outside a session.
+    // dialog still has something useful even outside a session. Source
+    // drives the messaging: "previous set" reads ambiguous when it's
+    // actually from a prior workout, so the prior-workout case gets the
+    // explicit last-performed disclaimer (matches selectExercise's hint).
     let prev = null;
+    let source = null; // 'session' | 'prior'
     const all = (await performDB('workouts', 'getAll'))
         .filter(w => !w.deleted && w.exercise === exercise);
     if (activeSession) {
         prev = all
             .filter(w => w.sessionId === activeSession.id)
             .sort((a, b) => b.id - a.id)[0] || null;
+        if (prev) source = 'session';
     }
-    if (!prev) prev = all.sort((a, b) => b.id - a.id)[0] || null;
+    if (!prev) {
+        prev = all.sort((a, b) => b.id - a.id)[0] || null;
+        if (prev) source = 'prior';
+    }
 
     $('quick-add-w').value = prev ? String(prev.weight) : '';
     $('quick-add-r').value = prev ? String(prev.reps) : '';
-    $('quick-add-prev').textContent = prev
-        ? `Previous set: ${prev.weight} × ${prev.reps}`
-        : 'No previous sets — enter weight and reps.';
+    if (!prev) {
+        $('quick-add-prev').textContent = 'No previous sets — enter weight and reps.';
+    } else if (source === 'session') {
+        $('quick-add-prev').textContent = `Previous set: ${prev.weight} × ${prev.reps}`;
+    } else {
+        $('quick-add-prev').textContent = `Last set: ${prev.weight} × ${prev.reps}`;
+    }
     const foot = $('quick-add-foot');
-    if (foot) foot.textContent = 'Same exercise, new weight × reps. Pre-filled from the previous set.';
+    if (foot) {
+        foot.textContent = source === 'prior'
+            ? 'No sets logged in this workout yet. Pre-filled from your last performance.'
+            : 'Same exercise, new weight × reps. Pre-filled from the previous set.';
+    }
 
     $('quick-add-overlay').classList.add('active');
     setTimeout(() => {
@@ -3525,10 +3569,15 @@ async function openQuickAdd(el) {
 // and the gym-floor path can stay keyboard-free.
 function bumpQuickAdd(el) {
     if (!el) return;
-    const target = el.dataset.target === 'r' ? 'quick-add-r' : 'quick-add-w';
+    // data-input (full element ID, e.g. "manual-w") wins when present so
+    // the same handler drives steppers on any surface; the quick-add
+    // overlay keeps the original data-target shorthand for backward
+    // compatibility.
+    const inputId = el.dataset.input
+        || (el.dataset.target === 'r' ? 'quick-add-r' : 'quick-add-w');
     const step = parseFloat(el.dataset.step);
     if (!isFinite(step)) return;
-    const input = $(target);
+    const input = $(inputId);
     if (!input) return;
     const current = parseFloat(input.value);
     let next = (isFinite(current) ? current : 0) + step;

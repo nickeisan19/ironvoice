@@ -780,10 +780,66 @@ to select before retyping. Two coordinated changes fixed this:
 Don't restore the bare `<input>` markup without the steppers — the
 gym-floor keyboard-free path depends on them. Don't add `tabindex="-1"`
 to the stepper buttons; they should be reachable via keyboard for
-accessibility. Don't widen the steppers to all the other number inputs
-(`#manual-w`, `#plate-target`, etc.) — those are out-of-flow surfaces
-where typing is the right interaction; the auto-select fix is the
-appropriate scope there.
+accessibility. Don't widen the steppers to out-of-flow number inputs
+like `#plate-target` — those are utility surfaces where typing is the
+right interaction; the auto-select fix is the appropriate scope there.
+(`#manual-w` / `#manual-r` *did* gain the stepper layout in v9.24
+because manual entry sits in the same in-flow logging path as
+quick-add — see the v9.24 entry below.)
+
+**Manual entry prefills from history and uses the quick-add stepper
+layout (v9.24).** Two paired changes to the workout-screen manual-entry
+section, both driven by the same goal: cut typing on the gym floor.
+
+1. **First-set-of-the-workout prefill.** When the user picks an
+   exercise from the search box, `selectExercise(name)` in
+   [app.js](app.js) now queries the workouts store for the most recent
+   non-deleted set of that exercise (any session, ever) and seeds
+   `#manual-w` / `#manual-r` with that weight × reps. A hint
+   `#manual-prev` between the search and the inputs reads `Last set:
+   95 × 8` — bold, 1rem, `var(--label)` so it stays theme-correct
+   (black in light mode, white in dark). Cleared on save inside
+   `handleManualEntry` and re-written on the next `selectExercise`
+   call. If the exercise has never been logged the hint reads
+   `First time logging this exercise.` and the inputs stay empty.
+   Active template targets still win: when `activeTemplate` has a
+   `targetWeight`/`targetReps` for the picked exercise, the template
+   prefills and the history lookup short-circuits — the template is
+   the user's explicit plan for this session and overrides historical
+   data. The earlier disclaimer suffix `— last performed, may not be
+   your max` was removed (also from `openQuickAdd`'s prior-workout
+   message); the bare `Last set: …` reads cleaner.
+
+2. **Same stepper layout as quick-add.** The compact horizontal
+   `<div class="input-row">` (two number inputs + 80px Add button to
+   the right) was retired. Manual entry now uses the same
+   `.grouped-list` + `.row-input-stepper` markup as the quick-add
+   overlay — Weight (lb) with four blue stepper buttons
+   (`−5 / −2.5 / +2.5 / +5`) stacked below the input, Reps with two
+   (`− / +`), and a full-width blue Add button (`.manual-add-btn`)
+   below the rows. Same iOS-blue visuals, same gym-floor
+   keyboard-free interaction. `bumpQuickAdd` was generalized to honor
+   `data-input` (full element ID, e.g. `"manual-w"`) when present;
+   the quick-add overlay's existing `data-target="w"`/`"r"` shorthand
+   still works for backward compatibility. One handler now drives
+   steppers on both surfaces — don't duplicate the rounding /
+   floor-at-0 / no-focus-after-tap logic into a `bumpManual` sibling.
+
+`openQuickAdd` also gained source-aware messaging: when the prefill
+comes from a previous workout rather than the active session, the
+footer reads `No sets logged in this workout yet. Pre-filled from
+your last performance.` (was the same ambiguous "Previous set" string
+in both cases). The active-session case still reads the original
+`Same exercise, new weight × reps. Pre-filled from the previous set.`
+
+Don't reintroduce the horizontal `.input-row` layout for manual entry
+— width-constrained iPhone-SE was the binding constraint that drove
+v9.23 to stack steppers in quick-add, and the same applies here.
+Don't shorten `Last set: 95 × 8` to a chip / tooltip — the bold
+1rem text is deliberately scannable from arm's length with the phone
+on the bench, matching the `#voice-response` overlay's design intent.
+The `.input-row` and inline-`.add-btn` CSS rules are orphaned but
+left in place pending a separate cleanup pass.
 
 **Root font-size is 17px, not the browser default 16 (v9.2).** All
 rem-based text scales up ~6%. Smallest body-text floor moves from

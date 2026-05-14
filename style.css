@@ -787,6 +787,13 @@ main {
   font-weight: 600; font-size: 0.95rem;
 }
 .add-btn:active { background: #0070d8; }
+.manual-add-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  font-size: 1rem;
+}
 
 /* Template chips */
 .template-chips {
@@ -2282,6 +2289,15 @@ button.card-button:focus-visible {
   color: var(--label-secondary);
   font-feature-settings: "tnum";
 }
+.manual-prev {
+  margin: 6px 4px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--label);
+  font-feature-settings: "tnum";
+  min-height: 1.1em;
+}
+.manual-prev:empty { display: none; }
 
 /* v9.6 — Set action sheet (Edit / Delete). Opened by tapping a session
    or history pill. Mirrors the quick-add sheet's visual rhythm so the
