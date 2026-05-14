@@ -984,6 +984,44 @@ Don't reach into untagged sets via swap. The handlers gate on
 the target. Same for delete-all — bulk-deleting untagged sets from a
 menu opened mid-workout would be a footgun.
 
+**Search dropdown ranked by usage frequency (v9.31).** The exercise
+search dropdown (`filterExercises` in [app.js](app.js)) sorts matches
+by total non-deleted set count DESC so the user's go-to lifts bubble
+to the top. Alphabetical is the tiebreaker — exercises with zero
+history (or matching counts) stay deterministic.
+
+Implementation: `_exerciseFrequency` is a module-level Map (exercise
+name → set count) with a `_exerciseFrequencyDirty` flag.
+`getExerciseFrequency()` lazily rebuilds the map from a single
+`getActiveWorkouts()` pass when dirty, then caches until the next
+write. Dirty marks are placed at every path that adds, removes,
+restores, or renames a set: `saveAndSyncUI`, `deleteEntry`,
+`undoLastDelete`, `applyExerciseSwap`, `deleteExerciseFromMenu`,
+`restoreFromNAS`. Warmup toggles don't mark dirty — toggling a flag
+doesn't change which exercises are touched.
+
+`filterExercises` became async to await `getExerciseFrequency()`.
+`showExercises()` calls it without awaiting; the dropdown class
+flips to `active` synchronously and content populates a beat later
+— fine for the user-visible flow.
+
+The "This workout" section (active session + empty input) still
+renders at the top of the dropdown before the frequency-sorted list.
+That contextual priority outranks all-time frequency: an exercise
+you're touching THIS session is a stronger "next-up" signal than
+"you usually do this."
+
+Warmups count toward frequency. Frequency answers "how often you
+touch this exercise," not "how hard." A user with 50 warmup sets
+of bench does use bench a lot. Don't filter to work sets only here
+— the count would diverge from getActiveWorkouts' definition of
+"all touches" and the cache invariants get fiddly.
+
+Don't try to weight recent sets more than older ones without a real
+complaint. All-time frequency is stable and predictable; a
+recency-weighted version reshuffles the top of the list every time
+you change up your routine, which gets disorienting.
+
 **Manual-entry progressive disclosure (v9.30).** The
 `.manual-entry` section on the Workout screen idles as just the
 search input (~80px); the detail block (prev hint, weight/reps

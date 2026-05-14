@@ -702,6 +702,29 @@ function performDB(store, action, data = null) {
 }
 
 const getActiveWorkouts = async () => (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
+
+// v9.31 — exercise-frequency cache for the search dropdown. Maps exercise
+// canonical name → total non-deleted sets ever logged (warmups included —
+// frequency measures "how often you touch this exercise," not "how hard").
+// Used by filterExercises as the primary sort key so the user's go-to
+// lifts bubble to the top of the list. Dirty flag avoids per-keystroke
+// getAll calls; any write path that adds/removes/renames sets bumps the
+// flag, and the next filterExercises rebuild picks up the new counts.
+let _exerciseFrequency = new Map();
+let _exerciseFrequencyDirty = true;
+
+function markFrequencyDirty() { _exerciseFrequencyDirty = true; }
+
+async function getExerciseFrequency() {
+    if (_exerciseFrequencyDirty) {
+        const all = await getActiveWorkouts();
+        const m = new Map();
+        for (const w of all) m.set(w.exercise, (m.get(w.exercise) || 0) + 1);
+        _exerciseFrequency = m;
+        _exerciseFrequencyDirty = false;
+    }
+    return _exerciseFrequency;
+}
 // Work sets only — warmups are excluded from every volume rollup, every PR
 // computation, every coverage/trend signal. The split is intentional: pill
 // rendering, set lists, and the "Set N of M" meta still see all sets (the
@@ -763,7 +786,7 @@ function showExercises() {
     $('ex-search')?.setAttribute('aria-expanded', 'true');
 }
 
-function filterExercises() {
+async function filterExercises() {
     const input = $('ex-search').value.toLowerCase();
     const dropdown = $('ex-dropdown');
     dropdown.innerHTML = "";
@@ -783,7 +806,7 @@ function filterExercises() {
     // re-typing. Only shows when search is empty so it doesn't interfere
     // with normal search behavior.
     if (activeSession && !input) {
-        renderSessionSearchSection(dropdown);
+        await renderSessionSearchSection(dropdown);
     }
 
     let pool = exerciseLibrary;
@@ -791,9 +814,18 @@ function filterExercises() {
         const names = activeTemplate.exercises.map(e => e.name);
         pool = pool.filter(ex => names.includes(ex.name));
     }
+    // v9.31 — sort by usage frequency DESC so the user's go-to lifts
+    // bubble to the top of the list. Alphabetical is the tiebreaker so
+    // exercises with zero history (or matching counts) stay deterministic.
+    const freq = await getExerciseFrequency();
     const matches = pool.filter(ex =>
         !input || ex.name.includes(input) || ex.synonyms.some(s => s.includes(input))
-    ).sort((a, b) => a.name.localeCompare(b.name));
+    ).sort((a, b) => {
+        const fa = freq.get(a.name) || 0;
+        const fb = freq.get(b.name) || 0;
+        if (fa !== fb) return fb - fa;
+        return a.name.localeCompare(b.name);
+    });
 
     if (!matches.length && dropdown.children.length === 0) {
         const div = document.createElement('div');
@@ -963,6 +995,7 @@ async function saveAndSyncUI(entry) {
             entry.sessionId = activeSession?.id ?? null;
         }
         await performDB('workouts', 'put', entry);
+        markFrequencyDirty();
         const oldPR = await performDB('prs', 'get', entry.exercise);
         // Track max weight and max 1RM independently. The PR card branches
         // on prType to decide whether to lead with the weight ("first time
@@ -2083,6 +2116,7 @@ async function undoLastDelete() {
         delete entry.deleted;
         entry.modifiedAt = Date.now();
         await performDB('workouts', 'put', entry);
+        markFrequencyDirty();
         await recomputePR(entry.exercise);
         await renderHistory();
         await renderFocus();
@@ -2910,6 +2944,7 @@ async function deleteEntry(id, silent = false) {
         entry.modifiedAt = Date.now();
         await performDB('workouts', 'put', entry);
         markUnsynced();   // v8
+        markFrequencyDirty();
         await recomputePR(entry.exercise);
         await renderHistory();
         await renderFocus();
@@ -3981,6 +4016,7 @@ async function applyExerciseSwap(targetName) {
             await performDB('workouts', 'put', set);
         }
         markUnsynced();
+        markFrequencyDirty();
         await recomputePR(source);
         await recomputePR(targetName);
         closeSwapExercise();
@@ -4068,6 +4104,7 @@ async function deleteExerciseFromMenu() {
             await performDB('workouts', 'put', set);
         }
         markUnsynced();
+        markFrequencyDirty();
         await recomputePR(name);
         await refreshSessionCard();
         await renderHistory();
@@ -5989,6 +6026,7 @@ async function restoreFromNAS() {
         // Recompute PRs locally from the merged active set.
         const exercises = new Set((await getActiveWorkouts()).map(w => w.exercise));
         for (const ex of exercises) await recomputePR(ex);
+        markFrequencyDirty();
 
         // Adopt the server's syncedAt so subsequent syncs go delta.
         if (typeof remote.syncedAt === 'number') {
