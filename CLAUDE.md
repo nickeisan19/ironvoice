@@ -175,6 +175,29 @@ v7.x as part of this commit?" Don't bump silently when the situation is
 ambiguous, and don't skip the bump silently when shipping is clearly
 happening.
 
+**Add a `WHATS_NEW` entry alongside the bump when the change is a
+user-visible visual or UX change** — anything a tester would notice on
+the screen (layout reflows, new affordances, redesigned sheets / cards
+/ tabs, copy that changes how a feature is presented). Add it in the
+same edit batch, before the commit: a new key under the `WHATS_NEW`
+map in `app.js` keyed by the version you're shipping (`'9.35': { items:
+[...] }`), with 2-5 short user-readable bullets. The sheet at
+`maybeShowWhatsNew()` ([app.js](app.js)) fires once on the next launch
+after the bump lands. Missing the entry isn't an error — the v9.10
+snackbar (`acknowledgeVersionLanding`) is the silent fallback channel
+— but for a release the user explicitly redesigned or restyled, the
+sheet is the contract.
+
+**Do NOT add a `WHATS_NEW` entry for bug-fix-only releases.** A hotfix
+that restores broken behavior (the v9.34 `weekIsoSet` ReferenceError
+is the canonical example) gets the snackbar and stays out of the
+sheet. The sheet's value comes from it firing on releases that
+*changed something the user can see*; popping it on a 2-line fix
+trains testers to dismiss it without reading. The mutual-exclusion at
+`acknowledgeVersionLanding` ([app.js](app.js)) already handles the
+split — if there's no `WHATS_NEW[current]` entry, the snackbar fires
+instead.
+
 ---
 
 ## Settled decisions — do not re-litigate

@@ -567,6 +567,13 @@ const WHATS_NEW = {
             'Search ranks your most-used exercises first; manual entry only expands when you pick one.',
         ],
     },
+    '9.35': {
+        items: [
+            'History rollups got room to breathe — Volume + Sets lead at a larger size, with Total / Workout / Rest below.',
+            'Cleaner week strip — bolder day names, the per-day volume bar is gone.',
+            'Per-session card matches the day & week rollup layout.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
