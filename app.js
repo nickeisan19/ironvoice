@@ -5367,60 +5367,25 @@ async function renderHistoryScreen() {
             : isoForLocalDate(days[6]);
     }
 
-    // Index workout data per-day so we can paint a glanceable volume bar
-    // (replacing the v8 dot). Bar height scales to the week's max-volume
-    // day; bar color is the dominant muscle worked that day.
-    // v9.26 — bar heights and dominant-muscle color read work sets only,
-    // so a warmup-only day doesn't paint a misleading bar. allWorkouts
-    // still includes warmups because the day-detail renderer below needs
-    // the full set list to render pills.
+    // Pulled once here for the day-detail renderer + per-week rollup
+    // downstream. (v9.33 — the per-day volume bar was removed, so no
+    // per-day volume / dominant-muscle bookkeeping is needed at this
+    // stage anymore.)
     const allWorkouts = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
-    const dayStats = new Map();   // iso → { volume, dominantMuscle }
-    for (const w of allWorkouts) {
-        if (w.warmup) continue;
-        const stat = dayStats.get(w.date) || { volume: 0, byMuscle: {} };
-        const vol = w.weight * w.reps;
-        stat.volume += vol;
-        const m = muscleOf(w.exercise);
-        stat.byMuscle[m] = (stat.byMuscle[m] || 0) + vol;
-        dayStats.set(w.date, stat);
-    }
-    // Pick the dominant muscle per day for color signal.
-    for (const stat of dayStats.values()) {
-        let topM = 'arms', topV = -1;
-        for (const [m, v] of Object.entries(stat.byMuscle)) {
-            if (v > topV) { topV = v; topM = m; }
-        }
-        stat.dominantMuscle = topM;
-    }
-    // Compute this week's max volume so the bar heights are relative.
-    const weekIsoSet = days.map(d => isoForLocalDate(d));
-    const weekVolumes = weekIsoSet.map(iso => dayStats.get(iso)?.volume || 0);
-    const maxVol = Math.max(1, ...weekVolumes);
 
     // Render strip
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     stripEl.innerHTML = days.map((d, i) => {
         const iso = isoForLocalDate(d);
-        const stat = dayStats.get(iso);
         const classes = [
             'week-day',
             iso === todayISOStr ? 'today' : '',
             iso === historySelectedDate ? 'active' : '',
         ].filter(Boolean).join(' ');
-        let barHtml;
-        if (stat && stat.volume > 0) {
-            const heightPx = Math.max(4, Math.round((stat.volume / maxVol) * 22));
-            const color = muscleColor[stat.dominantMuscle] || 'var(--blue)';
-            barHtml = `<span class="week-day-bar" style="height:${heightPx}px;background:${color}"></span>`;
-        } else {
-            barHtml = `<span class="week-day-bar empty"></span>`;
-        }
         return `
             <button class="${classes}" data-date="${iso}">
                 <span class="week-day-name">${dayNames[i]}</span>
                 <span class="week-day-num">${d.getDate()}</span>
-                ${barHtml}
             </button>`;
     }).join('');
 
@@ -5599,32 +5564,31 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
         dayVolume += sessionVolume;
         daySetCount += sessionWorkSetCount;
         const estimatedFlag = s.estimated ? `<span class="estimated">~estimated</span>` : '';
-        // v9.26 — set count on the meta line reads work sets, optionally
-        // suffixed with the warmup count so the volume number ("vol" on the
-        // next row) and the set count refer to the same population. Without
-        // the alignment the user would see "5 sets · 800 vol" but only 4
-        // sets contributing — the wrap reads as a math error otherwise.
+        // v9.26 — warmup count is shown as a small flag in the head row when
+        // present, so the grid's "Sets" cell (work-only) and the warmup
+        // annotation refer to the same population. Without the flag the user
+        // would see "Sets 4" but 5 visible pills — reads as a count error.
         const warmupInSession = setsInSession.length - sessionWorkSetCount;
-        const setLabel = warmupInSession > 0
-            ? `${sessionWorkSetCount} set${sessionWorkSetCount === 1 ? '' : 's'} · ${warmupInSession}W`
-            : `${sessionWorkSetCount} set${sessionWorkSetCount === 1 ? '' : 's'}`;
+        const warmupFlag = warmupInSession > 0
+            ? `<span class="session-header-warmup">${warmupInSession}W</span>`
+            : '';
+        // v9.33 — per-session header is now a card matching the rollup grid
+        // above: head row (checkmark + start time + optional flags) then the
+        // same 5-cell Volume/Sets/Total/Workout/Rest layout used by the day
+        // and week rollups. Reuses rollupCellsHtml() so the visual + content
+        // contract stays in lockstep.
         headerHtml += `
             <div class="session-header-row">
-                <div class="session-header-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <div class="session-header-head">
+                    <span class="session-header-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    <span class="session-header-time">${escapeHtml(startTime)}</span>
+                    ${warmupFlag}
+                    ${estimatedFlag}
                 </div>
-                <div class="session-header-content">
-                    <div class="session-header-meta">
-                        <span>${escapeHtml(startTime)}</span>
-                        <span>${escapeHtml(setLabel)}</span>
-                        ${estimatedFlag}
-                    </div>
-                    <div class="session-header-times">
-                        <span><strong>${escapeHtml(formatVol(sessionVolume))}</strong> vol</span>
-                        <span><strong>${escapeHtml(formatDurationCompact(t.totalMs))}</strong> total</span>
-                        <span><strong>${escapeHtml(formatDurationCompact(t.workoutMs))}</strong> work</span>
-                        <span class="rest-chip"><strong>${escapeHtml(formatDurationCompact(t.restMs))}</strong> rest</span>
-                    </div>
+                <div class="history-rollup">
+                    ${rollupCellsHtml({ totalMs: t.totalMs, workoutMs: t.workoutMs, restMs: t.restMs, volume: sessionVolume, setCount: sessionWorkSetCount })}
                 </div>
             </div>`;
     }
@@ -5648,9 +5612,9 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
     if (untaggedSets && !sessionMap[orderedKeys[0]]) {
         // Only emit the untagged note if there are no real sessions for the
         // day; otherwise the session header(s) above carry the count.
-        headerHtml += `<div class="session-header-row">
-            <div class="session-header-icon" style="background:var(--label-tertiary)"><svg viewBox="0 0 24 24" fill="white" width="13" height="13"><circle cx="12" cy="12" r="10"/></svg></div>
-            <div class="session-header-meta"><span>${untaggedSets.length} sets · no session timer</span></div>
+        headerHtml += `<div class="session-header-row session-header-row--untagged">
+            <span class="session-header-icon" style="background:var(--label-tertiary)"><svg viewBox="0 0 24 24" fill="white" width="13" height="13"><circle cx="12" cy="12" r="10"/></svg></span>
+            <span>${untaggedSets.length} sets · no session timer</span>
         </div>`;
     }
     headers.innerHTML = headerHtml;

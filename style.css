@@ -2587,6 +2587,11 @@ button.card-button:focus-visible {
   gap: 6px;
   margin-bottom: 18px;
 }
+/* v9.33 — clean card per day. Day-name labels read at full strength
+   (theme-aware --label color, bold) instead of the prior faint
+   tertiary text — answers "what day is this" at a glance. Selected
+   day fills with blue and inverts text to white; today gets a blue
+   date number when not actively selected. */
 .week-day {
   background: var(--surface-2);
   border: 0.5px solid var(--hairline);
@@ -2606,15 +2611,14 @@ button.card-button:focus-visible {
   border-color: var(--blue);
 }
 .week-day.active .week-day-name,
-.week-day.active .week-day-num,
-.week-day.active .week-day-dot { color: white; background: white; }
+.week-day.active .week-day-num { color: white; }
 .week-day.today .week-day-num { color: var(--blue); font-weight: 800; }
 .week-day.active.today .week-day-num { color: white; }
 
 .week-day-name {
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: var(--label-tertiary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -2625,24 +2629,29 @@ button.card-button:focus-visible {
   font-feature-settings: "tnum";
   line-height: 1;
 }
-.week-day-dot {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--blue);
-}
-.week-day-dot.empty { background: transparent; }
 
-/* Session header row in day detail */
+/* Session header row in day detail (v9.33). Matches the rollup card
+   above: outer card holds a head row (checkmark + start time + optional
+   warmup/estimated flags) and a nested .history-rollup grid with the
+   same Volume/Sets headline + Total/Workout/Rest second row. The inner
+   .history-rollup is stripped of its own card chrome so the whole
+   thing reads as a single card. */
 .session-header-row {
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 0.5px solid var(--hairline);
-  border-radius: 12px;
-  padding: 10px 14px;
-  margin: 0 0 10px;
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.session-header-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.85rem;
+  padding-bottom: 12px;
+  border-bottom: 0.5px solid var(--hairline);
 }
 .session-header-icon {
   width: 24px; height: 24px;
@@ -2653,65 +2662,98 @@ button.card-button:focus-visible {
   flex-shrink: 0;
 }
 .session-header-icon svg { width: 13px; height: 13px; }
-/* Two-line content block: identity row (start time / set count / est)
-   on top, Total/Workout/Rest chips below. The icon centers against
-   the whole content. */
-.session-header-content { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
-.session-header-meta {
-  display: flex; gap: 14px; flex: 1;
-  font-weight: 600;
+.session-header-time {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--label);
+  font-feature-settings: "tnum";
 }
-.session-header-meta .estimated {
+.session-header-head .estimated {
   color: var(--label-tertiary);
   font-weight: 500;
   font-size: 0.78rem;
+  margin-left: auto;
 }
-.session-header-times {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 0.78rem;
-  color: var(--label-secondary);
-  font-weight: 500;
-}
-.session-header-times strong {
-  color: var(--label);
+.session-header-warmup {
+  font-size: 0.7rem;
   font-weight: 700;
-  font-feature-settings: "tnum";
-  margin-right: 3px;
+  color: var(--orange);
+  background: rgba(255, 159, 10, 0.14);
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
-.session-header-times .rest-chip strong { color: var(--blue); }
+/* Inner .history-rollup sheds its own card visuals so the outer
+   session-header-row is the single card frame. */
+.session-header-row .history-rollup {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+/* Untagged-only branch ("X sets · no session timer") — single inline
+   row, no grid, no head. Keeps the old horizontal layout via a
+   modifier class. */
+.session-header-row--untagged {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+}
 
-/* History rollup card — five-cell grid (Volume / Sets / Total / Workout
-   / Rest) used for both per-week (above the strip) and per-day (above
-   the session headers) totals. Stats come first ("how much did I do"),
-   time after ("how long did it take"). The Rest cell is blue to mirror
-   the green session card's REST label, so the "rest" semantic reads
-   consistently across History and Workout. */
+/* History rollup card — split into two rows so cells breathe on
+   iPhone-SE-width. Row 1 (Volume / Sets) is the "how much did I do"
+   headline at a larger value size. Row 2 (Total / Workout / Rest) is
+   the "how long did it take" supporting line at a smaller size. A
+   hairline divider separates the two semantic groups. Used for both
+   per-week (above the strip) and per-day (above the session headers)
+   totals. The Rest cell is blue to mirror the green session card's
+   REST label, so the "rest" semantic reads consistently across
+   History and Workout. */
 .history-rollup {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(6, 1fr);
+  column-gap: 12px;
+  row-gap: 12px;
   margin: 8px 0 14px;
-  padding: 12px 12px;
+  padding: 14px;
   background: var(--surface-1);
   border: 0.5px solid var(--hairline);
   border-radius: var(--radius-md);
 }
-.history-rollup-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; min-width: 0; }
+/* Row 1: Volume + Sets each span half the row */
+.history-rollup-cell:nth-child(1),
+.history-rollup-cell:nth-child(2) { grid-column: span 3; }
+/* Row 2: Total + Workout + Rest each span a third */
+.history-rollup-cell:nth-child(3),
+.history-rollup-cell:nth-child(4),
+.history-rollup-cell:nth-child(5) {
+  grid-column: span 2;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--hairline);
+}
+.history-rollup-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0; }
 .history-rollup-label {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--label-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .history-rollup-value {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--label);
   font-feature-settings: "tnum";
   letter-spacing: -0.01em;
+}
+/* Headline values (Volume, Sets) get bigger type since they have
+   half-row width to themselves. */
+.history-rollup-cell:nth-child(1) .history-rollup-value,
+.history-rollup-cell:nth-child(2) .history-rollup-value {
+  font-size: 1.4rem;
 }
 .history-rollup-cell-rest .history-rollup-label,
 .history-rollup-cell-rest .history-rollup-value { color: var(--blue); }
@@ -2844,28 +2886,6 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
    normally. */
 .profile-screen-body { padding: 4px 0 24px; }
 .profile-screen-body .settings-section:first-child { margin-top: 4px; }
-
-/* --- Week-strip volume bar (replaces the dot) -------------------------------
-   Each day tile gets a thin vertical bar whose height is proportional to
-   that day's volume relative to the week's max. Empty days show a flat 1px
-   placeholder so the row stays visually anchored. The bar color is the
-   dominant muscle group worked that day, giving the strip a glanceable
-   "what kind of week" signal. */
-.week-day-bar {
-  display: block;
-  width: 22px;
-  height: 14px;
-  border-radius: 3px;
-  margin-top: 3px;
-  background: var(--blue);
-  transition: height 0.4s var(--spring), background 0.2s var(--ease);
-  align-self: end;
-}
-.week-day-bar.empty { background: var(--hairline-strong); height: 2px; }
-/* On the active (selected) day, force the bar to white so it reads on the
-   blue background. */
-.week-day.active .week-day-bar { background: rgba(255, 255, 255, 0.9); }
-.week-day.active .week-day-bar.empty { background: rgba(255, 255, 255, 0.35); }
 
 /* --- PR celebration sheet ---------------------------------------------------
    Same canvas as the share preview, but framed as a celebration moment.

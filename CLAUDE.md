@@ -626,10 +626,23 @@ override are deleted — don't restore them. If you ever want a denser
 tablet layout, do it by capping `.pr-grid` `max-width` and centering,
 not by going back to a grid.
 
-**History week-strip shows a per-day volume bar (not a dot).** Bar height
-is proportional to that day's volume relative to the week max; bar color
-is the dominant muscle worked. The class is `.week-day-bar` and replaces
-the old `.week-day-dot`. Computed in `renderHistoryScreen()`.
+**History week-strip is a clean 7-day calendar row (v9.33).** Each
+day cell is a card (`.week-day` → `var(--surface-2)` background +
+hairline border + 12px radius) showing the day name (MON/TUE/…) and
+date number. Day-name labels render at `var(--label)` weight 700 —
+black + bold in light mode, white + bold in dark mode — so the row
+reads at full strength rather than the prior faint tertiary text.
+Selected day fills blue and inverts both labels to white. Today
+(unselected) gets a blue date number. **The per-day volume bar that
+existed from v9.0 → v9.32 was removed in v9.33.** The bar's
+information density didn't justify its visual weight — a tiny
+muscle-colored chunk at the bottom of each cell was easy to ignore,
+and the "empty day" placeholder (a 2px grey line) read as visual
+noise. The week-rollup card above the strip carries the same week-
+level volume signal in a clearer form. Don't reintroduce
+`.week-day-bar`, the `dayStats`/`byMuscle`/`maxVol` bookkeeping in
+`renderHistoryScreen`, or the `.week-day.active .week-day-bar`
+overrides — all four were deleted together.
 
 **History day detail uses the active-workout pill layout (v9.2).** The
 day-detail view mirrors how an in-progress session looks: each exercise
@@ -665,28 +678,50 @@ computed for the week-strip bar heights and never surfaced as a number.
   for summary chips. Distinct from `formatElapsed()` (h:mm:ss for live
   clocks); both coexist — don't merge.
 - **Three render hooks:**
-  - **Per-session** — each session header in `renderHistoryDayDetail`
-    has an inline sub-row. **v9.21** leads with volume:
-    `12.4k lb vol · 1h 12m total · 47m work · 25m rest`. Set count is
-    already on the meta line above ("24 sets") so the sub-row doesn't
-    duplicate it. The `~estimated` badge stays where applicable.
+  - **Per-session** — each `.session-header-row` in
+    `renderHistoryDayDetail` is **a card matching the day/week rollup
+    visuals (v9.33)**: a head row (checkmark icon + start time +
+    optional warmup chip / `~estimated` flag) above a nested
+    `.history-rollup` with the same 5-cell grid. Reuses
+    `rollupCellsHtml()` directly so the per-session and per-
+    day/per-week views stay in lockstep. The v9.21 inline sub-row
+    (`12.4k lb vol · 1h 12m total · …`) is gone — it ran tight on
+    iPhone-SE width and visually didn't match the card above it.
+    The untagged-only "X sets · no session timer" branch keeps its
+    inline layout via the `.session-header-row--untagged` modifier
+    so it doesn't blow up into an empty card.
   - **Per-day** — `#history-day-rollup` (above session headers) shows
     the day's totals when ≥1 real session contributed. Hidden on
     untagged-only days. v9.21: 5 cells (Volume / Sets / Total /
     Workout / Rest).
-  - **Per-week** — `#history-week-rollup` (above the volume strip)
-    sums sessions whose `startedAt` falls in the visible week. Hidden
-    on empty weeks. Powered by `renderRollupTotals(elId, sessions, ...)`
+  - **Per-week** — `#history-week-rollup` (above the week-strip) sums
+    sessions whose `startedAt` falls in the visible week. Hidden on
+    empty weeks. Powered by `renderRollupTotals(elId, sessions, ...)`
     and the shared `rollupCellsHtml()` markup helper. v9.21: same 5
     cells as the day rollup.
-- **Visual:** five-cell grid `.history-rollup` (`repeat(5, 1fr)`,
-  `gap: 8px`) with small uppercase labels above bold values. v9.21
-  shrunk the value font to 1rem and label to 0.68rem to fit five
-  cells on iPhone-SE-width without wrapping. The Rest cell renders
-  blue (`.history-rollup-cell-rest`) — mirrors the green session
-  card's REST label color so "rest" reads consistently across
-  screens. Don't color other cells blue; the asymmetry makes the rest
-  number scannable.
+- **Visual (v9.33 — 2-row split):** `.history-rollup` is now a
+  6-column grid that lays out as two semantic rows:
+  - **Row 1 ("how much did I do"):** Volume + Sets, each spanning 3
+    columns, values rendered at 1.4rem.
+  - **Row 2 ("how long did it take"):** Total + Workout + Rest, each
+    spanning 2 columns, values at 1.05rem, with a hairline divider
+    above (`border-top` on `:nth-child(3..5)`) separating the two
+    semantic groups.
+
+  Replaces the v9.21 `repeat(5, 1fr)` flat row, which crammed each
+  cell into ~53px on iPhone SE and required shrinking the value font
+  to 1rem to avoid wrapping. The 2-row split gives every cell room
+  to breathe AND lets the headline stats (Volume/Sets) get larger
+  type, which is the right hierarchy — "how much" is the answer
+  people care about most. The Rest cell still renders blue
+  (`.history-rollup-cell-rest`) to mirror the green session card's
+  REST label color. Don't color other cells blue; the asymmetry is
+  what makes the rest number scannable.
+
+  Don't go back to the flat 5-up row layout. Don't fold Sets into
+  the meta line above the card — having it in the grid means there's
+  a single canonical answer to "how many sets" instead of two surfaces
+  that can drift.
 
 Volume uses `formatVol(volume)` (shared with the home Week card —
 `24.7k lb` / `847 lb` short forms). Set count is the bare integer
