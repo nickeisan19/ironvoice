@@ -2955,6 +2955,41 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
 }
 
 /* ==========================================================================
+   v9.32 — What's New bullet list
+   Lives inside #whats-new-overlay's .sheet-body. Each row is a soft card
+   with a small blue dot at the left edge; the entire list reads as a
+   "changelog at a glance" with enough breathing room to feel deliberate.
+   ========================================================================== */
+.whats-new-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.whats-new-list li {
+  position: relative;
+  padding: 12px 14px 12px 38px;
+  background: var(--surface-2);
+  border: 0.5px solid var(--hairline);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--label);
+}
+.whats-new-list li::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+/* ==========================================================================
    v9.26 — Workout-screen additions
    ========================================================================== */
 

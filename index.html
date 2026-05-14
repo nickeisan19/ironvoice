@@ -382,6 +382,25 @@
         </div>
     </div>
 
+    <!-- v9.32 — What's New sheet. Fires once per version bump on the first
+         app launch after a new version lands. Populated dynamically from
+         the WHATS_NEW map in app.js via maybeShowWhatsNew(). Dismiss writes
+         the current version to localStorage so the sheet doesn't re-fire. -->
+    <div id="whats-new-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
+            <div class="sheet-header sheet-header-3col">
+                <span></span>
+                <span class="sheet-title-text" id="whats-new-title">What's new</span>
+                <button class="sheet-close" data-action="closeWhatsNew">Done</button>
+            </div>
+            <div class="sheet-body">
+                <p class="subtitle" id="whats-new-sub">Highlights since you last opened the app.</p>
+                <ul class="whats-new-list" id="whats-new-list"></ul>
+                <button type="button" class="primary-btn" data-action="closeWhatsNew">Got it</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Snackbar for reversible actions -->
     <div id="snackbar" class="snackbar" role="status" aria-live="polite">
         <span class="snackbar-text" id="snackbar-text"></span>

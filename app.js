@@ -536,10 +536,66 @@ function acknowledgeVersionLanding() {
         if (!current) return;
         const previous = localStorage.getItem(KEY);
         if (previous && previous !== current) {
-            showSnackbar(`Updated to v${current}`, { duration: 3500 });
+            // v9.32 — suppress the snackbar when a What's New sheet is
+            // queued for this version. The sheet covers the same "you got
+            // the update" message at higher fidelity; competing surfaces
+            // would feel noisy.
+            if (!WHATS_NEW[current]) {
+                showSnackbar(`Updated to v${current}`, { duration: 3500 });
+            }
         }
         localStorage.setItem(KEY, current);
     } catch (_) { /* localStorage unavailable — skip */ }
+}
+
+// v9.32 — What's New popup. Fires once per version bump on the first app
+// launch after the new version lands. Content is sourced from the
+// WHATS_NEW map below, keyed by version string; future versions add their
+// own entry without touching this rendering code. First install is silent
+// (the user already has everything); same-version boots are silent (the
+// user has already acknowledged); a version without an entry quietly
+// updates the key and lets the v9.10 snackbar carry the signal instead.
+const WHATS_NEW = {
+    '9.32': {
+        items: [
+            'PREV column under every set — see last time at a glance.',
+            'Warmup support — say "warmup bench 135 for 8" or toggle in the set sheet. Excluded from PRs and volume.',
+            'Per-exercise menu (⋮) — swap exercise, mark all as warmup, or delete all sets.',
+            'Tap to collapse exercise groups when the list gets long.',
+            'Rotation-aware order — the next-up exercise stays on top, the just-logged one drops to the bottom.',
+            'Row-form pill layout — SET / PREV / LBS × REPS columns.',
+            'Search ranks your most-used exercises first; manual entry only expands when you pick one.',
+        ],
+    },
+};
+
+function maybeShowWhatsNew() {
+    try {
+        const KEY = 'ironLastSeenWhatsNew';
+        const current = self.APP_VERSION;
+        const previous = localStorage.getItem(KEY);
+        const content = WHATS_NEW[current];
+        // First install — silent. Just write the key so we don't pop the
+        // sheet later for a new user who already has everything.
+        if (!previous) { localStorage.setItem(KEY, current); return; }
+        if (previous === current) return;
+        // No content defined for this version — quietly update the key so
+        // the v9.10 snackbar (which is the fallback channel) is what
+        // carries the upgrade signal for bug-fix releases.
+        if (!content) { localStorage.setItem(KEY, current); return; }
+        const list = $('whats-new-list');
+        if (list) {
+            list.innerHTML = content.items.map(t =>
+                `<li>${escapeHtml(t)}</li>`
+            ).join('');
+        }
+        $('whats-new-overlay')?.classList.add('active');
+    } catch (_) { /* localStorage unavailable — skip */ }
+}
+
+function closeWhatsNew() {
+    $('whats-new-overlay')?.classList.remove('active');
+    try { localStorage.setItem('ironLastSeenWhatsNew', self.APP_VERSION); } catch (_) {}
 }
 
 function initOnlineHandler() {
@@ -642,6 +698,12 @@ function initDB() {
         renderAll();
         // First-run voice tip — needs the store available.
         maybeShowVoiceTip();
+        // v9.32 — What's New sheet for upgrades that have content defined.
+        // Delayed so the home screen renders first and the sheet feels
+        // like a follow-up to the app appearing, not an intercept on
+        // launch. Sits ahead of the start-prompt so a returning user
+        // sees the changelog before being asked about a new session.
+        setTimeout(() => maybeShowWhatsNew(), 600);
         // v8: launch prompt — ask if the user wants to start a workout.
         // Delayed so the home screen renders first and the prompt feels
         // like a follow-up question, not an intercept on app launch.
@@ -2292,6 +2354,9 @@ function initActionDispatcher() {
         swapExerciseFromMenu, deleteExerciseFromMenu, warmupAllFromMenu,
         // v9.26: per-exercise collapse on the active workout screen.
         toggleExerciseCollapse,
+        // v9.32: What's New bottom-sheet — dismissed from either the
+        // primary "Got it" button or the Done sheet-header button.
+        closeWhatsNew,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises };
     // v9.21 — selectAll: focus handler that highlights any prefilled value

@@ -984,6 +984,44 @@ Don't reach into untagged sets via swap. The handlers gate on
 the target. Same for delete-all — bulk-deleting untagged sets from a
 menu opened mid-workout would be a footgun.
 
+**What's New popup on first-launch after upgrade (v9.32).** A bottom
+sheet (`#whats-new-overlay`) fires once per version bump on the
+first app launch after the new version lands. Content is sourced
+from a module-level `WHATS_NEW` map keyed by version string; future
+versions add their own entry without touching the rendering code.
+Style matches the existing quick-add and set-action sheets
+(`.overlay > .modal.sheet`, slides up from the bottom on iOS PWA).
+
+Mechanism: `maybeShowWhatsNew()` runs from `initDB`'s success
+handler (`setTimeout(..., 600)` so it feels like a follow-up to the
+app appearing, not an intercept). Reads `ironLastSeenWhatsNew` from
+localStorage. First install is silent — no prior key means a fresh
+user who already has everything. Subsequent boots compare the
+persisted version to `APP_VERSION`; if they differ AND
+`WHATS_NEW[current]` exists, the sheet shows. Any dismiss path
+(primary button, Done button, overlay backdrop tap) writes the
+current version to the key so the sheet doesn't re-fire on the
+same install.
+
+Mutual exclusion with `acknowledgeVersionLanding` (v9.10): when
+`WHATS_NEW[current]` exists for the upgrade, the snackbar is
+suppressed inside `acknowledgeVersionLanding`. The sheet covers
+the same "you got the update" message at higher fidelity; competing
+surfaces would feel noisy. For versions without a `WHATS_NEW` entry
+(bug fixes, polish), the snackbar still fires and the sheet stays
+silent.
+
+Don't pop the sheet for *every* version — only versions where
+`WHATS_NEW[version]` is explicitly defined. Don't accumulate bullets
+across skipped versions in this first cut; if a user skips v9.32
+and we ship v9.33, they see only the v9.33 content. Revisit if
+version-skipping becomes a real pattern.
+
+The v9.32 popup deliberately covers the v9.26 → v9.31 work in one
+read, since v9.31 was already shipped before this mechanism existed
+and the changelog bullets are the testers' first concentrated view
+of everything that landed across that span.
+
 **Search dropdown ranked by usage frequency (v9.31).** The exercise
 search dropdown (`filterExercises` in [app.js](app.js)) sorts matches
 by total non-deleted set count DESC so the user's go-to lifts bubble
