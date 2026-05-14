@@ -2193,6 +2193,9 @@ function initActionDispatcher() {
         // data-step=signed decimal. Lets the user bump weight/reps
         // without opening the keyboard mid-workout.
         bumpQuickAdd,
+        // v9.25: PR rows. Row body opens the exercise sheet; the share
+        // icon goes straight to the share overlay (skips the sheet).
+        openExerciseFromPR, sharePRFromRow,
     };
     const INPUT_ACTIONS = { filterExercises };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -3877,6 +3880,24 @@ function sharePR() {
     $('share-overlay').classList.add('active');
 }
 
+// v9.25: tapping the share icon on a PR row goes straight to the share
+// overlay without first opening the exercise sheet. Seeds
+// currentExerciseSheet so nativeShare/closeShare keep working unchanged
+// — those handlers only read .exercise off the state object.
+function sharePRFromRow(el) {
+    const name = el && el.dataset && el.dataset.exercise;
+    if (!name) return;
+    currentExerciseSheet = { exercise: name, sets: [] };
+    drawPRCanvas('pr-canvas', name);
+    $('share-overlay').classList.add('active');
+}
+
+function openExerciseFromPR(el) {
+    const name = el && el.dataset && el.dataset.exercise;
+    if (!name) return;
+    openExercise(name);
+}
+
 function closeShare() { $('share-overlay').classList.remove('active'); }
 
 // v9.0: PR celebration — auto-presented from updateUI when a set sets a new
@@ -4648,8 +4669,9 @@ async function computePRTiles() {
             repsAtMax,
         });
     }
-    // Order: heaviest first, then alpha tiebreak.
-    tiles.sort((a, b) => (b.maxWeight - a.maxWeight) || a.exercise.localeCompare(b.exercise));
+    // Order: alphabetical A→Z by exercise name. Row layout (v9.25) made
+    // weight-order useless for scanning — you look things up by name now.
+    tiles.sort((a, b) => a.exercise.localeCompare(b.exercise));
     return tiles;
 }
 
@@ -4668,28 +4690,31 @@ async function renderPRsScreen() {
     empty.style.display = 'none';
 
     grid.innerHTML = tiles.map(t => {
-        const initials = t.exercise.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
         const bg = escapeHtml(muscleColor[t.muscle] || '#888');
+        const exAttr = escapeHtml(t.exercise);
         const name = escapeHtml(titleCase(t.exercise));
-        const subtitle = (prTab === 'weight-reps')
-            ? `× ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
-            : '';
-        const ariaLabel = `${titleCase(t.exercise)}, ${t.maxWeight} pounds${subtitle ? ` ${subtitle}` : ''}`;
-        // Rendered as <button> so keyboard activation (Enter/Space) and
-        // screen-reader role both come for free.
+        const weightHtml = `${escapeHtml(String(t.maxWeight))}<span class="pr-row-unit"> lb</span>`;
+        const valueHtml = (prTab === 'weight-reps')
+            ? `${escapeHtml(String(t.maxWeight))} × ${escapeHtml(String(t.repsAtMax))}`
+            : weightHtml;
+        const ariaSuffix = (prTab === 'weight-reps')
+            ? `${t.maxWeight} pounds for ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
+            : `${t.maxWeight} pounds`;
+        const ariaLabel = escapeHtml(`${titleCase(t.exercise)}, ${ariaSuffix}. Open history.`);
+        const shareAria = escapeHtml(`Share ${titleCase(t.exercise)} PR card`);
         return `
-            <button type="button" class="pr-tile" data-exercise="${escapeHtml(t.exercise)}" aria-label="${escapeHtml(ariaLabel)}">
-                <div class="pr-tile-icon" style="background:${bg}" aria-hidden="true">${escapeHtml(initials)}</div>
-                <div class="pr-tile-name">${name}</div>
-                <div class="pr-tile-weight">${escapeHtml(String(t.maxWeight))} lb</div>
-                ${subtitle ? `<div class="pr-tile-sub">${escapeHtml(subtitle)}</div>` : ''}
-            </button>`;
+            <div class="pr-row" data-exercise="${exAttr}">
+                <button type="button" class="pr-row-main" data-action="openExerciseFromPR" data-exercise="${exAttr}" aria-label="${ariaLabel}">
+                    <span class="pr-row-dot" style="background:${bg}" aria-hidden="true"></span>
+                    <span class="pr-row-name">${name}</span>
+                    <span class="pr-row-value">${valueHtml}</span>
+                    <svg class="pr-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button type="button" class="pr-row-share" data-action="sharePRFromRow" data-exercise="${exAttr}" aria-label="${shareAria}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                </button>
+            </div>`;
     }).join('');
-
-    // Wire tap handlers (delegation kept tiny because the grid is small)
-    grid.querySelectorAll('.pr-tile').forEach(t => {
-        t.addEventListener('click', () => openExercise(t.dataset.exercise));
-    });
 }
 
 function setPRTab(tab) {

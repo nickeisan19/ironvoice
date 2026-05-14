@@ -2389,76 +2389,99 @@ button.card-button:focus-visible {
 }
 
 /* ==========================================================================
-   PRs screen
+   PRs screen — v9.25 row layout
+
+   Alphabetical list of full-width rows. Row body opens the per-exercise
+   sheet (chart + recent sets); a dedicated share button on the right
+   opens the PR share overlay directly. Two siblings, two surfaces — no
+   stopPropagation needed.
    ========================================================================== */
 
 .pr-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 4px 0;
 }
-.pr-tile {
+.pr-row {
+  display: flex;
+  align-items: stretch;
   background: var(--surface-2);
   border: 0.5px solid var(--hairline);
   border-radius: 14px;
-  padding: 14px 10px 12px;
+  overflow: hidden;
+}
+.pr-row-main {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.15s var(--ease), background 0.15s var(--ease);
-  -webkit-tap-highlight-color: transparent;
-  /* .pr-tile is rendered as <button>; reset UA chrome so it stays
-     visually identical to the original div. Color/font already inherit. */
-  font: inherit;
+  gap: 12px;
+  padding: 12px 6px 12px 16px;
+  background: transparent;
+  border: none;
   color: inherit;
+  font: inherit;
+  text-align: left;
+  min-height: 56px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s var(--ease);
 }
-.pr-tile:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.pr-tile:active { transform: scale(0.96); background: var(--surface-3); }
-.pr-tile-icon {
-  width: 44px; height: 44px;
+.pr-row-main:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.pr-row-main:active { background: var(--surface-3); }
+.pr-row-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 8px;
-  font-weight: 700;
-  font-size: 1rem;
-  color: white;
-  letter-spacing: -0.02em;
-  font-feature-settings: "tnum";
+  flex: 0 0 auto;
 }
-.pr-tile-name {
-  font-size: 0.78rem;
+.pr-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--label);
-  line-height: 1.15;
-  margin-bottom: 6px;
-  /* Two-line ellipsis */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 1.85em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.pr-tile-weight {
-  font-size: 1.05rem;
+.pr-row-value {
+  font-size: 1rem;
   font-weight: 700;
   color: var(--label);
   font-feature-settings: "tnum";
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  flex: 0 0 auto;
 }
-.pr-tile-sub {
-  font-size: 0.72rem;
+.pr-row-unit {
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--label-tertiary);
-  margin-top: 2px;
-  font-feature-settings: "tnum";
 }
-
-/* On wider screens, show more PRs per row */
-@media (min-width: 600px) {
-  .pr-grid { grid-template-columns: repeat(4, 1fr); }
+.pr-row-chev {
+  width: 14px;
+  height: 14px;
+  color: var(--label-tertiary);
+  flex: 0 0 auto;
 }
+.pr-row-share {
+  width: 56px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-left: 0.5px solid var(--hairline);
+  color: var(--blue);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s var(--ease);
+}
+.pr-row-share:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.pr-row-share:active { background: var(--surface-3); }
+.pr-row-share svg { width: 20px; height: 20px; }
 
 /* ==========================================================================
    History screen — week strip + day detail

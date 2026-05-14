@@ -573,6 +573,59 @@ preserving the save path silently. The old `downloadCelebrate` /
 `downloadShare` functions and their `ACTIONS` entries were deleted —
 don't re-introduce a dedicated save button.
 
+**PRs screen is a vertical alphabetical row list (v9.25).** The
+3-column grid of square tiles sorted heaviest-first was retired. Once
+the PR list got long enough to scroll, weight-order stopped matching
+how the user looks things up ("where's bench?"); the eye had to scan a
+wrapping grid by name. Now each PR is a full-width row, sorted
+alphabetically A→Z by exercise name.
+
+Row anatomy, left → right ([app.js](app.js) `renderPRsScreen` + [style.css](style.css)
+`.pr-row*`):
+- `.pr-row-dot` — 12px muscle-color circle. Replaces the prior
+  44×44 initials disc. At row scale the initials read as noise; the
+  color band alone carries the muscle cue.
+- `.pr-row-name` — title-cased exercise name, 1rem, single line with
+  ellipsis. Sized to read at arm's length.
+- `.pr-row-value` — right-aligned PR figure. `Max weight` tab shows
+  `NNN lb` (with `.pr-row-unit` styling the `lb` smaller and tertiary);
+  `Weight × reps` tab shows `W × R`. Same `computePRTiles()` data,
+  same fields the prior tiles read — the tabs still surface
+  `maxWeight` / `repsAtMax` independently of `prType`.
+- `.pr-row-chev` — small chevron-right SVG affordance signaling the
+  row body is tappable.
+- `.pr-row-share` — separate `<button>` sibling on the far right, 56px
+  wide × ≥44px tall (Apple HIG per v9.22), divided from the row body
+  by a hairline. Stroke-style share icon (box-with-up-arrow), iOS-blue.
+
+Two explicit affordances, two `data-action` entries through the strict-CSP
+dispatcher — no `event.stopPropagation` plumbing needed because the
+share button is a sibling of `.pr-row-main`, not nested inside it:
+- `openExerciseFromPR` — tapping the row body opens the existing
+  per-exercise sheet (`#ex-overlay`, 1RM trend + recent sets). This is
+  exactly the same destination tapping a tile opened pre-v9.25; the
+  tap target is just bigger and clearly affordanced now.
+- `sharePRFromRow` — tapping the share icon goes **straight to**
+  `#share-overlay` without first opening the exercise sheet. Seeds
+  `currentExerciseSheet = { exercise: name, sets: [] }` so the
+  existing `nativeShare` / `closeShare` / `drawPRCanvas` handlers
+  keep working unchanged — they only read `.exercise` off that
+  state object. The empty `sets` array is fine; the share path
+  doesn't read it.
+
+The legacy `sharePR()` function and the "Share PR card" row-action
+inside `#ex-overlay` are kept — that path still works for users who
+opened the sheet first to look at the trend chart. The new share
+shortcut is purely additive.
+
+CSS hooks worth not breaking: `.pr-grid` keeps the same id (`#pr-grid`)
+and class, but its rules flipped from `grid-template-columns:
+repeat(3,1fr)` to `display: flex; flex-direction: column`. The old
+`.pr-tile*` family and the `@media (min-width: 600px)` 4-column
+override are deleted — don't restore them. If you ever want a denser
+tablet layout, do it by capping `.pr-grid` `max-width` and centering,
+not by going back to a grid.
+
 **History week-strip shows a per-day volume bar (not a dot).** Bar height
 is proportional to that day's volume relative to the week max; bar color
 is the dominant muscle worked. The class is `.week-day-bar` and replaces
