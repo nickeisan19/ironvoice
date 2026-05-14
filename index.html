@@ -203,6 +203,11 @@
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
                         </div>
                     </label>
+                    <button type="button" class="row-toggle" id="quick-add-warmup-row" data-action="toggleQuickAddWarmup" aria-pressed="false">
+                        <span class="row-toggle-label">Warmup</span>
+                        <span class="row-toggle-sub">Excluded from volume and PRs</span>
+                        <span class="row-toggle-switch" aria-hidden="true"></span>
+                    </button>
                 </div>
                 <div class="section-foot" id="quick-add-foot">Same exercise, new weight × reps. Pre-filled from the previous set.</div>
             </div>
@@ -228,6 +233,7 @@
                     <div class="set-action-head">
                         <span class="muscle-tag" id="set-action-muscle"></span>
                         <span class="set-action-name" id="set-action-name">—</span>
+                        <span class="warmup-tag" id="set-action-warmup-tag" hidden>W</span>
                         <span class="item-pr-tag" id="set-action-pr" hidden>PR</span>
                     </div>
                     <div class="set-action-meta" id="set-action-meta"></div>
@@ -240,8 +246,53 @@
                 </div>
                 <div class="set-action-actions">
                     <button type="button" class="primary-btn" data-action="editFromSetAction">Edit set</button>
+                    <button type="button" class="primary-btn secondary" id="set-action-warmup-btn" data-action="toggleWarmupFromSetAction">Mark as warmup</button>
                     <button type="button" class="primary-btn danger" data-action="deleteFromSetAction">Delete set</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.26 — Per-exercise overflow menu. Opened from the ⋮ button on
+         each session-set-group header. Carries Swap exercise / Toggle
+         warmup-for-all / Delete-all-sets actions for the targeted exercise
+         within the active session. The data-exercise attribute on the
+         opening button drives _exerciseMenuName so handlers know which
+         exercise group to operate on. -->
+    <div id="exercise-menu-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="exercise-menu-title">
+            <div class="sheet-header sheet-header-3col">
+                <button class="sheet-close cancel" data-action="closeExerciseMenu">Cancel</button>
+                <span class="sheet-title-text" id="exercise-menu-title">Exercise</span>
+                <span></span>
+            </div>
+            <div class="sheet-body">
+                <div class="grouped-list">
+                    <button type="button" class="row-action" data-action="swapExerciseFromMenu"><span>Swap exercise…</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+                    <button type="button" class="row-action" id="exercise-menu-warmup-row" data-action="warmupAllFromMenu"><span id="exercise-menu-warmup-label">Mark all as warmup</span></button>
+                    <button type="button" class="row-action danger" data-action="deleteExerciseFromMenu"><span>Delete all sets</span></button>
+                </div>
+                <div class="section-foot">Swap renames every set of this exercise in the current session. Delete tombstones them (5-second Undo).</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.26 — Swap exercise picker. Opened from the per-exercise menu.
+         Custom-rendered search to avoid colliding with the active-workout
+         search dropdown wiring; tapping an exercise here calls
+         applyExerciseSwap() and bubbles back to the menu's caller. -->
+    <div id="swap-exercise-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="swap-exercise-title">
+            <div class="sheet-header sheet-header-3col">
+                <button class="sheet-close cancel" data-action="closeSwapExercise">Cancel</button>
+                <span class="sheet-title-text" id="swap-exercise-title">Swap exercise</span>
+                <span></span>
+            </div>
+            <div class="sheet-body">
+                <div class="search-container" style="margin-top:6px">
+                    <input type="text" id="swap-search" placeholder="Search exercise…" autocomplete="off" enterkeyhint="search" aria-label="Search exercise" data-on-input="filterSwapExercises">
+                </div>
+                <div id="swap-results" class="search-results-static" role="listbox"></div>
             </div>
         </div>
     </div>
@@ -296,6 +347,7 @@
                     <div class="help-row"><span class="help-cmd">"Bench 225 for 5"</span><span class="help-desc">Logs the set</span></div>
                     <div class="help-row"><span class="help-cmd">"Squat two twenty-five for three"</span><span class="help-desc">Same — words or digits</span></div>
                     <div class="help-row"><span class="help-cmd">"Deadlift four oh five for one"</span><span class="help-desc">"Oh" reads as zero</span></div>
+                    <div class="help-row"><span class="help-cmd">"Warmup bench 135 for 8"</span><span class="help-desc">Logs but skips PR + volume</span></div>
                 </div>
 
                 <div class="section-label" style="margin-top:18px">Rest timer</div>

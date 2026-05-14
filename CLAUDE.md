@@ -840,6 +840,184 @@ right interaction; the auto-select fix is the appropriate scope there.
 because manual entry sits in the same in-flow logging path as
 quick-add — see the v9.24 entry below.)
 
+**Set pills carry a PREV hint per row (v9.26).** Each weight × reps pill
+on the active workout screen AND in History day-detail renders a small
+muted second line: `prev 220×5`. The data is the same-index set from the
+most recent prior session for this exercise — answers "did I beat last
+week" without the user having to open an exercise sheet.
+
+Helper: [app.js](app.js) `getPrevExerciseSets(exercise, excludingSessionId)`
+buckets all prior non-deleted sets of an exercise by `sessionId` (or by
+`untagged-{date}` for pre-session data), picks the bucket with the latest
+set id, and returns its sets in chronological order. The pill renderer
+walks `prevSets[index]` and falls back to `prevSets[prevSets.length-1]`
+when the current session has more sets than the prior one — so the prev
+hint is *always* useful when prior data exists.
+
+[app.js](app.js) `renderSetPill(s, prev, opts)` is the shared markup
+helper used by both `renderSessionSets` (active session) and the history
+day-detail loop. Pill structure flipped to a two-row flex column:
+`.pill-main` (W tag + weight × reps + PR tag) on top, `.pill-prev` muted
+hint below. `.session-set-pill` `flex-direction: column` ensures both
+surfaces inherit the same layout. Don't drop the column flex — the prev
+line depends on it.
+
+`renderSessionSets` is now async because it preloads `getPrevExerciseSets`
+once per unique exercise before building the HTML. `refreshSessionCard`
+awaits it. The fan-out paths (`saveAndSyncUI`, `deleteEntry`,
+`updateEntry`) all already await `refreshSessionCard`, so prev hints stay
+fresh after every write.
+
+Don't render prev as a *third* line — the muted-tiny-text is the right
+weight for "supporting context, not headline." Don't show prev when the
+active session is the only one — `prevSets` returns `[]` and the line is
+omitted, which is correct.
+
+**Warmup flag (v9.26).** Sets carry a `warmup: boolean` field on the
+entry record. Warmups are journaled (visible as pills with an orange `W`
+tag) but excluded from every volume rollup, every PR comparison, every
+coverage/trend signal. A 95-lb warmup never overwrites a 225-lb PR; a
+3-warmup-only day never paints a misleading bar on the history strip.
+
+**Schema:** `buildEntry(exercise, weight, reps, { warmup = false })`
+([app.js](app.js)) — absent on pre-v9.26 entries; falsy default means
+existing data behaves exactly as before. `updateEntry` accepts an
+optional `{ warmup }` and recomputes PR when it changes.
+
+**The split:** `getActiveWorkSets()` ([app.js](app.js) near
+`getActiveWorkouts`) filters out warmups AND deleted; `getActiveWorkouts`
+keeps warmups for journal-display purposes. Every "how hard did I train"
+surface reads `getActiveWorkSets` (volume rollups, today/week cards,
+strain, focus, recommender's coverage/trend/median-sets, weekly-volume
+voice query, PR shelf, recompute paths client + worker). Every "what did
+I do" surface reads `getActiveWorkouts` (session pill list, history
+day-detail pills, per-exercise recent-sets list, exercise sheet's set
+table). When in doubt: if the number is a tally that answers a "how
+much" question, it's work-only.
+
+**Voice grammar:** `parseIntent` ([app.js](app.js)) catches
+`^warm(?:\s*-?\s*)?up\b\s+...` *before* the generic log pattern so the
+keyword isn't swallowed. "Warmup bench 135 for 8" / "warm up squat 95
+for 10" parse identically to a normal log but stamp `warmup: true`.
+`executeIntent` says "Warmup logged" so the readback is unambiguous.
+
+**Manual paths:** Quick-add overlay carries a Warmup toggle row
+(`.row-toggle`, iOS-style switch, orange when on) that sets
+`_quickAddWarmup` for the save. Set-action sheet has a "Mark as warmup /
+Unmark warmup" button that calls `toggleWarmupFromSetAction`. Manual
+entry (workout-screen first-set search) deliberately does NOT carry a
+warmup toggle — first sets of an exercise are rarely warmups in practice
+(history prefill comes from work data) and adding the toggle clutters
+the surface for no realistic gain. Users who need it can save then tap
+the pill.
+
+**PR exclusion:** `saveAndSyncUI` gates `isWeightPR`/`is1RMPR` on
+`!entry.warmup`, so warmups never trigger the celebration sheet.
+`recomputePR` ([app.js](app.js)) and the Worker's `recomputePRs`
+([worker.js](worker.js)) both `continue` on `w.warmup`. `computePRTiles`
+also filters warmups so the PRs screen never lists a warmup as a record.
+
+**Visual:** `.warmup-tag` is a 14px-tall orange chip with `W` in white;
+`.session-set-pill.is-warmup` paints the pill body with a faded
+background + amber border so warmup pills read at a glance without
+needing to find the W. The set-action head shows a larger W tag next to
+the exercise name when the entry is a warmup. Don't replace the orange
+border with red or yellow — orange is the established warning color
+(`--orange` is also the "high strain" hue), and using a different colour
+would split the visual language.
+
+**Per-exercise collapse (v9.26).** Each `.session-set-group` header on
+the active workout screen carries a chevron button on the left. Tapping
+toggles membership in `_collapsedExercises` (a module-level `Set` keyed
+by exercise canonical name) and re-renders via `refreshSessionCard`.
+Collapsed groups hide their `.session-set-pills` row but keep the
+header + set-count chip visible, so the user still sees "4 sets in
+there" at a glance.
+
+State is **in-memory only** — cleared in `endWorkoutSession` on both
+the normal-end and empty-discard branches. The next session's
+exercises are almost always new, so persistence would add a footgun
+without a real use case (a stale collapsed flag on a re-used exercise
+name across sessions).
+
+**Workout-screen only by design.** History `.history-group-header`
+already routes taps to `openExercise(name)` (the per-exercise sheet).
+Adding collapse there would split that gesture's meaning. The v9.26 ⋮
+overflow button has the same workout-only scope for the same reason.
+
+Don't add localStorage persistence; don't add collapse to history;
+don't bubble the ⋮ button's tap to the collapse handler — the
+dispatcher resolves to the closest `[data-action]`, so the ⋮ already
+intercepts its own taps without further plumbing.
+
+**Per-exercise overflow menu ⋮ (v9.26).** Each `.session-set-group` on
+the active workout screen has a small `.session-set-more` (⋮) button in
+its header. Tap opens `#exercise-menu-overlay` ([index.html](index.html))
+with three actions targeting every set of that exercise in the active
+session:
+
+1. **Swap exercise…** opens `#swap-exercise-overlay` — a sheet with a
+   search input + scrollable result list (`.swap-result-row` cells,
+   muscle-tagged). Tap a result → `applyExerciseSwap(target)` renames
+   every set of the source exercise to the target, re-Epley-calcs
+   `oneRM`, bumps `modifiedAt`, and recomputes PRs for *both* the source
+   and the target exercises (the target may now have a new PR; the
+   source may lose its current one). Snackbar confirms.
+2. **Mark all as warmup / Unmark all** — majority-state decision.
+   `warmupAllFromMenu` reads the warmup count for the targeted sets;
+   if most are work sets, mark all as warmup; if most are warmup,
+   unmark all. The label on the row reflects the action that will be
+   taken (`updateWarmupAllLabel(name)` runs on menu open). Avoids the
+   "two presses to undo a mis-mark" trap.
+3. **Delete all sets** — `deleteExerciseFromMenu` confirms via
+   `confirmSheet({ danger: true })`, then tombstones every targeted
+   set. No 5s Undo (the action already owns its own confirm prompt).
+
+**History overflow is intentionally absent.** The ⋮ button is
+workout-screen-only. History day-detail is review-mode, and
+swap/delete-all don't fit "I'm looking at last Tuesday." Don't add a
+history overflow without a concrete user request — the per-pill action
+sheet already covers per-set edits in history.
+
+Don't reach into untagged sets via swap. The handlers gate on
+`w.sessionId === activeSession.id` so untagged historical data is never
+the target. Same for delete-all — bulk-deleting untagged sets from a
+menu opened mid-workout would be a footgun.
+
+**Rotation-aware set-group ordering (v9.28).** On the active workout
+screen, `renderSessionSets` orders exercise groups by their most
+recent set's timestamp ASC: the exercise the user has been "waiting
+longest" to return to is on top; the just-logged exercise drops to
+the bottom. Matches a circuit/superset rotation — logging biceps
+leaves triceps (the next-up) at the top of the list, not biceps.
+
+Brand-new exercises follow the same rule. A freshly-added exercise's
+only set is the newest in the session, so it naturally lands at the
+bottom. The prior exercises (older last-sets) stay on top — which is
+what the user wants because the prior exercise is the next-up in the
+cycle, not the one they just added.
+
+**v9.27 retraction:** v9.27 shipped a hybrid algorithm with a
+"pinned new exercises on top" tier. After live testing the user
+corrected the behavior — when the second exercise is entered, the
+*first* should remain on top, not the second. The v9.27 pinned tier
+broke that expectation and was reverted in v9.28. Don't reintroduce
+the pinned tier without an explicit request; the simple
+`sort((a, b) => a.lastId - b.lastId)` is the contract.
+
+History day-detail does NOT use this sort. Review-mode wants
+chronological "as-performed" order, not next-up suggestion. Same
+scope rule as the v9.26 ⋮ button and collapse state — those are
+workout-screen-only too.
+
+Don't try to detect "blocks" (upper body vs lower body) and segment
+the sort. The system can't reliably distinguish a block transition
+from a one-off cross-muscle set; the user's "block" mental model is
+their own. When the user starts a fresh circuit, the new exercises
+will initially be at the bottom (their first sets are the newest);
+as the user logs more sets of them, they cycle into normal rotation
+behavior with the rest.
+
 **Manual entry prefills from history and uses the quick-add stepper
 layout (v9.24).** Two paired changes to the workout-screen manual-entry
 section, both driven by the same goal: cut typing on the gym floor.
@@ -1202,6 +1380,9 @@ specific patterns first so generic ones don't swallow them.
 
 - **Logging**: `<exercise> <weight> for <reps>` — e.g., "bench 225 for 5",
   "squat two twenty-five for three"
+- **Warmup**: `warmup <exercise> <weight> for <reps>` — "warmup bench 135
+  for 8". Same parse as a regular log but the entry is flagged `warmup:
+  true` and excluded from volume rollups + PRs (v9.26).
 - **Number normalization**: spoken numbers become digits. "two twenty-five"
   → 225, "four oh five" → 405, "one fifteen" → 115
 - **Workout sessions**: "start workout", "begin workout", "end workout",
@@ -1235,6 +1416,11 @@ When adding a command, also add it to the help sheet (`#help-overlay` in
                             //         (drives History rollups). Absent on
                             //         pre-v9.11 entries; falls back to the
                             //         current restDuration setting.
+  warmup: false,            // v9.26 — true for warmup sets. Excluded from
+                            //         every volume rollup, every PR, every
+                            //         coverage/trend signal. Pills show
+                            //         orange "W" tag. Falsy default; absent
+                            //         on pre-v9.26 entries.
   deleted: false,           // tombstone flag
 }
 ```

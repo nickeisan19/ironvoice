@@ -702,6 +702,12 @@ function performDB(store, action, data = null) {
 }
 
 const getActiveWorkouts = async () => (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
+// Work sets only — warmups are excluded from every volume rollup, every PR
+// computation, every coverage/trend signal. The split is intentional: pill
+// rendering, set lists, and the "Set N of M" meta still see all sets (the
+// user wants to see warmups in the journal), but every number that answers
+// "how hard did I train?" reads work-only. See v9.26 for the schema field.
+const getActiveWorkSets = async () => (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup);
 const getActiveTemplates = async () => (await performDB('templates', 'getAll')).filter(t => !t.deleted);
 const getActiveCustoms = async () => (await performDB('customExercises', 'getAll')).filter(c => !c.deleted);
 
@@ -904,7 +910,7 @@ async function handleManualEntry() {
     haptic(15);
 }
 
-function buildEntry(exercise, weight, reps) {
+function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
     const id = Date.now();
     return {
         id,
@@ -920,6 +926,11 @@ function buildEntry(exercise, weight, reps) {
         // rest was Off. Used by the History rollups (Total / Workout / Rest)
         // to clamp each set's rest by min(scheduled, gap-to-next-set).
         restDurationMs: restDuration * 1000,
+        // v9.26 — warmup flag. Warmups are journaled (visible as pills) but
+        // excluded from every volume rollup, every PR comparison, every
+        // coverage/trend signal. Absent on pre-v9.26 entries; falsy default
+        // means existing data behaves exactly as before.
+        warmup: !!warmup,
     };
 }
 
@@ -940,8 +951,11 @@ async function saveAndSyncUI(entry) {
         // on prType to decide whether to lead with the weight ("first time
         // at 235") or the 1RM ("rep work pushed your estimated max"). When
         // both move in the same set, weight wins on the headline.
-        const isWeightPR = !oldPR || entry.weight > (oldPR.maxWeight ?? 0);
-        const is1RMPR    = !oldPR || entry.oneRM  > (oldPR.max1RM    ?? 0);
+        // v9.26 — warmups can never be PRs. They're light prep work, not
+        // peak lifts; counting them would mean a 95-lb warmup overwrites
+        // a real 225 record the moment the user toggles the flag.
+        const isWeightPR = !entry.warmup && (!oldPR || entry.weight > (oldPR.maxWeight ?? 0));
+        const is1RMPR    = !entry.warmup && (!oldPR || entry.oneRM  > (oldPR.max1RM    ?? 0));
         const isNewPR    = isWeightPR || is1RMPR;
         if (isNewPR) {
             const prevMaxWeight     = oldPR?.maxWeight     ?? 0;
@@ -1398,6 +1412,24 @@ function parseIntent(rawText) {
         return { type: 'lastSet', exercise: exMatch?.name ?? null };
     }
 
+    // v9.26 — Warmup log: "warmup bench 135 for 8" or "warm up squat 95 for 10".
+    // Parses identically to a normal log but stamps the entry as a warmup so
+    // it bypasses every PR/volume tally. Detection runs before the generic
+    // log path so the warmup keyword isn't swallowed.
+    const warmupMatch = text.match(/^warm(?:\s*-?\s*)?up\b\s*(.*)$/);
+    if (warmupMatch) {
+        const rest = warmupMatch[1] || '';
+        const exMatch = matchOrder.find(m => rest.includes(m.term));
+        const nums = rest.match(/\d+(?:\.\d+)?/g);
+        if (exMatch && nums && nums.length >= 2) {
+            const weight = parseFloat(nums[0]);
+            const reps = parseInt(nums[1], 10);
+            if (weight > 0 && reps > 0) {
+                return { type: 'log', exercise: exMatch.name, weight, reps, warmup: true };
+            }
+        }
+    }
+
     // Logging: exercise + 2 numbers
     const exMatch = matchOrder.find(m => text.includes(m.term));
     const nums = text.match(/\d+(?:\.\d+)?/g);
@@ -1461,7 +1493,8 @@ async function executeIntent(intent) {
             break;
         }
         case 'weeklyVolume': {
-            const w = await getActiveWorkouts();
+            // v9.26 — work sets only; warmups don't count toward tonnage.
+            const w = await getActiveWorkSets();
             const cutoff = isoForOffset(7);
             const total = w.filter(e => e.date >= cutoff).reduce((s, e) => s + e.weight * e.reps, 0);
             speak(total > 0 ? `${Math.round(total).toLocaleString()} pounds over the last seven days.` : "No volume in the last week.");
@@ -1474,9 +1507,11 @@ async function executeIntent(intent) {
             break;
         }
         case 'log': {
-            const entry = buildEntry(intent.exercise, intent.weight, intent.reps);
+            const entry = buildEntry(intent.exercise, intent.weight, intent.reps, { warmup: !!intent.warmup });
             await saveAndSyncUI(entry);
-            speak(`Logged ${entry.weight} for ${entry.reps}.`);
+            speak(entry.warmup
+                ? `Warmup logged. ${entry.weight} for ${entry.reps}.`
+                : `Logged ${entry.weight} for ${entry.reps}.`);
             break;
         }
     }
@@ -1724,7 +1759,9 @@ async function renderTodayCard() {
     const valueEl = $('today-card-value');
     if (!labelEl || !valueEl) return;
 
-    const all = await getActiveWorkouts();
+    // v9.26 — set/volume tallies on Home are work-only. Warmups still show
+    // as pills on the workout screen, just not in summary numbers.
+    const all = await getActiveWorkSets();
 
     if (activeSession) {
         const setsInSession = all.filter(w => w.sessionId === activeSession.id);
@@ -1776,7 +1813,8 @@ async function renderWeekCard() {
     const deltaEl = $('week-card-delta');
     if (!valueEl) return;
 
-    const all = await getActiveWorkouts();
+    // v9.26 — week tonnage / set count exclude warmups.
+    const all = await getActiveWorkSets();
     const cutoff7 = isoForOffset(6);    // last 7 days inclusive
     const cutoff14 = isoForOffset(13);  // 7 days before that
 
@@ -2196,8 +2234,15 @@ function initActionDispatcher() {
         // v9.25: PR rows. Row body opens the exercise sheet; the share
         // icon goes straight to the share overlay (skips the sheet).
         openExerciseFromPR, sharePRFromRow,
+        // v9.26: warmup support. Quick-add overlay toggle; per-set toggle
+        // from the action sheet; per-exercise overflow menu actions.
+        toggleQuickAddWarmup, toggleWarmupFromSetAction,
+        openExerciseMenu, closeExerciseMenu, closeSwapExercise,
+        swapExerciseFromMenu, deleteExerciseFromMenu, warmupAllFromMenu,
+        // v9.26: per-exercise collapse on the active workout screen.
+        toggleExerciseCollapse,
     };
-    const INPUT_ACTIONS = { filterExercises };
+    const INPUT_ACTIONS = { filterExercises, filterSwapExercises };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
     // in a number input so a single tap lets the user type the replacement
     // instead of having to long-press to select. Applied via
@@ -2272,7 +2317,10 @@ function initActionDispatcher() {
 // the canonical 6-muscle object so callers can iterate MUSCLES safely.
 async function computeMuscleCoverage(days = 14) {
     const cutoff = isoForOffset(days - 1);
-    const all = await getActiveWorkouts();
+    // v9.26 — coverage answers "did you train it" and a warmup of 95×8 isn't
+    // really training the muscle. Excluding warmups keeps the Focus card and
+    // the recommender's trailing-muscle scoring honest.
+    const all = await getActiveWorkSets();
     const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
     all.filter(w => w.date >= cutoff).forEach(w => {
         counts[muscleOf(w.exercise)]++;
@@ -2309,7 +2357,9 @@ async function computeWeekdayMuscleProfile(weekday, lookbackDays) {
     const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
     if (!sessions.length) return { counts, sessions: 0 };
     const sessionIds = new Set(sessions.map(s => s.id));
-    const all = await getActiveWorkouts();
+    // v9.26 — work sets only; weekday-lock is a routine-detection signal,
+    // not a "did you walk into the gym" signal.
+    const all = await getActiveWorkSets();
     for (const w of all) {
         if (sessionIds.has(w.sessionId)) counts[muscleOf(w.exercise)]++;
     }
@@ -2321,7 +2371,9 @@ async function computeWeekdayMuscleProfile(weekday, lookbackDays) {
 // muscle. Positive = trending up, negative = trending down. The recommender
 // uses negative trend as a "this is slipping, recommend it" boost.
 async function computeMuscleTrend(lookbackDays) {
-    const all = await getActiveWorkouts();
+    // v9.26 — trend reads volume; warmups would smuggle in light tonnage
+    // that doesn't reflect actual training load.
+    const all = await getActiveWorkSets();
     const half = Math.max(1, Math.floor(lookbackDays / 2));
     const recentCutoff = isoForOffset(half - 1);                 // last `half` days
     const olderCutoff  = isoForOffset(lookbackDays - 1);         // window start
@@ -2351,7 +2403,9 @@ async function medianSetsForExercise(name, lookbackDays) {
         .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff);
     if (!sessions.length) return 3;
     const sessionIds = new Set(sessions.map(s => s.id));
-    const all = await getActiveWorkouts();
+    // v9.26 — sets-per-exercise is a work-set count; recommending "5 sets of
+    // squats" should mean 5 work sets, not 3 warmups + 2 work sets.
+    const all = await getActiveWorkSets();
     const setsBySession = new Map();
     for (const w of all) {
         if (!sessionIds.has(w.sessionId)) continue;
@@ -2783,7 +2837,9 @@ async function renderStrain() {
     const sub = $('strain-sub');
     card.classList.remove('recovery', 'steady', 'high', 'over');
 
-    const workouts = await getActiveWorkouts();
+    // v9.26 — strain is a tonnage signal; warmups don't load the body the
+    // way work sets do, so they shouldn't push you toward "Overreach".
+    const workouts = await getActiveWorkSets();
     if (!workouts.length) {
         text.textContent = '—';
         sub.textContent = 'Log a set';
@@ -2861,7 +2917,10 @@ async function deleteEntry(id, silent = false) {
 }
 
 async function recomputePR(exercise) {
-    const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && w.exercise === exercise);
+    // Warmups are excluded — they're tracked but never count toward the
+    // record. Same rule the Worker's recomputePRs enforces server-side.
+    const all = (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted && !w.warmup && w.exercise === exercise);
     if (!all.length) { await performDB('prs', 'delete', exercise); return; }
     // Two independent winners — heaviest weight ever lifted, and best
     // estimated 1RM. They may be the same set (combo PR) or different
@@ -3504,6 +3563,11 @@ function closePlate() { $('plate-overlay').classList.remove('active'); }
 // buildEntry/saveAndSyncUI. This avoids duplicating the input markup.
 let _quickAddExercise = null;
 let _quickAddEditId = null;
+// v9.26 — warmup toggle state for the open quick-add sheet. Reset on every
+// open so it doesn't carry forward between adds (a warmup is usually one set,
+// not a streak). The set-action sheet's warmup toggle goes through a
+// separate path (toggleWarmupFromSetAction) so it doesn't share this state.
+let _quickAddWarmup = false;
 let _setActionId = null;
 
 async function openQuickAdd(el) {
@@ -3511,6 +3575,8 @@ async function openQuickAdd(el) {
     if (!exercise) return;
     _quickAddExercise = exercise;
     _quickAddEditId = null;   // explicit Add path
+    _quickAddWarmup = false;
+    syncQuickAddWarmupRow();
 
     const lib = exerciseLibrary.find(ex => ex.name === exercise);
     const muscle = lib?.muscle || muscleOf(exercise) || 'core';
@@ -3597,6 +3663,23 @@ function closeQuickAdd() {
     $('quick-add-overlay').classList.remove('active');
     _quickAddExercise = null;
     _quickAddEditId = null;
+    _quickAddWarmup = false;
+}
+
+// v9.26 — paint the quick-add warmup toggle row to match _quickAddWarmup.
+// Both opens (Add and Edit) call this; the in-overlay tap handler
+// (toggleQuickAddWarmup) flips state and re-syncs.
+function syncQuickAddWarmupRow() {
+    const row = $('quick-add-warmup-row');
+    if (!row) return;
+    row.setAttribute('aria-pressed', _quickAddWarmup ? 'true' : 'false');
+    row.classList.toggle('is-on', _quickAddWarmup);
+}
+
+function toggleQuickAddWarmup() {
+    _quickAddWarmup = !_quickAddWarmup;
+    syncQuickAddWarmupRow();
+    haptic(6);
 }
 
 async function saveQuickAdd() {
@@ -3607,14 +3690,15 @@ async function saveQuickAdd() {
         haptic([20, 50, 20]);
         return;
     }
+    const warmup = _quickAddWarmup;
     if (_quickAddEditId != null) {
         const id = _quickAddEditId;
         closeQuickAdd();
-        await updateEntry(id, w, r);
+        await updateEntry(id, w, r, { warmup });
         haptic(15);
         return;
     }
-    const entry = buildEntry(exercise, w, r);
+    const entry = buildEntry(exercise, w, r, { warmup });
     closeQuickAdd();
     await saveAndSyncUI(entry);
     haptic(15);
@@ -3628,6 +3712,8 @@ async function openEditSet(id) {
     if (!entry || entry.deleted) return;
     _quickAddExercise = entry.exercise;
     _quickAddEditId = id;
+    _quickAddWarmup = !!entry.warmup;
+    syncQuickAddWarmupRow();
 
     const lib = exerciseLibrary.find(ex => ex.name === entry.exercise);
     const muscle = lib?.muscle || muscleOf(entry.exercise) || 'core';
@@ -3655,13 +3741,17 @@ async function openEditSet(id) {
 // re-render fan-out so PR badges, charts, and the active session card
 // reflect the new value immediately. PR is recomputed (not just compared)
 // because an edit can move the PR up OR down.
-async function updateEntry(id, weight, reps) {
+async function updateEntry(id, weight, reps, { warmup } = {}) {
     try {
         const entry = await performDB('workouts', 'get', id);
         if (!entry || entry.deleted) return;
         entry.weight = weight;
         entry.reps = reps;
         entry.oneRM = epley(weight, reps);
+        // v9.26 — when the caller passes warmup, write it; otherwise keep
+        // the existing flag. Toggling warmup forces a PR recompute below
+        // because the set may be entering or leaving the PR candidate pool.
+        if (warmup !== undefined) entry.warmup = !!warmup;
         entry.modifiedAt = Date.now();
         await performDB('workouts', 'put', entry);
         markUnsynced();
@@ -3717,6 +3807,14 @@ async function openSetAction(el) {
     const prBadge = $('set-action-pr');
     if (prBadge) prBadge.hidden = !(pr && pr.achievedAt === id);
 
+    // v9.26 — surface the warmup state both as a tag next to the exercise
+    // name and as the button label ("Mark as warmup" / "Unmark warmup") so
+    // the toggle's effect is unambiguous before the user taps.
+    const warmupTag = $('set-action-warmup-tag');
+    if (warmupTag) warmupTag.hidden = !entry.warmup;
+    const warmupBtn = $('set-action-warmup-btn');
+    if (warmupBtn) warmupBtn.textContent = entry.warmup ? 'Unmark warmup' : 'Mark as warmup';
+
     $('set-action-overlay').classList.add('active');
 }
 
@@ -3735,6 +3833,236 @@ function deleteFromSetAction() {
     const id = _setActionId;
     closeSetAction();
     if (id != null) deleteEntry(id);
+}
+
+// v9.26 — Flip a single existing set's warmup flag. Same write path as a
+// weight/rep edit, just toggling the flag — updateEntry handles PR recompute
+// and the full re-render fan-out. Closes the sheet first so the user sees
+// the new pill state when the dust settles.
+async function toggleWarmupFromSetAction() {
+    const id = _setActionId;
+    closeSetAction();
+    if (id == null) return;
+    const entry = await performDB('workouts', 'get', id);
+    if (!entry || entry.deleted) return;
+    await updateEntry(id, entry.weight, entry.reps, { warmup: !entry.warmup });
+}
+
+// ============================================================================
+// v9.26 — Per-exercise overflow menu (⋮)
+//
+// Opened from the ⋮ button on the active workout's per-exercise group header.
+// Operates on every set of that exercise within the active session (untagged
+// sets are not the target — they belong to past data, not the live workout).
+//
+// Actions:
+//   - Swap exercise:  pick a replacement from the library; every set in the
+//                     active session for the original exercise is renamed
+//                     to the new one. PRs are recomputed for both.
+//   - Mark all as warmup / Unmark: bulk-toggle the warmup flag. Decision
+//                     reads the *majority* state — if most sets are work,
+//                     mark all as warmup; if most are warmup, unmark all.
+//                     Avoids two presses to undo a mis-mark.
+//   - Delete all sets: tombstone every set of the exercise in this session.
+//                     Single confirm sheet, no per-set Undo (already a bulk
+//                     destructive action, so it owns its own confirm path).
+// ============================================================================
+
+let _exerciseMenuName = null;
+let _swapSourceName = null;
+// v9.26 — per-exercise collapse state for the active workout screen.
+// In-memory only (cleared in endWorkoutSession both branches) — the next
+// session's exercises are almost always new and persistence would just be
+// a footgun. Keyed by exercise canonical name. History day-detail does
+// NOT honor this set (collapse is workout-screen only).
+let _collapsedExercises = new Set();
+
+function openExerciseMenu(el) {
+    const name = el?.dataset?.exercise;
+    if (!name || !activeSession) return;
+    _exerciseMenuName = name;
+    const title = $('exercise-menu-title');
+    if (title) title.textContent = titleCase(name);
+    // Decide the warmup-toggle label up front by looking at the current
+    // session's sets for this exercise — majority wins.
+    updateWarmupAllLabel(name);
+    $('exercise-menu-overlay').classList.add('active');
+}
+
+async function updateWarmupAllLabel(name) {
+    const label = $('exercise-menu-warmup-label');
+    if (!label || !activeSession) return;
+    const sets = (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted && w.sessionId === activeSession.id && w.exercise === name);
+    if (!sets.length) { label.textContent = 'Mark all as warmup'; return; }
+    const warmupCount = sets.filter(w => w.warmup).length;
+    label.textContent = warmupCount > sets.length / 2
+        ? 'Unmark all as warmup'
+        : 'Mark all as warmup';
+}
+
+function closeExerciseMenu() {
+    $('exercise-menu-overlay').classList.remove('active');
+    _exerciseMenuName = null;
+}
+
+async function swapExerciseFromMenu() {
+    if (!_exerciseMenuName) return;
+    _swapSourceName = _exerciseMenuName;
+    closeExerciseMenu();
+    // Open the swap picker. Reset the search and render the full list.
+    $('swap-search').value = '';
+    renderSwapResults('');
+    $('swap-exercise-overlay').classList.add('active');
+    setTimeout(() => $('swap-search')?.focus({ preventScroll: true }), 250);
+}
+
+function closeSwapExercise() {
+    $('swap-exercise-overlay').classList.remove('active');
+    _swapSourceName = null;
+}
+
+function filterSwapExercises(el) {
+    renderSwapResults((el?.value || '').toLowerCase().trim());
+}
+
+function renderSwapResults(query) {
+    const results = $('swap-results');
+    if (!results) return;
+    const matches = exerciseLibrary
+        .filter(ex => ex.name !== _swapSourceName)
+        .filter(ex => !query || ex.name.includes(query) || ex.synonyms.some(s => s.includes(query)))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 60);
+    if (!matches.length) {
+        results.innerHTML = `<div class="search-empty">No matches.</div>`;
+        return;
+    }
+    results.innerHTML = matches.map(ex => `
+        <button type="button" class="swap-result-row" data-swap-target="${escapeHtml(ex.name)}">
+            <span class="muscle-tag" style="background:${escapeHtml(muscleColor[ex.muscle] || '#888')}"></span>
+            <span class="swap-result-name">${escapeHtml(titleCase(ex.name))}</span>
+        </button>`).join('');
+    // Wire row clicks once; the rows are recreated on every filter.
+    results.querySelectorAll('.swap-result-row').forEach(row => {
+        row.addEventListener('click', () => applyExerciseSwap(row.dataset.swapTarget));
+    });
+}
+
+async function applyExerciseSwap(targetName) {
+    const source = _swapSourceName;
+    if (!source || !targetName || !activeSession) { closeSwapExercise(); return; }
+    if (source === targetName) { closeSwapExercise(); return; }
+    try {
+        const sets = (await performDB('workouts', 'getAll'))
+            .filter(w => !w.deleted && w.sessionId === activeSession.id && w.exercise === source);
+        const now = Date.now();
+        for (const set of sets) {
+            set.exercise = targetName;
+            set.oneRM = epley(set.weight, set.reps);
+            set.modifiedAt = now;
+            await performDB('workouts', 'put', set);
+        }
+        markUnsynced();
+        await recomputePR(source);
+        await recomputePR(targetName);
+        closeSwapExercise();
+        await refreshSessionCard();
+        await renderHistory();
+        await renderFocus();
+        await renderRecommendedNext();
+        showSnackbar(`Swapped to ${titleCase(targetName)}`, { duration: 3000 });
+        haptic(15);
+    } catch (err) {
+        console.error('Swap failed:', err);
+        closeSwapExercise();
+    }
+}
+
+async function warmupAllFromMenu() {
+    const name = _exerciseMenuName;
+    if (!name || !activeSession) { closeExerciseMenu(); return; }
+    try {
+        const sets = (await performDB('workouts', 'getAll'))
+            .filter(w => !w.deleted && w.sessionId === activeSession.id && w.exercise === name);
+        if (!sets.length) { closeExerciseMenu(); return; }
+        // Majority-state decision: if most sets are already warmup, the
+        // tap means "undo all"; otherwise "mark all".
+        const warmupCount = sets.filter(w => w.warmup).length;
+        const targetState = !(warmupCount > sets.length / 2);
+        const now = Date.now();
+        for (const set of sets) {
+            if (!!set.warmup === targetState) continue;
+            set.warmup = targetState;
+            set.modifiedAt = now;
+            await performDB('workouts', 'put', set);
+        }
+        markUnsynced();
+        await recomputePR(name);
+        closeExerciseMenu();
+        await refreshSessionCard();
+        await renderHistory();
+        await renderFocus();
+        await renderRecommendedNext();
+        await renderStrain();
+        showSnackbar(targetState
+            ? `${titleCase(name)} marked as warmup`
+            : `${titleCase(name)} unmarked`, { duration: 3000 });
+        haptic(12);
+    } catch (err) {
+        console.error('Warmup-all failed:', err);
+        closeExerciseMenu();
+    }
+}
+
+// v9.26 — Flip the collapsed state for one exercise group on the active
+// workout screen. Re-renders the session card so the chevron rotates and
+// the pill row hides/shows. No animation beyond the chevron tween — the
+// pills snap in/out for instant feedback during a workout.
+function toggleExerciseCollapse(el) {
+    const name = el?.dataset?.exercise;
+    if (!name) return;
+    if (_collapsedExercises.has(name)) _collapsedExercises.delete(name);
+    else _collapsedExercises.add(name);
+    haptic(6);
+    refreshSessionCard();
+}
+
+async function deleteExerciseFromMenu() {
+    const name = _exerciseMenuName;
+    if (!name || !activeSession) { closeExerciseMenu(); return; }
+    closeExerciseMenu();
+    const sets = (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted && w.sessionId === activeSession.id && w.exercise === name);
+    if (!sets.length) return;
+    const ok = await confirmSheet({
+        title: `Delete all ${titleCase(name)} sets?`,
+        body: `${sets.length} set${sets.length === 1 ? '' : 's'} will be removed from this workout. This isn't easily undone.`,
+        confirmLabel: 'Delete all',
+        cancelLabel: 'Keep',
+        danger: true,
+    });
+    if (!ok) return;
+    try {
+        const now = Date.now();
+        for (const set of sets) {
+            set.deleted = true;
+            set.modifiedAt = now;
+            await performDB('workouts', 'put', set);
+        }
+        markUnsynced();
+        await recomputePR(name);
+        await refreshSessionCard();
+        await renderHistory();
+        await renderFocus();
+        await renderRecommendedNext();
+        await renderStrain();
+        await refreshLatestStats();
+        showSnackbar(`Deleted ${sets.length} ${titleCase(name)} set${sets.length === 1 ? '' : 's'}`, { duration: 4000 });
+        haptic([20, 40, 20]);
+    } catch (err) {
+        console.error('Delete-all failed:', err);
+    }
 }
 
 function renderPlate() {
@@ -3783,10 +4111,11 @@ async function openExercise(exerciseName) {
 
     $('ex-title').textContent = titleCase(exerciseName);
 
-    // Stats
+    // Stats — volume tally excludes warmups so the headline number on the
+    // exercise sheet matches every other surface that uses work-set tonnage.
     const pr = await getCurrentPR(exerciseName);
     const sessions = new Set(all.map(w => w.date)).size;
-    const totalVolume = all.reduce((s, w) => s + w.weight * w.reps, 0);
+    const totalVolume = all.filter(w => !w.warmup).reduce((s, w) => s + w.weight * w.reps, 0);
 
     $('ex-stats').innerHTML = `
         <div class="ex-stat"><div class="v">${pr ? Math.round(pr.max1RM) : '—'}</div><div class="l">1RM (lb)</div></div>
@@ -3801,7 +4130,7 @@ async function openExercise(exerciseName) {
     $('ex-sets').innerHTML = recent.map(w => `
         <div class="row-input" style="border-bottom:0.5px solid var(--hairline)">
             <span style="flex:1">${formatDate(w.date)}</span>
-            <span style="font-variant-numeric:tabular-nums;font-weight:600">${w.weight} × ${w.reps}</span>
+            <span style="font-variant-numeric:tabular-nums;font-weight:600">${w.warmup ? '<span class="warmup-tag">W</span>' : ''}${w.weight} × ${w.reps}</span>
         </div>`).join('');
 
     $('ex-overlay').classList.add('active');
@@ -4144,6 +4473,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
         releaseScreenWakeLock();
         // v9.18: discard the suggested-queue alongside the empty session.
         clearSuggestedQueue();
+        _collapsedExercises.clear();
         await refreshSessionCard();
         updateWorkoutTabUI();
         // v9.1: flip Home back to idle copy.
@@ -4168,6 +4498,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     // v9.18: suggested-queue is session-scoped — clear on end so the next
     // workout doesn't inherit the last recommendation's chips.
     clearSuggestedQueue();
+    _collapsedExercises.clear();
     if (wasRecommended) incrementRecBumpCount();
     await refreshSessionCard();
     updateWorkoutTabUI();
@@ -4336,16 +4667,22 @@ async function refreshSessionCard() {
     if (workoutIdle) workoutIdle.style.display = 'none';
 
     renderSessionCardTime();
+
     const setsInSession = (await performDB('workouts', 'getAll'))
         .filter(w => w.sessionId === activeSession.id && !w.deleted);
-    const totalVol = setsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
-    $('session-card-sets').textContent = String(setsInSession.length);
+    // v9.26 — session card stats read work sets only. The pill list (below)
+    // still shows warmups; the counts on the card are the load-bearing tally.
+    const workSetsInSession = setsInSession.filter(w => !w.warmup);
+    const totalVol = workSetsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
+    $('session-card-sets').textContent = String(workSetsInSession.length);
     $('session-card-vol').textContent = totalVol >= 1000
         ? `${(totalVol / 1000).toFixed(1)}k`
         : String(Math.round(totalVol));
 
-    // v8: render the in-session set list grouped by exercise
-    if (sessionSets) renderSessionSets(sessionSets, setsInSession);
+    // v8: render the in-session set list grouped by exercise (async since
+    // v9.26 — pulls prev-session data per exercise to populate the PREV
+    // hint under each pill).
+    if (sessionSets) await renderSessionSets(sessionSets, setsInSession);
 
     // v9.18: keep the suggested-queue chips in sync — counts derive from
     // setsInSession, so logging or deleting a set bumps the chip totals.
@@ -4379,15 +4716,18 @@ async function renderLastWorkoutCard() {
         el.innerHTML = `<div class="last-workout-empty">No workouts yet — tap Start to begin.</div>`;
         return;
     }
-    const totalVol = sets.reduce((s, w) => s + w.weight * w.reps, 0);
+    // v9.26 — last-workout summary numbers are work sets only; the "top"
+    // lift skips warmups so it never highlights a 95-lb prep set.
+    const workSets = sets.filter(w => !w.warmup);
+    const totalVol = workSets.reduce((s, w) => s + w.weight * w.reps, 0);
     const mins = Math.max(1, Math.round(last.durationMs / 60000));
     const dateLabel = formatDate(new Date(last.endedAt).toISOString().slice(0, 10));
-    // Surface the heaviest single set as the "headline" lift.
-    const top = sets.slice().sort((a, b) => b.weight - a.weight)[0];
+    // Surface the heaviest single work set as the "headline" lift.
+    const top = (workSets.length ? workSets : sets).slice().sort((a, b) => b.weight - a.weight)[0];
     el.innerHTML = `
         <div class="last-workout-summary">
             <span class="lw-date">${escapeHtml(dateLabel)}</span>
-            <span class="lw-stats">${mins}m · ${sets.length} sets · ${Math.round(totalVol).toLocaleString()} lb</span>
+            <span class="lw-stats">${mins}m · ${workSets.length} sets · ${Math.round(totalVol).toLocaleString()} lb</span>
         </div>
         <div class="last-workout-top">Top: ${escapeHtml(titleCase(top.exercise))} ${escapeHtml(String(top.weight))} × ${escapeHtml(String(top.reps))}</div>
     `;
@@ -4406,52 +4746,161 @@ async function renderHomeEmptyState() {
 
 // v8: render the session set list, grouped by exercise (most recently
 // performed first), each with a horizontal row of "weight × reps" pills.
-function renderSessionSets(container, sets) {
+// v9.26 — Most recent prior session's sets for a given exercise. Used by
+// the pill renderer to draw "prev W×R" under each pill. The split below
+// (sessionId vs untagged-date fallback) means historical pre-session data
+// still drives a useful prev hint for users coming back to a lift after a
+// while. Returns sets in chronological order so prev[index] matches the
+// current session's same-index set; falls back to prev[last] when the
+// current session has more sets than the prior one.
+async function getPrevExerciseSets(exercise, excludingSessionId) {
+    const all = (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted && w.exercise === exercise
+                  && (excludingSessionId == null || w.sessionId !== excludingSessionId));
+    if (!all.length) return [];
+    // Bucket by (sessionId || ('untagged-' + date)) and pick the bucket
+    // with the latest set id — that's the user's "last time."
+    const buckets = new Map();
+    for (const w of all) {
+        const key = w.sessionId != null ? `s:${w.sessionId}` : `u:${w.date}`;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push(w);
+    }
+    let latestKey = null, latestId = -Infinity;
+    for (const [k, arr] of buckets) {
+        const maxId = Math.max(...arr.map(s => s.id));
+        if (maxId > latestId) { latestId = maxId; latestKey = k; }
+    }
+    return (buckets.get(latestKey) || []).sort((a, b) => a.id - b.id);
+}
+
+// v9.26 — pill markup, shared by active-workout and history day-detail.
+// Carries weight × reps on the main row plus an optional second line with
+// the same-index set from the prior session ("prev 220×5"). Warmup sets
+// get a small orange "W" tag inline with the main row so the journal
+// still shows them but the work-set numbers above on the session card
+// already exclude them.
+function renderSetPill(s, prev, { isPR = false, extraClass = '' } = {}) {
+    const prevText = prev
+        ? `prev ${escapeHtml(String(prev.weight))}×${escapeHtml(String(prev.reps))}`
+        : '';
+    const warmupTag = s.warmup ? '<span class="warmup-tag">W</span>' : '';
+    const prTag = isPR ? '<span class="pill-pr-tag">PR</span>' : '';
+    const aria = `${s.warmup ? 'Warmup. ' : ''}Set ${s.weight} pounds for ${s.reps} reps. Tap to edit or delete.`;
+    const classes = [
+        'session-set-pill', 'history-pill',
+        s.warmup ? 'is-warmup' : '',
+        isPR ? 'is-pr' : '',
+        extraClass,
+    ].filter(Boolean).join(' ');
+    return `<button type="button" class="${classes}" data-action="openSetAction" data-id="${s.id}" aria-label="${escapeHtml(aria)}">
+        <span class="pill-main">
+            ${warmupTag}<span class="pill-weight">${escapeHtml(String(s.weight))}</span><span class="set-reps"> × ${escapeHtml(String(s.reps))}</span>${prTag}
+        </span>
+        ${prevText ? `<span class="pill-prev">${prevText}</span>` : ''}
+    </button>`;
+}
+
+async function renderSessionSets(container, sets) {
     if (!sets.length) {
         container.style.display = 'none';
         return;
     }
     container.style.display = '';
 
-    // Group by exercise, preserving order of first appearance (most recent
-    // first since the input is reverse-chronological).
-    const sortedSets = [...sets].sort((a, b) => b.id - a.id);
+    // Bucket sets by exercise. The order we iterate is set in the next
+    // block, so insertion order here doesn't matter.
     const groups = new Map();   // exercise → [sets]
-    for (const set of sortedSets) {
+    for (const set of sets) {
         if (!groups.has(set.exercise)) groups.set(set.exercise, []);
         groups.get(set.exercise).push(set);
     }
 
+    // v9.28 — rotation-aware ordering. Groups sorted by their most-recent
+    // set ASC: the exercise the user has been "waiting longest" to return
+    // to is on top; the just-logged exercise drops to the bottom. Matches
+    // the circuit/superset workflow where logging biceps should leave
+    // triceps (the next-up) at the top of the list, not bury it.
+    //
+    // Brand-new exercises follow the same rule — they don't get a pinning
+    // bonus. Their first set is the newest in the session, so they land
+    // at the bottom and the prior exercises (older last-sets) stay on top.
+    // v9.27 shipped a hybrid with a pinned tier; user feedback was that
+    // it surfaced the just-added exercise on top instead of leaving the
+    // earlier one there — reverted in v9.28. See CLAUDE.md
+    // "Rotation-aware set-group ordering" for the full rationale.
+    const sortedGroups = [...groups.entries()]
+        .map(([exercise, exSets]) => ({
+            exercise,
+            exSets,
+            lastId: Math.max(...exSets.map(s => s.id)),
+        }))
+        .sort((a, b) => a.lastId - b.lastId);
+
+    // v9.26 — preload prev sets per unique exercise so per-pill rendering
+    // is synchronous below. One small getAll per exercise; if this ever
+    // proves measurable on huge datasets, swap to a single getAll + group.
+    const prevByExercise = new Map();
+    for (const { exercise } of sortedGroups) {
+        prevByExercise.set(exercise, await getPrevExerciseSets(exercise, activeSession?.id ?? null));
+    }
+
     let html = '';
-    for (const [exercise, exSets] of groups) {
+    for (const { exercise, exSets } of sortedGroups) {
         const lib = exerciseLibrary.find(ex => ex.name === exercise);
         const muscle = lib?.muscle || 'core';
         const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
         // Order within an exercise: chronological (oldest first) so reading
         // left to right matches the order you actually did the sets in.
         const orderedSets = [...exSets].sort((a, b) => a.id - b.id);
-        // v9.6 — pills are now buttons that open the set-action sheet so the
-        // user can edit or delete the set. Same visual as before; the button
-        // styling is handled by the existing .session-set-pill rules + the
-        // shared interaction states from .history-pill.
-        const setPills = orderedSets.map(s =>
-            `<button type="button" class="session-set-pill history-pill" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${escapeHtml(String(s.weight))} pounds for ${escapeHtml(String(s.reps))} reps. Tap to edit or delete.">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span></button>`
-        ).join('');
+        const prevSets = prevByExercise.get(exercise) || [];
+
+        const setPills = orderedSets.map((s, i) => {
+            // Per-index match against the previous session; fall back to the
+            // last set of the prior session when this index doesn't exist
+            // (e.g., today is set 5 but last time you only did 3). That
+            // makes the prev hint *always* useful when prior data exists.
+            const prev = prevSets[i] || prevSets[prevSets.length - 1] || null;
+            return renderSetPill(s, prev);
+        }).join('');
+
+        // v9.26 — per-exercise overflow ⋮ opens a sheet with Swap exercise,
+        // Mark all as warmup, Delete all sets. Sits between the title and
+        // the set-count chip so it's tap-target-clear at the right edge.
+        const exTitle = escapeHtml(titleCase(exercise));
+        const exName = escapeHtml(exercise);
+        const moreBtn =
+            `<button type="button" class="session-set-more" data-action="openExerciseMenu" data-exercise="${exName}" aria-label="More for ${exTitle}">` +
+                `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="6" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="18" r="1.7"/></svg>` +
+            `</button>`;
+        // v9.26 — collapse chevron at the start of the header. Tapping the
+        // chevron (or anywhere on the header except the ⋮ button) toggles
+        // _collapsedExercises membership and re-renders. The ⋮ button has
+        // its own data-action; the dispatcher resolves to closest, so
+        // tapping ⋮ doesn't bubble up to the collapse handler.
+        const isCollapsed = _collapsedExercises.has(exercise);
+        const collapseBtn =
+            `<button type="button" class="group-chevron" data-action="toggleExerciseCollapse" data-exercise="${exName}" aria-label="${isCollapsed ? 'Expand' : 'Collapse'} ${exTitle}" aria-expanded="${isCollapsed ? 'false' : 'true'}">` +
+                `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>` +
+            `</button>`;
         // v9.2 — trailing "+ Add set" pill opens the quick-add sheet so the
         // user can log another set of the same exercise without re-typing
         // the name in the search box.
-        const exTitle = escapeHtml(titleCase(exercise));
         const addPill =
-            `<button type="button" class="session-set-pill session-set-add" data-action="openQuickAdd" data-exercise="${escapeHtml(exercise)}" aria-label="Add another set of ${exTitle}">` +
+            `<button type="button" class="session-set-pill session-set-add" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Add another set of ${exTitle}">` +
                 `<span class="session-set-add-icon" aria-hidden="true">+</span>` +
                 `<span class="session-set-add-label">Add set</span>` +
             `</button>`;
+        // Set count includes warmups (matches what's visible as pills);
+        // the session-card's work-only count is the load-bearing number.
         html += `
-            <div class="session-set-group">
+            <div class="session-set-group${isCollapsed ? ' is-collapsed' : ''}">
                 <div class="session-set-group-header">
+                    ${collapseBtn}
                     <span class="muscle-tag" style="background:${muscleBg}"></span>
                     <span class="session-set-group-name">${exTitle}</span>
                     <span class="session-set-count">${orderedSets.length} set${orderedSets.length === 1 ? '' : 's'}</span>
+                    ${moreBtn}
                 </div>
                 <div class="session-set-pills">${setPills}${addPill}</div>
             </div>`;
@@ -4645,7 +5094,8 @@ function goPRs() { showScreen('prs'); }
 // ============================================================================
 
 async function computePRTiles() {
-    const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
+    // Warmups never count toward the PR shelf — same rule as recomputePR.
+    const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup);
     if (!all.length) return [];
 
     // Bucket by exercise.
@@ -4789,9 +5239,14 @@ async function renderHistoryScreen() {
     // Index workout data per-day so we can paint a glanceable volume bar
     // (replacing the v8 dot). Bar height scales to the week's max-volume
     // day; bar color is the dominant muscle worked that day.
+    // v9.26 — bar heights and dominant-muscle color read work sets only,
+    // so a warmup-only day doesn't paint a misleading bar. allWorkouts
+    // still includes warmups because the day-detail renderer below needs
+    // the full set list to render pills.
     const allWorkouts = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
     const dayStats = new Map();   // iso → { volume, dominantMuscle }
     for (const w of allWorkouts) {
+        if (w.warmup) continue;
         const stat = dayStats.get(w.date) || { volume: 0, byMuscle: {} };
         const vol = w.weight * w.reps;
         stat.volume += vol;
@@ -4887,7 +5342,10 @@ function renderRollupTotals(elId, sessions, allWorkouts) {
         totalMs += t.totalMs;
         restMs += t.restMs;
         workoutMs += t.workoutMs;
+        // v9.26 — volume and set count are work-only; warmups still count
+        // toward the time rollups (you actually spent that minute on them).
         for (const w of sets) {
+            if (w.warmup) continue;
             volume += (w.weight || 0) * (w.reps || 0);
             setCount += 1;
         }
@@ -4996,14 +5454,29 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
         dayRestMs    += t.restMs;
         dayWorkoutMs += t.workoutMs;
         realSessionCount++;
-        // Per-session volume — feeds both the inline sub-row chip and
-        // the day-level rollup totals below. Sets count is the bucket
-        // length, which is also rendered as text on the meta line.
+        // Per-session volume — work sets only. The meta line still shows the
+        // total set count (warmups included) so the user can reconcile the
+        // visible pills with the number; the volume + day rollup count work
+        // sets only so the tonnage matches every other "how much" surface.
         let sessionVolume = 0;
-        for (const w of setsInSession) sessionVolume += (w.weight || 0) * (w.reps || 0);
+        let sessionWorkSetCount = 0;
+        for (const w of setsInSession) {
+            if (w.warmup) continue;
+            sessionVolume += (w.weight || 0) * (w.reps || 0);
+            sessionWorkSetCount += 1;
+        }
         dayVolume += sessionVolume;
-        daySetCount += setsInSession.length;
+        daySetCount += sessionWorkSetCount;
         const estimatedFlag = s.estimated ? `<span class="estimated">~estimated</span>` : '';
+        // v9.26 — set count on the meta line reads work sets, optionally
+        // suffixed with the warmup count so the volume number ("vol" on the
+        // next row) and the set count refer to the same population. Without
+        // the alignment the user would see "5 sets · 800 vol" but only 4
+        // sets contributing — the wrap reads as a math error otherwise.
+        const warmupInSession = setsInSession.length - sessionWorkSetCount;
+        const setLabel = warmupInSession > 0
+            ? `${sessionWorkSetCount} set${sessionWorkSetCount === 1 ? '' : 's'} · ${warmupInSession}W`
+            : `${sessionWorkSetCount} set${sessionWorkSetCount === 1 ? '' : 's'}`;
         headerHtml += `
             <div class="session-header-row">
                 <div class="session-header-icon">
@@ -5012,7 +5485,7 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
                 <div class="session-header-content">
                     <div class="session-header-meta">
                         <span>${escapeHtml(startTime)}</span>
-                        <span>${setsInSession.length} sets</span>
+                        <span>${escapeHtml(setLabel)}</span>
                         ${estimatedFlag}
                     </div>
                     <div class="session-header-times">
@@ -5083,9 +5556,19 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
             const exName = escapeHtml(exercise);
             const hasPR = exSets.some(s => prMap[s.exercise] === s.id);
 
-            const pills = exSets.map(s => {
+            // v9.26 — same per-index PREV hint as the active workout pills;
+            // excludes the current row's sessionId so we don't compare a
+            // historical day against itself. Untagged sets pass null,
+            // which the helper handles by skipping the exclusion.
+            const prevSets = await getPrevExerciseSets(
+                exercise,
+                key !== 'untagged' ? Number(key) : null
+            );
+
+            const pills = exSets.map((s, i) => {
                 const isPR = prMap[s.exercise] === s.id;
-                return `<button type="button" class="session-set-pill history-pill${isPR ? ' is-pr' : ''}" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${escapeHtml(String(s.weight))} pounds for ${escapeHtml(String(s.reps))} reps. Tap to edit or delete.">${escapeHtml(String(s.weight))}<span class="set-reps"> × ${escapeHtml(String(s.reps))}</span>${isPR ? '<span class="pill-pr-tag">PR</span>' : ''}</button>`;
+                const prev = prevSets[i] || prevSets[prevSets.length - 1] || null;
+                return renderSetPill(s, prev, { isPR });
             }).join('');
 
             bodyHtml += `

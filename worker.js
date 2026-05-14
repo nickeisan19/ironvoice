@@ -332,6 +332,7 @@ export function recomputePRs(workouts) {
     const byEx = {};   // ex → { bestByW, bestBy1RM }
     for (const w of workouts) {
         if (w.deleted) continue;
+        if (w.warmup) continue;   // v9.26 — warmups never count toward PRs
         const ex = w.exercise;
         if (typeof ex !== 'string') continue;
         const weight = Number(w.weight) || 0;

@@ -2149,9 +2149,15 @@ button.card-button:focus-visible {
 }
 .session-set-pill {
   display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  padding: 12px 14px;
+  /* v9.26 — pills are now two-stack: main row (W tag + weight × reps + PR
+     tag) on top, prev hint underneath when prior data exists. Column
+     direction with start-alignment keeps the layout sensible whether or
+     not the prev line is present (no jumping baselines). */
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  padding: 8px 12px;
   min-height: 44px;
   box-sizing: border-box;
   background: var(--surface-3);
@@ -2162,9 +2168,59 @@ button.card-button:focus-visible {
   color: var(--label);
   font-feature-settings: "tnum";
 }
+.session-set-pill .pill-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
 .session-set-pill .set-reps {
   font-weight: 500;
   color: var(--label-secondary);
+}
+/* v9.26 — Per-pill PREV hint: same-index set from the most recent prior
+   session of this exercise. Sized small + muted so it reads as supporting
+   context next to the main W×R number, not as a competing data point. */
+.session-set-pill .pill-prev {
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--label-tertiary);
+  text-transform: lowercase;
+  margin-top: 1px;
+}
+/* v9.26 — Warmup pills get a faded body + thin amber border so the warmup
+   "W" tag has visual context. They still tap normally (set-action sheet
+   surfaces "Unmark warmup"). */
+.session-set-pill.is-warmup {
+  background: var(--surface-2);
+  border-color: rgba(255, 159, 10, 0.45);
+}
+.session-set-pill.is-warmup .pill-weight {
+  color: var(--label-secondary);
+}
+/* Orange W chip, scaled to sit in the pill row alongside weight × reps.
+   The .warmup-tag class is reused on the set-action sheet head, hence
+   the size variants below. */
+.warmup-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--orange, #ff9f0a);
+  color: white;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.set-action-head .warmup-tag {
+  font-size: 0.7rem;
+  height: 18px;
+  min-width: 18px;
 }
 
 /* ==========================================================================
@@ -2183,7 +2239,9 @@ button.card-button:focus-visible {
    .add-btn on the manual-entry row. */
 .session-set-add {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   margin-left: auto;
   padding: 12px 14px;
@@ -2866,4 +2924,162 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
   padding: 3px 9px;
   background: transparent;
   border: 0.5px solid var(--hairline);
+}
+
+/* ==========================================================================
+   v9.26 — Workout-screen additions
+   ========================================================================== */
+
+/* Collapse chevron at the start of each exercise group header. Tapping
+   it toggles _collapsedExercises membership and re-renders the session
+   card so the pill row hides/shows. Rotates -90° when collapsed so the
+   chevron points right (the universal "expand" affordance). */
+.group-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: -2px;
+  padding: 0;
+  background: transparent;
+  color: var(--label-secondary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 0.18s var(--ease);
+}
+.group-chevron svg { width: 18px; height: 18px; }
+.group-chevron:active { background: var(--surface-3); color: var(--label); }
+.group-chevron::before {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
+}
+.session-set-group.is-collapsed .group-chevron { transform: rotate(-90deg); }
+.session-set-group.is-collapsed .session-set-pills { display: none; }
+
+/* ⋮ overflow button on each exercise group header. Square 32x32 tap area;
+   tap target padded out via inset ::before to ≥44px without growing the
+   visible glyph (matches the .icon-btn convention). */
+.session-set-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 4px;
+  background: transparent;
+  color: var(--label-tertiary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+.session-set-more svg { width: 18px; height: 18px; }
+.session-set-more:active { background: var(--surface-3); color: var(--label); }
+.session-set-more::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+/* Warmup toggle row inside the quick-add overlay. Looks like a settings
+   row with an iOS-style switch on the right. Tap anywhere on the row
+   to flip state — aria-pressed drives the visual state. */
+.row-toggle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  border-top: 0.5px solid var(--hairline);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--label);
+}
+.row-toggle:first-child { border-top: 0; }
+.row-toggle-label {
+  font-size: 1rem;
+  font-weight: 500;
+  grid-column: 1;
+  grid-row: 1;
+}
+.row-toggle-sub {
+  font-size: 0.78rem;
+  color: var(--label-tertiary);
+  grid-column: 1;
+  grid-row: 2;
+}
+.row-toggle-switch {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 44px;
+  height: 26px;
+  background: var(--surface-3);
+  border-radius: 13px;
+  position: relative;
+  transition: background 0.18s var(--ease);
+}
+.row-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.18s var(--ease);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.row-toggle.is-on .row-toggle-switch { background: var(--orange, #ff9f0a); }
+.row-toggle.is-on .row-toggle-switch::after { transform: translateX(18px); }
+.row-toggle:active { background: var(--surface-2); }
+
+/* Swap-exercise picker results. A vertical list of muscle-tagged exercise
+   rows; each row a tappable button. Empty state shows a centered hint. */
+.search-results-static {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 0.5px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.swap-result-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 14px;
+  border: none;
+  border-top: 0.5px solid var(--hairline);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--label);
+  font-family: inherit;
+  font-size: 1rem;
+  min-height: 50px;
+}
+.swap-result-row:first-child { border-top: 0; }
+.swap-result-row:active { background: var(--surface-3); }
+.swap-result-row .muscle-tag { width: 12px; height: 12px; }
+.swap-result-name { font-weight: 500; }
+.search-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--label-tertiary);
+  font-size: 0.92rem;
 }
