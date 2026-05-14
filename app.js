@@ -582,6 +582,24 @@ const WHATS_NEW = {
             'Fixed: History tab briefly skipped rendering after the layout pass. Sorry about that.',
         ],
     },
+    '9.37': {
+        items: [
+            'Bigger, easier-to-tap controls — quick-add ± buttons and set pills now meet iOS 44×44 sizing.',
+            'Manual entry pre-fills weight × reps from your last set of that exercise.',
+            'PRs screen redesigned — alphabetical row list with a tap-to-share icon on every row.',
+            'PREV column under every set — see last time at a glance.',
+            'Warmup support — say "warmup bench 135 for 8" or toggle in the set sheet. Excluded from PRs and volume.',
+            'Per-exercise menu (⋮) — swap exercise, mark all as warmup, or delete all sets.',
+            'Tap to collapse exercise groups when the list gets long.',
+            'Rotation-aware order — the next-up exercise stays on top, the just-logged one drops to the bottom.',
+            'Row-form pill layout — SET / PREV / LBS × REPS columns.',
+            'Manual entry only expands once you pick an exercise; search ranks your most-used lifts first.',
+            'History rollups got room to breathe — Volume + Sets lead at a larger size, with Total / Workout / Rest below.',
+            'Cleaner week strip — bolder day names, the per-day volume bar is gone.',
+            'Per-session card matches the day & week rollup layout.',
+            'Fixed: History tab briefly skipped rendering after the layout pass.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
