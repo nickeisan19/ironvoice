@@ -118,7 +118,7 @@ self.APP_BUILD_DATE = '2026-05-13'; // local YYYY-MM-DD
 
 **The bump propagates automatically:**
 
-1. Profile-screen footer renders `IronVoice Pro · v9.21 · 2026-05-13` from
+1. Profile-screen footer renders `IronVoice Pro · v9.22 · 2026-05-14` from
    `renderVersionFooter()` in `app.js`.
 2. `sw.js` derives `CACHE_VERSION = ironvoice-v${APP_VERSION}` via
    `importScripts('./version.js')` — so the cache is invalidated on every
@@ -679,6 +679,46 @@ This is the **single canonical edit/delete path** across both surfaces.
   a per-pill `×` glyph; don't add swipe (already prohibited above).
   Voice "undo" remains as the hands-free path.
 
+**Mobile tap targets meet Apple HIG 44×44 (v9.22).** An audit flagged
+that the most-tapped controls during a workout — set pills, quick-add
+± steppers, the Start-workout play icon, sheet Cancel/Done — were
+under the 44×44 pt minimum. Targets were raised without changing the
+overall visual language:
+
+- `.session-set-pill` / `.session-set-add` / `.history-pill` (same
+  base class across active workout AND history day-detail): padding
+  `5px 10px` → `12px 14px`, `min-height: 44px`, border-radius
+  8→10px. Active session pill rows are noticeably taller now;
+  accepted tradeoff because pills are the canonical edit/delete
+  surface.
+- `.qa-step` / `.qa-step-fine` (the quick-add ± buttons documented
+  in the v9.21 section above): 38×38 / 42×38 → 44×44, stepper gap
+  4→6px.
+- `.hpa-icon` (Start-workout play icon on the hero pill): standalone
+  38→44, hero-row override 34→44, inner svg 16/18→18/20.
+- `.sheet-close` (Cancel/Done on sheet headers): the visible button
+  is unchanged but the tap area is now ≥44px via the same
+  `position: relative` + `::before { inset: -10px -6px }` trick
+  `.icon-btn` already uses. Don't visually grow it — the inset
+  ring is the answer.
+
+Plus small label legibility fixes on Home: the "Today" / "This week"
+mini-card labels (`.card.card-mini h3` 0.62→0.78rem and `.tc-sub`
+0.7→0.78rem), `.hpa-sub` (0.72/0.75→0.8rem in both hero-row and
+standalone), `.hero-row .hero-load-sub` (0.75→0.8rem), and
+`.week-card-delta` (0.66→0.8rem) — all moved to a ~13px floor at
+the 17px root.
+
+Bonus: `.row-select select` (Profile voice picker) bumped 0.92rem
+→ 1rem so opening it no longer crosses the iOS 16px auto-zoom
+threshold.
+
+Tab-bar labels (`0.65rem`/11px) and history rollup labels
+(`0.68rem`) were intentionally left alone — bumping the former
+pushes the tabbar taller and ripples into safe-area math; the
+latter has to fit a 5-cell grid on iPhone SE. Out of scope for
+this pass; revisit only if a real complaint surfaces.
+
 **Quick-add inputs feel like number fields (v9.21).** The quick-add
 sheet pre-fills weight and reps from the previous set so the common
 "same lift again" case is one-tap save. The friction *was*: when the
@@ -713,10 +753,11 @@ to select before retyping. Two coordinated changes fixed this:
    secondary fix.
 
    Styled via `.qa-input-stepper` (flex row inside the `.row-input`)
-   and `.qa-step` / `.qa-step-fine` (38×38 / 42×38 px tap targets,
-   the fine variant slightly muted so the ±5 reads as the primary
-   action). The `.row-input-stepper` modifier shrinks the row label
-   to 72px so the whole layout fits iPhone-SE-width.
+   and `.qa-step` / `.qa-step-fine` (44×44 px tap targets as of
+   v9.22, meeting Apple HIG; the fine variant uses the same footprint
+   but smaller type so the ±5 still reads as the primary action). The
+   `.row-input-stepper` modifier shrinks the row label to 72px so the
+   whole layout fits iPhone-SE-width.
 
 Don't restore the bare `<input>` markup without the steppers — the
 gym-floor keyboard-free path depends on them. Don't add `tabindex="-1"`

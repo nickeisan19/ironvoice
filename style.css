@@ -265,6 +265,13 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   color: var(--blue);
   font-size: 1rem; font-weight: 600;
   padding: 6px 10px;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.sheet-close::before {
+  content: "";
+  position: absolute;
+  inset: -10px -6px;
 }
 .sheet-close.cancel { color: var(--label-secondary); font-weight: 500; }
 
@@ -402,7 +409,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 6px;
 }
 .qa-input-stepper input {
   flex: 0 1 auto;
@@ -422,8 +429,8 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   color: var(--label);
   border-radius: var(--radius-md);
   padding: 0 6px;
-  min-width: 38px;
-  height: 38px;
+  min-width: 44px;
+  height: 44px;
   font-size: 0.9rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -433,7 +440,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 }
 .qa-step-fine {
   font-size: 0.72rem;
-  min-width: 42px;
+  min-width: 44px;
   color: var(--label-secondary);
 }
 .qa-step:active {
@@ -477,7 +484,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   flex: 1; min-width: 0;
   background: transparent; border: none;
   color: var(--label);
-  font-size: 0.92rem; text-align: right;
+  font-size: 1rem; text-align: right;
   padding: 4px 0; padding-right: 16px;
   -webkit-appearance: none; appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238E8E93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
@@ -837,7 +844,7 @@ main {
 .hero-row > .hero-load { padding: 14px 16px 14px 18px; }
 .hero-row .hero-load-value { font-size: 1.75rem; }
 .hero-row .hero-load-sub {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -851,11 +858,11 @@ main {
   gap: 10px;
 }
 .hero-row .hpa-chevron { display: none; }
-.hero-row .hpa-icon { width: 34px; height: 34px; }
-.hero-row .hpa-icon svg { width: 16px; height: 16px; }
+.hero-row .hpa-icon { width: 44px; height: 44px; }
+.hero-row .hpa-icon svg { width: 18px; height: 18px; }
 .hero-row .hpa-title { font-size: 0.92rem; }
 .hero-row .hpa-sub {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -887,7 +894,7 @@ main {
    Tighter padding, smaller hero number — these are reference figures, not
    the decision metric. */
 .card.card-mini { padding: 12px 14px; }
-.card.card-mini h3 { font-size: 0.62rem; margin-bottom: 4px; }
+.card.card-mini h3 { font-size: 0.78rem; margin-bottom: 4px; }
 
 /* v9.1: Two-line tile content (today-card, week-card). The primary line is
    the at-a-glance number; the sub line is supporting detail. Both ellipsize
@@ -904,7 +911,7 @@ main {
 }
 .card.card-mini .tc-sub {
   margin-top: 2px;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   color: var(--label-secondary);
   font-weight: 500;
   line-height: 1.2;
@@ -916,7 +923,7 @@ main {
    colored sign tells you which way last week went. */
 .week-card-delta {
   margin-top: 4px;
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   color: var(--label-tertiary);
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -1061,14 +1068,14 @@ main {
 }
 .hpa-icon {
   flex: 0 0 auto;
-  width: 38px; height: 38px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   background: var(--blue);
   color: white;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s var(--ease);
 }
-.hpa-icon svg { width: 18px; height: 18px; }
+.hpa-icon svg { width: 20px; height: 20px; }
 .hpa-icon-active {
   background: var(--green);
   animation: pulse-dot 1.6s var(--ease) infinite;
@@ -1087,7 +1094,7 @@ main {
 }
 .hpa-sub {
   margin-top: 2px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--label-secondary);
   font-weight: 500;
 }
@@ -2119,10 +2126,12 @@ button.card-button:focus-visible {
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
-  padding: 5px 10px;
+  padding: 12px 14px;
+  min-height: 44px;
+  box-sizing: border-box;
   background: var(--surface-3);
   border: 0.5px solid var(--hairline);
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--label);
@@ -2152,11 +2161,13 @@ button.card-button:focus-visible {
   align-items: center;
   gap: 4px;
   margin-left: auto;
-  padding: 5px 12px;
+  padding: 12px 14px;
+  min-height: 44px;
+  box-sizing: border-box;
   background: var(--blue);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 600;
