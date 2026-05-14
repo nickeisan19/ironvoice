@@ -768,6 +768,15 @@ function filterExercises() {
     const dropdown = $('ex-dropdown');
     dropdown.innerHTML = "";
 
+    // v9.30 — if the user clears the search input without ever picking
+    // (or backspaces what was selected), collapse the detail block so we
+    // don't leave the steppers visible with no exercise context. Without
+    // this, after a save+clear-by-keyboard the section could re-inflate.
+    if (!input) {
+        selectedExercise = '';
+        $('manual-entry')?.classList.remove('is-expanded');
+    }
+
     // v8: when a workout is active, inject a "This workout" section at the
     // top with the exercises already logged in this session (most recent
     // first). Helps logging consecutive sets of the same lift without
@@ -853,6 +862,10 @@ async function selectExercise(name) {
     $('ex-dropdown').classList.remove('active');
     $('ex-search')?.setAttribute('aria-expanded', 'false');
 
+    // v9.30 — reveal the manual-entry detail (prev hint, steppers, Add)
+    // once an exercise is chosen. Idle state shows only the search input.
+    $('manual-entry')?.classList.add('is-expanded');
+
     const hint = $('manual-prev');
     if (hint) hint.textContent = '';
 
@@ -906,6 +919,10 @@ async function handleManualEntry() {
     const hint = $('manual-prev');
     if (hint) hint.textContent = '';
     selectedExercise = "";
+    // v9.30 — collapse the detail block back to idle now that the set has
+    // been saved. Reverse of selectExercise(). Voice and the per-group
+    // "+ Add set" pill never expanded the section, so no-op for those.
+    $('manual-entry')?.classList.remove('is-expanded');
     document.activeElement?.blur();
     haptic(15);
 }

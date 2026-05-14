@@ -751,6 +751,15 @@ main {
   border: 0.5px solid var(--hairline);
 }
 
+/* v9.30 — progressive disclosure for the manual-entry detail block.
+   The detail (prev hint, weight/reps steppers, Add button) is hidden
+   until selectExercise() flips .is-expanded on the parent. Idle state
+   is just the search input — saves ~230px on the workout screen.
+   No animation: the detail snaps in/out for instant feedback during
+   a workout. (A slide-in tween fights the gym-floor pace.) */
+.manual-entry-detail { display: none; }
+.manual-entry.is-expanded .manual-entry-detail { display: block; }
+
 .search-container { position: relative; width: 100%; }
 
 #ex-search {

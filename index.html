@@ -618,36 +618,42 @@
             <div id="suggested-queue" class="suggested-queue" style="display:none"></div>
 
             <!-- Quick-add: search, weight, reps. Same logic as the old home
-                 manual-entry block, just now scoped to the Workout screen. -->
-            <section class="manual-entry">
+                 manual-entry block, just now scoped to the Workout screen.
+                 v9.30 — progressive disclosure: the detail block (prev hint,
+                 steppers, Add button) is hidden by default; revealed when
+                 selectExercise() adds .is-expanded; hidden again after
+                 handleManualEntry() saves or the search input clears. -->
+            <section class="manual-entry" id="manual-entry">
                 <div class="search-container">
                     <input type="text" id="ex-search" placeholder="Search exercise…" data-on-input="filterExercises" data-on-focus="showExercises" autocomplete="off" enterkeyhint="search" aria-label="Search exercise" aria-autocomplete="list" aria-controls="ex-dropdown" role="combobox" aria-expanded="false">
                     <div id="ex-dropdown" class="search-results" role="listbox"></div>
                 </div>
-                <div id="manual-prev" class="manual-prev" aria-live="polite"></div>
-                <div class="grouped-list" style="margin-top:14px">
-                    <label class="row-input row-input-stepper"><span>Weight (lb)</span>
-                        <div class="qa-input-stepper">
-                            <input type="number" id="manual-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
-                        </div>
-                        <div class="qa-stepper-row">
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-w" data-step="-5" aria-label="Weight minus 5">−5</button>
-                            <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-input="manual-w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
-                            <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-input="manual-w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-w" data-step="5" aria-label="Weight plus 5">+5</button>
-                        </div>
-                    </label>
-                    <label class="row-input row-input-stepper"><span>Reps</span>
-                        <div class="qa-input-stepper">
-                            <input type="number" id="manual-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
-                        </div>
-                        <div class="qa-stepper-row">
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-r" data-step="-1" aria-label="Reps minus 1">−</button>
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-r" data-step="1" aria-label="Reps plus 1">+</button>
-                        </div>
-                    </label>
+                <div class="manual-entry-detail">
+                    <div id="manual-prev" class="manual-prev" aria-live="polite"></div>
+                    <div class="grouped-list" style="margin-top:14px">
+                        <label class="row-input row-input-stepper"><span>Weight (lb)</span>
+                            <div class="qa-input-stepper">
+                                <input type="number" id="manual-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
+                            </div>
+                            <div class="qa-stepper-row">
+                                <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-w" data-step="-5" aria-label="Weight minus 5">−5</button>
+                                <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-input="manual-w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
+                                <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-input="manual-w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
+                                <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-w" data-step="5" aria-label="Weight plus 5">+5</button>
+                            </div>
+                        </label>
+                        <label class="row-input row-input-stepper"><span>Reps</span>
+                            <div class="qa-input-stepper">
+                                <input type="number" id="manual-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
+                            </div>
+                            <div class="qa-stepper-row">
+                                <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-r" data-step="-1" aria-label="Reps minus 1">−</button>
+                                <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-r" data-step="1" aria-label="Reps plus 1">+</button>
+                            </div>
+                        </label>
+                    </div>
+                    <button class="add-btn manual-add-btn" data-action="handleManualEntry">Add</button>
                 </div>
-                <button class="add-btn manual-add-btn" data-action="handleManualEntry">Add</button>
             </section>
 
             <!-- Active set list — grouped by exercise, populated by

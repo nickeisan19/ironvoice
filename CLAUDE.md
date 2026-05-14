@@ -984,6 +984,37 @@ Don't reach into untagged sets via swap. The handlers gate on
 the target. Same for delete-all — bulk-deleting untagged sets from a
 menu opened mid-workout would be a footgun.
 
+**Manual-entry progressive disclosure (v9.30).** The
+`.manual-entry` section on the Workout screen idles as just the
+search input (~80px); the detail block (prev hint, weight/reps
+stepper rows, full-width Add button) is wrapped in
+`.manual-entry-detail` and hidden by default. `selectExercise()`
+([app.js](app.js)) adds `is-expanded` to `#manual-entry` when an
+exercise is chosen from the dropdown — only then does the detail
+slide into view. `handleManualEntry()` removes the class after a
+successful save (cleared search + cleared inputs + collapse).
+`filterExercises()` also removes the class if the user backspaces
+the search to empty without picking, so the section doesn't get
+stuck open.
+
+The whole section drops from ~312px to ~80px when idle — about
+230px of vertical real estate reclaimed on iPhone SE, which the
+v9.29 row-form pills (taller per-set than v9.28 chips) had been
+squeezing. Voice ("bench 225 for 5") and the per-group "+ Add set"
+pill never expanded the section in the first place, so neither
+flow regresses.
+
+No animation — the detail snaps in/out for instant feedback. A
+slide-in tween was considered and rejected; it fights the
+gym-floor pace where the user wants the inputs ready the moment
+they tap an exercise.
+
+Don't reintroduce the always-open layout without a real complaint;
+the always-visible steppers were taking half the iPhone SE
+viewport for a control the user only touches after picking an
+exercise. The `_quickAddEditId` / quick-add overlay path is
+unaffected — that surface has its own steppers inside the sheet.
+
 **Row-form pill layout (v9.29).** Each set on the active workout
 screen AND in History day-detail renders as a single full-width row
 with three column-aligned cells: SET # (or `W`) | PREV (last-time
