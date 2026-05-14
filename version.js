@@ -20,5 +20,5 @@
 // Update it together with APP_VERSION.
 // ============================================================================
 
-self.APP_VERSION = '9.28';
+self.APP_VERSION = '9.29';
 self.APP_BUILD_DATE = '2026-05-14';

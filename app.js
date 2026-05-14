@@ -4774,17 +4774,21 @@ async function getPrevExerciseSets(exercise, excludingSessionId) {
     return (buckets.get(latestKey) || []).sort((a, b) => a.id - b.id);
 }
 
-// v9.26 — pill markup, shared by active-workout and history day-detail.
-// Carries weight × reps on the main row plus an optional second line with
-// the same-index set from the prior session ("prev 220×5"). Warmup sets
-// get a small orange "W" tag inline with the main row so the journal
-// still shows them but the work-set numbers above on the session card
-// already exclude them.
-function renderSetPill(s, prev, { isPR = false, extraClass = '' } = {}) {
+// v9.29 — pill markup, shared by active-workout and history day-detail.
+// Three column-aligned cells: SET # (or W for warmups) | PREV (last-time
+// weight×reps, em-dash when none) | weight × reps (right-aligned, the
+// "headline" cell). Set numbering is computed by the caller and passed
+// in via opts.setLabel — warmups display 'W' and don't consume a number
+// in the work-set sequence. Replaces the v9.26 stacked-flex chip; see
+// CLAUDE.md "Row-form pill layout" for the rationale.
+function renderSetPill(s, prev, opts = {}) {
+    const { isPR = false, setLabel = '?', extraClass = '' } = opts;
     const prevText = prev
-        ? `prev ${escapeHtml(String(prev.weight))}×${escapeHtml(String(prev.reps))}`
-        : '';
-    const warmupTag = s.warmup ? '<span class="warmup-tag">W</span>' : '';
+        ? `${escapeHtml(String(prev.weight))} × ${escapeHtml(String(prev.reps))}`
+        : '—';
+    const setHtml = s.warmup
+        ? '<span class="warmup-tag">W</span>'
+        : escapeHtml(setLabel);
     const prTag = isPR ? '<span class="pill-pr-tag">PR</span>' : '';
     const aria = `${s.warmup ? 'Warmup. ' : ''}Set ${s.weight} pounds for ${s.reps} reps. Tap to edit or delete.`;
     const classes = [
@@ -4794,10 +4798,9 @@ function renderSetPill(s, prev, { isPR = false, extraClass = '' } = {}) {
         extraClass,
     ].filter(Boolean).join(' ');
     return `<button type="button" class="${classes}" data-action="openSetAction" data-id="${s.id}" aria-label="${escapeHtml(aria)}">
-        <span class="pill-main">
-            ${warmupTag}<span class="pill-weight">${escapeHtml(String(s.weight))}</span><span class="set-reps"> × ${escapeHtml(String(s.reps))}</span>${prTag}
-        </span>
-        ${prevText ? `<span class="pill-prev">${prevText}</span>` : ''}
+        <span class="pill-col-set">${setHtml}</span>
+        <span class="pill-col-prev">${prevText}</span>
+        <span class="pill-col-main">${escapeHtml(String(s.weight))} <span class="pill-x">×</span> ${escapeHtml(String(s.reps))}${prTag}</span>
     </button>`;
 }
 
@@ -4855,14 +4858,23 @@ async function renderSessionSets(container, sets) {
         const orderedSets = [...exSets].sort((a, b) => a.id - b.id);
         const prevSets = prevByExercise.get(exercise) || [];
 
+        // v9.29 — walk in chronological order and number work sets 1..N;
+        // warmups display 'W' and don't consume a number. Per-index PREV
+        // matching is unchanged from v9.26.
+        let workIdx = 0;
         const setPills = orderedSets.map((s, i) => {
-            // Per-index match against the previous session; fall back to the
-            // last set of the prior session when this index doesn't exist
-            // (e.g., today is set 5 but last time you only did 3). That
-            // makes the prev hint *always* useful when prior data exists.
+            const setLabel = s.warmup ? 'W' : String(++workIdx);
             const prev = prevSets[i] || prevSets[prevSets.length - 1] || null;
-            return renderSetPill(s, prev);
+            return renderSetPill(s, prev, { setLabel });
         }).join('');
+        // v9.29 — tiny column-header row inside each group. Labels the
+        // three pill columns so the layout reads as a table even when
+        // there's only one row.
+        const colHeader = `<div class="session-set-cols">
+            <span class="pill-col-set">SET</span>
+            <span class="pill-col-prev">PREV</span>
+            <span class="pill-col-main">LBS × REPS</span>
+        </div>`;
 
         // v9.26 — per-exercise overflow ⋮ opens a sheet with Swap exercise,
         // Mark all as warmup, Delete all sets. Sits between the title and
@@ -4902,7 +4914,7 @@ async function renderSessionSets(container, sets) {
                     <span class="session-set-count">${orderedSets.length} set${orderedSets.length === 1 ? '' : 's'}</span>
                     ${moreBtn}
                 </div>
-                <div class="session-set-pills">${setPills}${addPill}</div>
+                <div class="session-set-pills">${colHeader}${setPills}${addPill}</div>
             </div>`;
     }
     container.innerHTML = html;
@@ -5565,11 +5577,20 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
                 key !== 'untagged' ? Number(key) : null
             );
 
+            // v9.29 — same work-set numbering as the active workout. exSets
+            // is already in chronological order from the bucket builder above.
+            let workIdx = 0;
             const pills = exSets.map((s, i) => {
                 const isPR = prMap[s.exercise] === s.id;
+                const setLabel = s.warmup ? 'W' : String(++workIdx);
                 const prev = prevSets[i] || prevSets[prevSets.length - 1] || null;
-                return renderSetPill(s, prev, { isPR });
+                return renderSetPill(s, prev, { isPR, setLabel });
             }).join('');
+            const colHeader = `<div class="session-set-cols">
+                <span class="pill-col-set">SET</span>
+                <span class="pill-col-prev">PREV</span>
+                <span class="pill-col-main">LBS × REPS</span>
+            </div>`;
 
             bodyHtml += `
                 <div class="session-set-group history-set-group">
@@ -5578,7 +5599,7 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
                         <span class="session-set-group-name">${exTitle}${hasPR ? '<span class="item-pr-tag">PR</span>' : ''}</span>
                         <span class="session-set-count">${exSets.length} set${exSets.length === 1 ? '' : 's'}</span>
                     </button>
-                    <div class="session-set-pills">${pills}</div>
+                    <div class="session-set-pills">${colHeader}${pills}</div>
                 </div>`;
         }
     }

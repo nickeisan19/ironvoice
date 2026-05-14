@@ -984,6 +984,54 @@ Don't reach into untagged sets via swap. The handlers gate on
 the target. Same for delete-all — bulk-deleting untagged sets from a
 menu opened mid-workout would be a footgun.
 
+**Row-form pill layout (v9.29).** Each set on the active workout
+screen AND in History day-detail renders as a single full-width row
+with three column-aligned cells: SET # (or `W`) | PREV (last-time
+weight × reps, or em-dash) | weight × reps (right-aligned, the
+"headline" cell). A tiny uppercase column-header row (`.session-set-cols`)
+sits above each group's pills to label the columns.
+
+Replaces the v9.26 stacked-flex pill chip (weight × reps with `prev
+W×R` underneath as muted-tiny-text). Driven by the observation that
+the competitor's table-format set list looked materially cleaner —
+but without committing to a full table rewrite (which would need a
+"completed/incomplete" concept, inline cell editing, and a
+plan-then-tick model that IronVoice doesn't have).
+
+What the row form delivers:
+- Visible set numbers (`W` / `1` / `2` / `3`…) — answers "which work
+  set is this?" without opening the action sheet.
+- PREV in a dedicated column, not a muted footer line — readable
+  from arm's length, aligned across the whole group.
+- Consistent row heights make the group scannable.
+
+What it deliberately does NOT take from the competitor:
+- No "completed" green ✓ column — every logged set is by definition
+  done. We don't track planned-but-incomplete sets.
+- No inline cell editing — the v9.6 single-canonical-edit-path rule
+  stands. The whole row is the tap target; the set-action sheet
+  remains the only edit surface.
+- No empty planned rows below the logged ones.
+
+Set numbering counts only work sets — warmups display `W` and don't
+consume a number. So a group with `W, work, W, work, work` renders
+as `W, 1, W, 2, 3`. The `workIdx` counter in both `renderSessionSets`
+and `renderHistoryDayDetail` walks `orderedSets` chronologically and
+increments only when `!s.warmup`. Caller passes the resulting label
+to `renderSetPill` via `opts.setLabel`.
+
+The `+ Add set` trailing button is now a full-width row inside the
+same vertical stack (was right-margin-auto-aligned in the flex-wrap
+chip layout). `.session-set-add` overrides the pill's grid layout
+back to a centered flex row. Trade-off accepted: more vertical
+scroll per group (4 sets ≈ 4 × ~44px instead of 2 × ~55px), which
+the v9.26 collapse chevron carries when groups grow past 4-5 sets.
+
+Don't reintroduce the v9.26 `.pill-main` / `.pill-prev` stacked
+layout. Don't add a green ✓ completion column. Don't experiment with
+inline cell editing for LBS/REPS — both would re-fragment the edit
+gesture documented under v9.6.
+
 **Rotation-aware set-group ordering (v9.28).** On the active workout
 screen, `renderSessionSets` orders exercise groups by their most
 recent set's timestamp ASC: the exercise the user has been "waiting

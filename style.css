@@ -2142,61 +2142,80 @@ button.card-button:focus-visible {
   flex-shrink: 0;
 }
 
+/* v9.29 — set list renders as a vertical stack of row-form pills with
+   three column-aligned cells (SET | PREV | weight × reps). Replaces the
+   v9.26 flex-wrap chip cluster. See CLAUDE.md "Row-form pill layout". */
 .session-set-pills {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.session-set-pill {
-  display: inline-flex;
-  /* v9.26 — pills are now two-stack: main row (W tag + weight × reps + PR
-     tag) on top, prev hint underneath when prior data exists. Column
-     direction with start-alignment keeps the layout sensible whether or
-     not the prev line is present (no jumping baselines). */
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1px;
-  padding: 8px 12px;
+  gap: 4px;
+}
+/* Tiny column-header row at the top of each group. Mirrors the pill's
+   3-column grid so labels stack directly above the values. */
+.session-set-cols {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 14px 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--label-tertiary);
+  text-transform: uppercase;
+  font-feature-settings: "tnum";
+}
+.session-set-cols .pill-col-main { text-align: right; }
+.session-set-cols .pill-col-set { text-align: center; }
+
+.session-set-pill {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
   min-height: 44px;
   box-sizing: border-box;
   background: var(--surface-3);
   border: 0.5px solid var(--hairline);
   border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
   color: var(--label);
   font-feature-settings: "tnum";
+  text-align: left;
 }
-.session-set-pill .pill-main {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-}
-.session-set-pill .set-reps {
-  font-weight: 500;
+.pill-col-set {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
   color: var(--label-secondary);
 }
-/* v9.26 — Per-pill PREV hint: same-index set from the most recent prior
-   session of this exercise. Sized small + muted so it reads as supporting
-   context next to the main W×R number, not as a competing data point. */
-.session-set-pill .pill-prev {
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+.pill-col-prev {
+  font-size: 0.82rem;
   color: var(--label-tertiary);
-  text-transform: lowercase;
-  margin-top: 1px;
 }
-/* v9.26 — Warmup pills get a faded body + thin amber border so the warmup
-   "W" tag has visual context. They still tap normally (set-action sheet
-   surfaces "Unmark warmup"). */
+.pill-col-main {
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: right;
+  color: var(--label);
+}
+.pill-col-main .pill-x {
+  color: var(--label-tertiary);
+  font-weight: 500;
+  margin: 0 1px;
+}
+/* Warmup row: faded body + amber border. The W tag in col 1 carries the
+   primary signal; the muted main column reinforces "not a work set." */
 .session-set-pill.is-warmup {
   background: var(--surface-2);
   border-color: rgba(255, 159, 10, 0.45);
 }
-.session-set-pill.is-warmup .pill-weight {
+.session-set-pill.is-warmup .pill-col-main {
   color: var(--label-secondary);
+}
+.session-set-pill.is-warmup .warmup-tag {
+  margin: 0;
 }
 /* Orange W chip, scaled to sit in the pill row alongside weight × reps.
    The .warmup-tag class is reused on the set-action sheet head, hence
@@ -2232,18 +2251,18 @@ button.card-button:focus-visible {
    in history support long-press to delete (5s undo via existing snackbar).
    ========================================================================== */
 
-/* "+ Add set" is a compact inline pill self-aligned to the right edge of
-   its row (margin-left:auto consumes the leftover space on the line, so
-   it sits flush with the right side of the group whether it fits with the
-   pills or wraps to its own line). Same blue-fill treatment as the
-   .add-btn on the manual-entry row. */
+/* v9.29 — "+ Add set" is a full-width trailing row inside the same
+   flex-column .session-set-pills stack as the other rows. Overrides
+   .session-set-pill's 3-column grid by collapsing to a single centered
+   cell. Same blue-fill treatment as the .add-btn on the manual-entry row. */
 .session-set-add {
-  display: inline-flex;
+  display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  margin-left: auto;
+  grid-template-columns: 1fr;
+  margin-left: 0;
   padding: 12px 14px;
   min-height: 44px;
   box-sizing: border-box;
