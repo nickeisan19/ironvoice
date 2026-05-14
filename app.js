@@ -5403,7 +5403,7 @@ async function renderHistoryScreen() {
     // Per-week rollup: sum Total/Workout/Rest across sessions whose
     // startedAt falls in the visible week. Hidden when the week has
     // no sessions.
-    const weekDateSet = new Set(weekIsoSet);
+    const weekDateSet = new Set(days.map(d => isoForLocalDate(d)));
     const weekSessions = allSessions.filter(s =>
         weekDateSet.has(isoForLocalDate(new Date(s.startedAt)))
     );
