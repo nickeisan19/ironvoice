@@ -3,41 +3,46 @@
    ========================================================================== */
 
 :root {
-  --bg: #000000;
-  --surface-1: #0e0e10;
-  --surface-2: #141417;
-  --surface-3: #1c1c1f;
-  --surface-4: #242428;
+  /* Iron Velocity brand palette — dark mode (Obsidian) */
+  --bg: #121212;
+  --surface-1: #1a1a1a;
+  --surface-2: #1e1e1e;
+  --surface-3: #242424;
+  --surface-4: #2c2c2c;
   --hairline: rgba(255, 255, 255, 0.07);
   --hairline-strong: rgba(255, 255, 255, 0.12);
 
-  --label: #ffffff;
-  --label-secondary: rgba(235, 235, 245, 0.62);
-  --label-tertiary: rgba(235, 235, 245, 0.32);
-  --label-quaternary: rgba(235, 235, 245, 0.18);
+  --label: #e0e0e0;
+  --label-secondary: rgba(224, 224, 224, 0.62);
+  --label-tertiary: rgba(224, 224, 224, 0.32);
+  --label-quaternary: rgba(224, 224, 224, 0.18);
 
-  --blue: #0a84ff;
-  --blue-tint: rgba(10, 132, 255, 0.16);
-  --gold: #ffd60a;
-  --orange: #ff9f0a;
-  --green: #30d158;
-  --red: #ff453a;
-  --purple: #bf5af2;
+  --blue: #2196f3;
+  --blue-tint: rgba(33, 150, 243, 0.16);
+  --gold: #ffc107;
+  --orange: #ff9800;
+  --green: #00e676;
+  --red: #ff5252;
+  --purple: #9c27b0;
 
-  /* Muscle group palette */
-  --m-chest: #ff453a;
-  --m-back: #0a84ff;
-  --m-legs: #30d158;
-  --m-shoulders: #ff9f0a;
-  --m-arms: #bf5af2;
-  --m-core: #00c7be;
+  /* Muscle group palette — Iron Velocity spec */
+  --m-chest: #f44336;
+  --m-back: #03a9f4;
+  --m-legs: #4caf50;
+  --m-shoulders: #ff9800;
+  --m-arms: #9c27b0;
+  --m-core: #00bcd4;
 
-  --pr-grad: linear-gradient(135deg, #ffd60a 0%, #ff9f0a 100%);
-  --blue-grad: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%);
+  --pr-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+  --gold-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+  --blue-grad: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
+
+  /* Dark mode: headings glow gold — interactive brand cue */
+  --heading-color: var(--gold);
 
   /* Translucent backgrounds — overridden in light mode */
-  --frosted-bg: rgba(28, 28, 31, 0.85);
-  --header-scrolled-bg: rgba(10, 10, 11, 0.72);
+  --frosted-bg: rgba(30, 30, 30, 0.85);
+  --header-scrolled-bg: rgba(18, 18, 18, 0.72);
   --modal-dim: rgba(0, 0, 0, 0.55);
 
   --spring: cubic-bezier(0.32, 0.72, 0, 1);
@@ -56,77 +61,85 @@
    ========================================================================== */
 
 :root[data-theme="light"] {
-  --bg: #f2f2f7;
+  /* Iron Velocity brand palette — light mode (Gym Stone) */
+  --bg: #faf7f2;
   --surface-1: #ffffff;
   --surface-2: #ffffff;
-  --surface-3: #f2f2f7;
-  --surface-4: #e5e5ea;
+  --surface-3: #faf7f2;
+  --surface-4: #e8e2d8;
   --hairline: rgba(60, 60, 67, 0.12);
   --hairline-strong: rgba(60, 60, 67, 0.22);
 
-  --label: #000000;
-  --label-secondary: rgba(60, 60, 67, 0.65);
-  --label-tertiary: rgba(60, 60, 67, 0.35);
-  --label-quaternary: rgba(60, 60, 67, 0.18);
+  --label: #212121;
+  --label-secondary: rgba(33, 33, 33, 0.65);
+  --label-tertiary: rgba(33, 33, 33, 0.35);
+  --label-quaternary: rgba(33, 33, 33, 0.18);
 
-  --blue: #007aff;
-  --blue-tint: rgba(0, 122, 255, 0.14);
-  --gold: #ff9500;
-  --orange: #ff9500;
-  --green: #34c759;
-  --red: #ff3b30;
-  --purple: #af52de;
+  --blue: #2196f3;
+  --blue-tint: rgba(33, 150, 243, 0.14);
+  --gold: #ffc107;
+  --orange: #ff9800;
+  --green: #00e676;
+  --red: #ff5252;
+  --purple: #9c27b0;
 
-  --m-chest: #ff3b30;
-  --m-back: #007aff;
-  --m-legs: #34c759;
-  --m-shoulders: #ff9500;
-  --m-arms: #af52de;
-  --m-core: #00b8a9;
+  --m-chest: #f44336;
+  --m-back: #03a9f4;
+  --m-legs: #4caf50;
+  --m-shoulders: #ff9800;
+  --m-arms: #9c27b0;
+  --m-core: #00bcd4;
 
-  --pr-grad: linear-gradient(135deg, #ff9500 0%, #ff3b30 100%);
-  --blue-grad: linear-gradient(135deg, #007aff 0%, #0050b3 100%);
+  --pr-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+  --gold-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+  --blue-grad: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
 
-  --frosted-bg: rgba(255, 255, 255, 0.78);
-  --header-scrolled-bg: rgba(242, 242, 247, 0.78);
+  /* Light mode: headings are dark text, not gold */
+  --heading-color: var(--label);
+
+  --frosted-bg: rgba(250, 247, 242, 0.85);
+  --header-scrolled-bg: rgba(250, 247, 242, 0.78);
   --modal-dim: rgba(0, 0, 0, 0.30);
 }
 
 @media (prefers-color-scheme: light) {
   :root[data-theme="auto"] {
-    --bg: #f2f2f7;
+    --bg: #faf7f2;
     --surface-1: #ffffff;
     --surface-2: #ffffff;
-    --surface-3: #f2f2f7;
-    --surface-4: #e5e5ea;
+    --surface-3: #faf7f2;
+    --surface-4: #e8e2d8;
     --hairline: rgba(60, 60, 67, 0.12);
     --hairline-strong: rgba(60, 60, 67, 0.22);
 
-    --label: #000000;
-    --label-secondary: rgba(60, 60, 67, 0.65);
-    --label-tertiary: rgba(60, 60, 67, 0.35);
-    --label-quaternary: rgba(60, 60, 67, 0.18);
+    --label: #212121;
+    --label-secondary: rgba(33, 33, 33, 0.65);
+    --label-tertiary: rgba(33, 33, 33, 0.35);
+    --label-quaternary: rgba(33, 33, 33, 0.18);
 
-    --blue: #007aff;
-    --blue-tint: rgba(0, 122, 255, 0.14);
-    --gold: #ff9500;
-    --orange: #ff9500;
-    --green: #34c759;
-    --red: #ff3b30;
-    --purple: #af52de;
+    --blue: #2196f3;
+    --blue-tint: rgba(33, 150, 243, 0.14);
+    --gold: #ffc107;
+    --orange: #ff9800;
+    --green: #00e676;
+    --red: #ff5252;
+    --purple: #9c27b0;
 
-    --m-chest: #ff3b30;
-    --m-back: #007aff;
-    --m-legs: #34c759;
-    --m-shoulders: #ff9500;
-    --m-arms: #af52de;
-    --m-core: #00b8a9;
+    --m-chest: #f44336;
+    --m-back: #03a9f4;
+    --m-legs: #4caf50;
+    --m-shoulders: #ff9800;
+    --m-arms: #9c27b0;
+    --m-core: #00bcd4;
 
-    --pr-grad: linear-gradient(135deg, #ff9500 0%, #ff3b30 100%);
-    --blue-grad: linear-gradient(135deg, #007aff 0%, #0050b3 100%);
+    --pr-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+    --gold-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
+    --blue-grad: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
 
-    --frosted-bg: rgba(255, 255, 255, 0.78);
-    --header-scrolled-bg: rgba(242, 242, 247, 0.78);
+    --heading-color: var(--label);
+
+    --frosted-bg: rgba(250, 247, 242, 0.85);
+    --header-scrolled-bg: rgba(250, 247, 242, 0.78);
     --modal-dim: rgba(0, 0, 0, 0.30);
   }
 }
@@ -181,7 +194,7 @@ body {
   padding-bottom: calc(140px + env(safe-area-inset-bottom));
   min-height: 100vh;
   background:
-    radial-gradient(1200px 600px at 50% -200px, rgba(10, 132, 255, 0.08), transparent 60%),
+    radial-gradient(1200px 600px at 50% -200px, rgba(255, 193, 7, 0.06), transparent 60%),
     var(--bg);
 }
 
@@ -262,7 +275,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 
 .sheet-close {
   background: none; border: none;
-  color: var(--blue);
+  color: var(--gold);
   font-size: 1rem; font-weight: 600;
   padding: 6px 10px;
   position: relative;
@@ -305,7 +318,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   padding: 0 24px 24px;
 }
 
-.modal h2 { margin: 0 0 6px 0; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.03em; }
+.modal h2 { margin: 0 0 6px 0; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.03em; color: var(--heading-color); }
 .modal p.subtitle { margin: 0 0 24px 0; color: var(--label-secondary); font-size: 0.95rem; }
 
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
@@ -443,7 +456,8 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 }
 .qa-step {
   flex: 1;
-  background: var(--blue);
+  background: var(--gold);
+  color: #1a1300;
   border: none;
   color: white;
   border-radius: var(--radius-md);
@@ -463,7 +477,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
 }
 .qa-step:active {
   transform: scale(0.96);
-  background: #0070d8;
+  background: #e6ad00;
 }
 
 .row-action {
@@ -680,7 +694,7 @@ header.scrolled {
 .header-top { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 4px; }
 .title-block { display: flex; flex-direction: column; gap: 2px; }
 
-h1 { font-size: 2.1rem; font-weight: 800; margin: 0; letter-spacing: -0.035em; transition: font-size 0.3s var(--spring); }
+h1 { font-size: 2.1rem; font-weight: 800; margin: 0; letter-spacing: -0.035em; color: var(--heading-color); transition: font-size 0.3s var(--spring), color 0.2s var(--ease); }
 header.scrolled h1 { font-size: 1.15rem; }
 
 .subtitle-line { font-size: 0.8rem; color: var(--label-secondary); font-weight: 500; transition: opacity 0.2s var(--ease), height 0.2s var(--ease); }
@@ -690,7 +704,7 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
 
 .icon-btn {
   background: rgba(120, 120, 128, 0.20);
-  border: none; color: var(--blue);
+  border: none; color: var(--label);
   width: 36px; height: 36px;
   border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
@@ -706,7 +720,7 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
 }
 .icon-btn:active { background: rgba(120, 120, 128, 0.30); }
 .icon-btn svg { width: 18px; height: 18px; }
-.icon-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.icon-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 #status {
   display: inline-flex; align-items: center; gap: 6px;
@@ -791,11 +805,11 @@ main {
 
 .add-btn {
   flex: 0 0 80px;
-  background: var(--blue); color: white;
+  background: var(--gold); color: #1a1300;
   border: none; border-radius: var(--radius-md);
   font-weight: 600; font-size: 0.95rem;
 }
-.add-btn:active { background: #0070d8; }
+.add-btn:active { background: #e6ad00; }
 .manual-add-btn {
   display: block;
   width: 100%;
@@ -1104,8 +1118,8 @@ main {
   flex: 0 0 auto;
   width: 44px; height: 44px;
   border-radius: 50%;
-  background: var(--blue);
-  color: white;
+  background: var(--gold);
+  color: #1a1300;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s var(--ease);
 }
@@ -1154,9 +1168,9 @@ button.card-button:focus-visible {
   outline-offset: 2px;
 }
 
-.card.status-card.recovery { border-color: rgba(48, 209, 88, 0.35); }
+.card.status-card.recovery { border-color: rgba(0, 230, 118, 0.35); }
 .card.status-card.recovery #strain-text { color: var(--green); }
-.card.status-card.steady { border-color: rgba(10, 132, 255, 0.30); }
+.card.status-card.steady { border-color: rgba(33, 150, 243, 0.30); }
 .card.status-card.steady #strain-text { color: var(--blue); }
 .card.status-card.high { border-color: rgba(255, 159, 10, 0.40); }
 .card.status-card.high #strain-text { color: var(--orange); }
@@ -1787,26 +1801,26 @@ button.card-button:focus-visible {
   will-change: transform;
   width: 64px; height: 64px;
   border-radius: 50%;
-  background: var(--blue-grad);
+  background: var(--gold-grad);
   border: none;
   display: flex; align-items: center; justify-content: center;
   box-shadow:
     0 0 0 4px var(--bg) inset,                         /* inner ring matches bg */
     0 0 0 5px rgba(255, 255, 255, 0.06) inset,
-    0 8px 24px rgba(10, 132, 255, 0.45),
+    0 8px 24px rgba(255, 193, 7, 0.45),
     0 2px 6px rgba(0, 0, 0, 0.5);
   z-index: 100;                                        /* above tab bar (90) */
   transition: transform 0.2s var(--spring), box-shadow 0.3s var(--ease);
 }
 #mic-btn:active { transform: translate3d(-50%, 0, 0) scale(0.92); }
-#mic-btn svg { width: 26px; height: 26px; }
+#mic-btn svg { width: 26px; height: 26px; color: #1a1300; }
 
 #mic-btn.listening {
-  background: linear-gradient(135deg, #ff453a 0%, #ff9f0a 100%);
+  background: linear-gradient(135deg, #ff5252 0%, #ff9800 100%);
   box-shadow:
     0 0 0 4px var(--bg) inset,
     0 0 0 5px rgba(255,255,255,0.10) inset,
-    0 0 28px rgba(255,69,58,0.45),
+    0 0 28px rgba(255,82,82,0.45),
     0 2px 6px rgba(0,0,0,0.5);
   animation: mic-breath 2.5s ease-in-out infinite;
 }
@@ -1846,7 +1860,7 @@ button.card-button:focus-visible {
 .timer-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--blue);
+  color: var(--gold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -1950,13 +1964,11 @@ button.card-button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.tab-btn.active { color: var(--blue); }
+.tab-btn.active { color: var(--gold); }
 
-/* The Workout button is the primary CTA when no session is active.
-   Give it a subtle blue accent to distinguish from secondary tabs;
-   when a session IS active the red state below takes precedence. */
-.tab-workout:not(.session-active) { color: var(--blue); }
-.tab-workout:not(.session-active) .tab-icon { color: var(--blue); }
+/* Workout tab gets the brand gold accent when idle — it's the primary action tab.
+   When a session IS active the red state below takes precedence. */
+.tab-workout:not(.session-active) { color: var(--gold); }
 
 /* The Workout button has special states for active session */
 .tab-workout.session-active { color: var(--red); }
@@ -1987,7 +1999,7 @@ button.card-button:focus-visible {
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--label);
+  color: var(--heading-color);
   margin: 0;
 }
 .workout-clock {
@@ -2033,8 +2045,8 @@ button.card-button:focus-visible {
    ========================================================================== */
 
 .session-card {
-  background: linear-gradient(135deg, rgba(48, 209, 88, 0.16), rgba(10, 132, 255, 0.12));
-  border: 0.5px solid rgba(48, 209, 88, 0.3);
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.18), rgba(255, 143, 0, 0.10));
+  border: 0.5px solid rgba(255, 193, 7, 0.30);
   border-radius: 18px;
   padding: 14px 18px;
   margin: 0 0 16px;
@@ -2066,14 +2078,14 @@ button.card-button:focus-visible {
 .session-card-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--green);
+  color: var(--gold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-/* Blue variant — used by the SET / VOLUME stats and (via the timer-pill
-   block below) the REST label. Visually grouped: the green label is the
-   "session is alive" state, the blue labels are the metrics. */
-.session-card-label-blue { color: var(--blue); }
+/* Gold variant — SET / VOLUME stats and REST label all use brand gold.
+   Unified with the IN PROGRESS label so the entire card reads as one
+   coherent gold-on-dark language. */
+.session-card-label-blue { color: var(--gold); }
 .session-card-time {
   font-size: 1.8rem;
   font-weight: 700;
@@ -2233,7 +2245,7 @@ button.card-button:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--orange, #ff9f0a);
+  background: var(--orange, #ff9800);
   color: white;
   font-size: 0.58rem;
   font-weight: 800;
@@ -2275,8 +2287,8 @@ button.card-button:focus-visible {
   padding: 12px 14px;
   min-height: 44px;
   box-sizing: border-box;
-  background: var(--blue);
-  color: white;
+  background: var(--gold);
+  color: #1a1300;
   border: none;
   border-radius: 10px;
   font-family: inherit;
@@ -2286,7 +2298,7 @@ button.card-button:focus-visible {
   cursor: pointer;
   transition: background 0.15s var(--ease);
 }
-.session-set-add:active { background: #0070d8; }
+.session-set-add:active { background: #e6ad00; }
 .session-set-add-icon {
   font-size: 0.95rem;
   font-weight: 700;
@@ -2607,13 +2619,13 @@ button.card-button:focus-visible {
 }
 .week-day:active { background: var(--surface-3); }
 .week-day.active {
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--gold);
+  border-color: var(--gold);
 }
 .week-day.active .week-day-name,
-.week-day.active .week-day-num { color: white; }
-.week-day.today .week-day-num { color: var(--blue); font-weight: 800; }
-.week-day.active.today .week-day-num { color: white; }
+.week-day.active .week-day-num { color: #1a1300; }
+.week-day.today .week-day-num { color: var(--gold); font-weight: 800; }
+.week-day.active.today .week-day-num { color: #1a1300; }
 
 .week-day-name {
   font-size: 0.68rem;
@@ -2820,13 +2832,13 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
   gap: 16px;
   width: 100%;
   padding: 18px 20px;
-  background: var(--blue-grad);
-  color: white;
+  background: var(--gold-grad);
+  color: #1a1300;
   border: none;
   border-radius: var(--radius-lg);
   text-align: left;
   letter-spacing: -0.01em;
-  box-shadow: 0 6px 18px rgba(10, 132, 255, 0.32);
+  box-shadow: 0 6px 18px rgba(255, 193, 7, 0.32);
   transition: transform 0.15s var(--ease);
 }
 .workout-start-cta:active { transform: scale(0.98); }
@@ -3124,7 +3136,7 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
   transition: transform 0.18s var(--ease);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
-.row-toggle.is-on .row-toggle-switch { background: var(--orange, #ff9f0a); }
+.row-toggle.is-on .row-toggle-switch { background: var(--orange, #ff9800); }
 .row-toggle.is-on .row-toggle-switch::after { transform: translateX(18px); }
 .row-toggle:active { background: var(--surface-2); }
 

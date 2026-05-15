@@ -200,6 +200,30 @@ instead.
 
 ---
 
+## Brand palette — Iron Velocity (v9.38)
+
+The full spec lives in `brand.md`. Key rules Claude must follow:
+
+- **Gold (`#FFC107`, `--gold`) is the primary brand signal** — mic FAB, Start
+  Workout, Add Set, stepper buttons, active tab bar, week-strip selected day,
+  sheet Done buttons, and all session-card labels (IN PROGRESS / SET / VOLUME /
+  REST). Text on gold: always `#1a1300`. Active/pressed: `#e6ad00`.
+- **`--heading-color` token** — dark mode: `var(--gold)`; light mode:
+  `var(--label)`. Applied to `h1`, `.screen-header h2`, and `.modal h2`.
+  Never hardcode gold on headings; the token handles mode switching.
+- **Blue (`#2196F3`, `--blue`) is secondary** — Share, Sync, Confirm sheets
+  (`.primary-btn`), the History rollup Rest cell (scannability anchor). Not
+  used for workout CTAs or headings.
+- **`--label` for icon-btn** — home, help, target, sync icons are navigation
+  chrome. Color: `var(--label)` (white dark / dark light). Not blue.
+- **Dark bg `#121212`, light bg `#faf7f2`** (warm cream, not cool gray).
+- **Session card**: warm gold tint background
+  (`rgba(255,193,7,0.18) → rgba(255,143,0,0.10)`), all labels gold.
+- **History rollup Rest cell stays blue** — deliberate contrast anchor;
+  the session-card REST label is gold but the rollup's blue is its own rule.
+
+---
+
 ## Settled decisions — do not re-litigate
 
 These have been discussed in past sessions and have a definitive answer.
@@ -295,20 +319,21 @@ the green `.session-card`. Three structural rules:
 
 1. **Rest timer is in-card, not a bottom-fixed pill.** `#rest-timer`
    lives inside `.session-card-meta`, stacked under
-   `IN PROGRESS / 0:38` as a third row (label `REST` in blue,
+   `IN PROGRESS / 0:38` as a third row (label `REST` in gold,
    followed by the time in 1.8rem matching the elapsed time). The SVG
    progress ring was removed in v9.11; only the time + label remain.
    The `.timer-pill.complete` state still flips both label and time
    to green when the countdown hits zero (the celebratory "Go" state).
    Voice "rest 90" without an active session is a non-goal: rest UI
    is workout-scoped now.
-2. **SET / VOLUME labels above values, in blue.** Stats column
+2. **SET / VOLUME labels above values, in gold (v9.38).** Stats column
    (`.session-card-stats`) flipped from
    number-on-top/`<small>`-label-below to label-on-top with values in
-   1.4rem below. Labels use `.session-card-label-blue` (`var(--blue)`),
-   mirroring the REST label color. `IN PROGRESS` stays green to signal
-   "session is alive"; the blue labels are the metrics. All three top
-   labels (`IN PROGRESS / SET / VOLUME`) sit on the same baseline.
+   1.4rem below. Labels use `.session-card-label-blue` (class name
+   kept for stability; `color: var(--gold)` since v9.38). `IN PROGRESS`
+   stays green to signal "session is alive"; gold labels are the
+   metrics. All three top labels (`IN PROGRESS / SET / VOLUME`) sit
+   on the same baseline.
 3. **End workout aligns with the rest-timer line.** `.session-card-row`
    uses `align-items: stretch` so the right column (`.session-card-right`)
    matches the meta column's height. The right column is a flex
@@ -619,7 +644,7 @@ Row anatomy, left → right ([app.js](app.js) `renderPRsScreen` + [style.css](st
   row body is tappable.
 - `.pr-row-share` — separate `<button>` sibling on the far right, 56px
   wide × ≥44px tall (Apple HIG per v9.22), divided from the row body
-  by a hairline. Stroke-style share icon (box-with-up-arrow), iOS-blue.
+  by a hairline. Stroke-style share icon (box-with-up-arrow), `--label` color.
 
 Two explicit affordances, two `data-action` entries through the strict-CSP
 dispatcher — no `event.stopPropagation` plumbing needed because the
@@ -655,8 +680,8 @@ hairline border + 12px radius) showing the day name (MON/TUE/…) and
 date number. Day-name labels render at `var(--label)` weight 700 —
 black + bold in light mode, white + bold in dark mode — so the row
 reads at full strength rather than the prior faint tertiary text.
-Selected day fills blue and inverts both labels to white. Today
-(unselected) gets a blue date number. **The per-day volume bar that
+Selected day fills gold (`var(--gold)`) with dark text `#1a1300`. Today
+(unselected) gets a gold date number. **The per-day volume bar that
 existed from v9.0 → v9.32 was removed in v9.33.** The bar's
 information density didn't justify its visual weight — a tiny
 muscle-colored chunk at the bottom of each cell was easy to ignore,
@@ -737,9 +762,10 @@ computed for the week-strip bar heights and never surfaced as a number.
   to breathe AND lets the headline stats (Volume/Sets) get larger
   type, which is the right hierarchy — "how much" is the answer
   people care about most. The Rest cell still renders blue
-  (`.history-rollup-cell-rest`) to mirror the green session card's
-  REST label color. Don't color other cells blue; the asymmetry is
-  what makes the rest number scannable.
+  (`.history-rollup-cell-rest`) — deliberate contrast anchor so the
+  rest figure scans instantly; session-card REST is now gold, but the
+  rollup's blue is its own design decision. Don't color other cells
+  blue; the asymmetry is what makes the rest number scannable.
 
   Don't go back to the flat 5-up row layout. Don't fold Sets into
   the meta line above the card — having it in the grid means there's
@@ -880,8 +906,8 @@ to select before retyping. Two coordinated changes fixed this:
    (input chip) share row 1; `.qa-stepper-row` spans both
    columns on row 2 with `display: flex; gap: 8px` and each
    `.qa-step` set to `flex: 1` so buttons divide the row evenly.
-   Buttons are iOS blue (`var(--blue)` background, white text,
-   `:active` → `#0070d8` + `scale(0.96)`) so they read as
+   Buttons are Iron Gold (`var(--gold)` background, `#1a1300` text,
+   `:active` → `#e6ad00` + `scale(0.96)`) so they read as
    first-class actions rather than muted secondary chips. The
    `.qa-step-fine` modifier on the ±2.5 buttons shrinks type a
    touch (1rem → 0.88rem) without changing the tap footprint —
@@ -1258,10 +1284,10 @@ section, both driven by the same goal: cut typing on the gym floor.
    `<div class="input-row">` (two number inputs + 80px Add button to
    the right) was retired. Manual entry now uses the same
    `.grouped-list` + `.row-input-stepper` markup as the quick-add
-   overlay — Weight (lb) with four blue stepper buttons
+   overlay — Weight (lb) with four gold stepper buttons
    (`−5 / −2.5 / +2.5 / +5`) stacked below the input, Reps with two
-   (`− / +`), and a full-width blue Add button (`.manual-add-btn`)
-   below the rows. Same iOS-blue visuals, same gym-floor
+   (`− / +`), and a full-width gold Add button (`.manual-add-btn`)
+   below the rows. Same gold CTA visuals, same gym-floor
    keyboard-free interaction. `bumpQuickAdd` was generalized to honor
    `data-input` (full element ID, e.g. `"manual-w"`) when present;
    the quick-add overlay's existing `data-target="w"`/`"r"` shorthand

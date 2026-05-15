@@ -600,6 +600,14 @@ const WHATS_NEW = {
             'Fixed: History tab briefly skipped rendering after the layout pass.',
         ],
     },
+    '9.38': {
+        items: [
+            'New brand palette — Iron Gold replaces blue as the primary color for the mic, Start Workout, Add Set, and stepper buttons.',
+            'Dark mode background deepened to #121212 (Obsidian) with warmer card surfaces.',
+            'Light mode is now warm cream (Gym Stone) — week strip, Done buttons, and today\'s date are all gold.',
+            'Muscle group colors standardized across all views.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
