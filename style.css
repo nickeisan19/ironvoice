@@ -823,7 +823,11 @@ main {
 
 .search-container { position: relative; width: 100%; }
 
-#ex-search {
+/* v9.44: shared search-input look — applies to every text input inside a
+   .search-container so the in-workout, swap-exercise, and community
+   sheets all match. Was previously #ex-search-scoped, which left the
+   swap + community inputs unstyled (bare browser white box). */
+.search-container input[type="text"] {
   width: 100%;
   background: var(--surface-3);
   border: 0.5px solid var(--hairline);
@@ -831,9 +835,15 @@ main {
   padding: 14px 16px;
   border-radius: var(--radius-md);
   font-size: 1rem;
+  font-family: inherit;
 }
-#ex-search:focus { outline: none; border-color: var(--gold); }
-#ex-search::placeholder { color: var(--label-tertiary); }
+.search-container input[type="text"]:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.search-container input[type="text"]::placeholder {
+  color: var(--label-tertiary);
+}
 
 .input-row { display: flex; gap: 8px; }
 
