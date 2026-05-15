@@ -118,10 +118,13 @@
                         </div>
                     </div>
                 </div>
-                <div id="custom-delete-wrap" class="grouped-list" style="margin-top:24px;display:none">
+                <div id="custom-submit-wrap" class="grouped-list" style="margin-top:24px;display:none">
+                    <button class="row-action" data-action="submitCurrentCustom"><span>Submit to community</span></button>
+                </div>
+                <div id="custom-delete-wrap" class="grouped-list" style="margin-top:18px;display:none">
                     <button class="row-action danger" data-action="deleteCustomExercise"><span>Delete custom exercise</span></button>
                 </div>
-                <div class="section-foot" style="margin-top:18px">Custom exercises sync with your other data. Renaming creates a new entry — existing journal rows keep the old name.</div>
+                <div class="section-foot" style="margin-top:18px">Custom exercises sync with your other data. Renaming creates a new entry — existing journal rows keep the old name. Submit to community to suggest the exercise for everyone.</div>
             </div>
         </div>
     </div>
@@ -293,6 +296,24 @@
                     <input type="text" id="swap-search" placeholder="Search exercise…" autocomplete="off" enterkeyhint="search" aria-label="Search exercise" data-on-input="filterSwapExercises">
                 </div>
                 <div id="swap-results" class="search-results-static" role="listbox"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.42: Community exercise pool browser -->
+    <div id="community-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="community-title">
+            <div class="sheet-header sheet-header-3col">
+                <button class="sheet-close cancel" data-action="closeCommunity">Done</button>
+                <span class="sheet-title-text" id="community-title">Community exercises</span>
+                <span></span>
+            </div>
+            <div class="sheet-body">
+                <div class="search-container" style="margin-top:6px">
+                    <input type="text" id="community-search" placeholder="Search community…" autocomplete="off" enterkeyhint="search" aria-label="Search community exercises" data-on-input="filterCommunity">
+                </div>
+                <div id="community-results" class="search-results-static" role="list"></div>
+                <div class="section-foot" style="margin-top:18px">Tap Add to copy a community exercise into your own custom list. Submissions from Profile go to a moderation queue for review.</div>
             </div>
         </div>
     </div>
@@ -776,10 +797,13 @@
                 <div class="settings-section">
                     <div class="section-label">
                         <span>Custom exercises</span>
-                        <button class="section-add" data-action="newCustomExercise">+ New</button>
+                        <span class="section-actions">
+                            <button class="section-add" data-action="browseCommunity">Browse</button>
+                            <button class="section-add" data-action="newCustomExercise">+ New</button>
+                        </span>
                     </div>
                     <div class="grouped-list" id="customs-list"></div>
-                    <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate.</div>
+                    <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate. Browse the community pool to import exercises others have shared.</div>
                 </div>
 
                 <div class="settings-section">

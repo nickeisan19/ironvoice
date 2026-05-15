@@ -1471,6 +1471,108 @@ The minute-boundary tick is deliberate — per-second updates churn
 the layout for no value, and the elapsed timer in the session card
 already covers the sub-minute case.
 
+**Community exercise pool + silent de-dup on promotion (v9.42).**
+Two coupled mechanisms that together close the "good custom
+exercise → everyone benefits" loop without making IronVoice a
+social app. **The community pool is a *catalog of metadata*, not
+a feed.** It carries `{name, muscle, synonyms}` per entry — no
+attribution, no submitter visibility in the browse list, no
+workout/PR sharing. The "Not a social/sharing app" rule still
+holds; this is intentionally a curated catalog and nothing more.
+
+**Server side ([worker.js](worker.js)):** two new actions reuse
+the existing bearer auth (same single shared token).
+- `getCommunity` — reads `community/exercises.json` from R2 and
+  returns `{ exercises: [...], updatedAt }`. No per-user
+  namespace touched. Absent blob → empty list (not 404).
+  Corrupt blob → empty list (fail soft, don't 500). Bearer
+  token still required.
+- `submitExercise` — validates `body.exercise` via
+  `validateCommunityExercise` (name 1-60 chars + lowercased + no
+  control chars; muscle ∈ the 6 known values; synonyms array max
+  10 × 40 chars), then appends to `community/queue.json` with the
+  same etag-conditional put / 3-attempt retry pattern as the
+  backup action. Dedups by `(name, submitterSlug)` so a tester
+  resubmitting the same custom returns
+  `{ ok: true, queued: false, alreadyPending: true }` instead of
+  bloating the queue. Submission requires `body.user.email` so
+  the slug can be computed.
+
+**R2 layout:** `community/exercises.json` is Nick-curated (the
+public-readable catalog all users browse). `community/queue.json`
+is append-only from `submitExercise`. **No admin UI in scope** —
+Nick reviews via the R2 dashboard or `wrangler r2 object` and
+manually moves approved entries from queue → exercises. Don't
+build an admin panel without a real moderation backlog.
+
+**Client side ([app.js](app.js)):**
+- **Browse community sheet** (`#community-overlay`) opens from
+  Profile → Custom exercises → **Browse**. Same sheet pattern as
+  the v9.26 swap-exercise overlay. Search input + scrollable
+  list; each row is muscle dot + name + muscle label + gold
+  Add button (or a muted "Added" chip if the user already has
+  that name in `exerciseLibrary` — built-in or active custom).
+- **24-hour localStorage cache** (`ironCommunityCatalog`) so the
+  browse sheet opens instantly with stale data; a background
+  fetch refreshes if stale. Failure is non-fatal: cached → empty
+  state. The bare worker call isn't a hot path; revisit cache
+  duration if the catalog starts changing daily.
+- **Import** writes a new active custom via the same
+  `performDB('customExercises', 'put', …)` path as
+  `saveCustomExercise`. Reuses the existing collision check
+  against `exerciseLibrary` so a community entry whose name
+  collides with a built-in or existing custom is rejected with
+  `infoSheet({ title: 'Already in your library', … })`. The
+  imported record syncs back to the user's own R2 bucket on
+  next backup — community membership and per-user customs are
+  orthogonal stores.
+- **Submit-to-community** row (`#custom-submit-wrap`) lives
+  inside the existing custom editor sheet and is gated on having
+  a saved custom (hidden in `newCustomExercise`, shown in
+  `editCustomExercise`). Tapping fires `confirmSheet` → POST
+  `submitExercise` → snackbar "Submitted for review" /
+  "Already in the review queue". 400 from the worker surfaces
+  via `infoSheet` so the user sees the validation error.
+
+**Silent de-dup on promotion.** When Nick eventually promotes a
+popular community entry into the source-controlled
+`exerciseLibrary` (still a source edit + deploy — there's no
+runtime self-service promotion), every user with the same name
+as a local custom auto-tombstones it on next boot.
+`loadCustomExercisesIntoLibrary` ([app.js:842](app.js)) grew a
+third branch: if a built-in with the same canonical name exists
+(`existing && !existing.custom`), the local custom is no longer
+useful — `tombstoneCustomOnPromotion` flips `deleted: true` and
+bumps `modifiedAt`, propagating the tombstone via the existing
+sync path. **Built-in's muscle tag wins** on conflict — the
+user's historical sets re-color to the curated muscle group,
+which is correct because the built-in catalog is now
+authoritative for that name. PRs and journal entries keep
+working because both are keyed by exercise name, not by source.
+
+**Why silent (not a confirmation sheet).** A name match is the
+contract — there is no other reason for the local custom to
+exist after promotion. A "Replace your custom with the built-in?"
+sheet would treat this like a destructive choice when it's
+actually invisible plumbing. The user notices nothing except
+that their Profile row for "sandbag carry" quietly disappears
+and the search still works exactly the same.
+
+**Don't:**
+- Don't add per-user attribution ("submitted by X") to the
+  browse list — the metadata-only framing is what keeps this
+  from sliding into social territory.
+- Don't auto-promote based on submission count — Nick's review
+  is the gate.
+- Don't reintroduce a confirmation sheet for the de-dup. Same
+  reasoning as why the per-set "Start a workout?" prompt was
+  killed in v9.11.
+- Don't reach into `community/exercises.json` from the client
+  (read-only via `getCommunity`).
+- Don't build an admin UI for moderation without a concrete
+  need. R2 dashboard / `wrangler r2 object put` is fine at this
+  scale.
+
 ---
 
 ## Conventions Nick follows
@@ -1729,7 +1831,7 @@ the headline. Both `recomputePR()` (client) and `recomputePRs()`
 
 ## Sync protocol
 
-Client POSTs to the Worker URL with one of three actions:
+Client POSTs to the Worker URL with one of five actions:
 
 **`ping`** — connection test, returns `{ ok: true, serverTime }`.
 
@@ -1741,6 +1843,18 @@ returns `{ ok, mode, syncedAt, totalCount, received, prs }`.
 **`restore`** — server returns the full state for this user's email. Returns
 404 if no backup exists (typo detection — surfaced in UI as "fix the email
 in Profile and try again").
+
+**`getCommunity`** (v9.42) — returns the curated community exercise catalog
+from `community/exercises.json`. No email/user namespace; bearer token still
+required. Returns `{ exercises: [{name, muscle, synonyms}], updatedAt }`.
+Absent or corrupt blob → empty list (fail-soft).
+
+**`submitExercise`** (v9.42) — appends a user's custom exercise to
+`community/queue.json` for Nick's review. Requires `body.user.email` (for
+the submitter slug) and `body.exercise: {name, muscle, synonyms}`.
+Validation happens server-side; returns 400 with a readable error on bad
+input. Dedups by `(name, submitterSlug)` so resubmission returns
+`{ ok: true, queued: false, alreadyPending: true }`.
 
 All requests require `Authorization: Bearer <token>`. CORS is restricted to
 the Pages origin.

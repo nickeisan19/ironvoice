@@ -3200,3 +3200,60 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
   color: var(--label-tertiary);
   font-size: 0.92rem;
 }
+
+/* v9.42: Community exercise pool — Profile section gets two action chips
+   (Browse + New); the browse sheet shows community-row cells with an Add
+   button on the right (or an "Added" chip if the user already has it). */
+.section-actions { display: flex; align-items: center; gap: 10px; }
+
+.community-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 14px;
+  border-top: 0.5px solid var(--hairline);
+  background: transparent;
+  color: var(--label);
+  font-size: 1rem;
+  min-height: 50px;
+}
+.community-row:first-child { border-top: 0; }
+.community-row .muscle-tag { width: 12px; height: 12px; flex-shrink: 0; }
+.community-row-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.community-row-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.community-row-muscle {
+  font-size: 0.75rem;
+  color: var(--label-secondary);
+  margin-top: 2px;
+}
+.community-row-add {
+  background: var(--gold);
+  color: #1a1300;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  min-height: 36px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.community-row-add:active { background: #e6ad00; transform: scale(0.96); }
+.community-row-added {
+  font-size: 0.8rem;
+  color: var(--label-tertiary);
+  padding: 6px 12px;
+  flex-shrink: 0;
+}

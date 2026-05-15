@@ -31,6 +31,14 @@ const SNAPSHOT_DIR = 'snapshots';      // subkey segment for snapshot copies
 // hours. Full-mode backups always snapshot regardless.
 const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
+// Community-pool R2 keys. exercises.json is Nick-curated (the catalog all
+// users can browse + import); queue.json is the append-only submission
+// inbox populated by submitExercise — Nick reviews via R2 dashboard /
+// wrangler CLI and copies approved entries into exercises.json.
+const COMMUNITY_EXERCISES_KEY = 'community/exercises.json';
+const COMMUNITY_QUEUE_KEY     = 'community/queue.json';
+const VALID_MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
+
 export default {
     async fetch(request, env, ctx) {
         // ---- CORS preflight ---------------------------------------------------
@@ -77,7 +85,7 @@ export default {
         }
 
         const action = body.action || 'backup';
-        if (!['ping', 'backup', 'restore'].includes(action)) {
+        if (!['ping', 'backup', 'restore', 'getCommunity', 'submitExercise'].includes(action)) {
             return jsonResponse({ error: 'Invalid action' }, 400, env);
         }
 
@@ -87,6 +95,26 @@ export default {
                 { ok: true, serverTime: Math.floor(Date.now() / 1000) },
                 200, env
             );
+        }
+
+        // ---- getCommunity (no user; global catalog) ---------------------------
+        // Returns the curated community catalog. Bearer token still required
+        // (same as every other action) but no per-user namespace touched.
+        if (action === 'getCommunity') {
+            const obj = await env.BUCKET.get(COMMUNITY_EXERCISES_KEY);
+            if (obj === null) {
+                return jsonResponse({ exercises: [], updatedAt: 0 }, 200, env);
+            }
+            try {
+                const parsed = JSON.parse(await obj.text());
+                return jsonResponse({
+                    exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
+                    updatedAt: Number(parsed.updatedAt) || 0,
+                }, 200, env);
+            } catch (err) {
+                // Corrupt catalog → fail soft to empty list rather than 500.
+                return jsonResponse({ exercises: [], updatedAt: 0 }, 200, env);
+            }
         }
 
         // ---- Validate user email ---------------------------------------------
@@ -115,6 +143,70 @@ export default {
                 sessions:         state.sessions         ?? [],
                 syncedAt:         state.syncedAt         ?? 0,
             }, 200, env);
+        }
+
+        // ====================================================================
+        // submitExercise — append to community moderation queue
+        //
+        // Read-merge-write loop matches the backup pattern: etag-conditional
+        // put, re-read on precondition failure, up to 3 attempts. Dedups by
+        // (name, submitterSlug) so a tester resubmitting the same custom
+        // doesn't bloat the queue.
+        // ====================================================================
+        if (action === 'submitExercise') {
+            const validation = validateCommunityExercise(body.exercise);
+            if (!validation.ok) {
+                return jsonResponse({ error: validation.error }, 400, env);
+            }
+            const entry = validation.entry;
+            const submitterSlug = slug;
+            const MAX_ATTEMPTS = 3;
+
+            let attempt = 0;
+            while (true) {
+                attempt++;
+                const existing = await env.BUCKET.get(COMMUNITY_QUEUE_KEY);
+                let queue;
+                if (existing) {
+                    try { queue = JSON.parse(await existing.text()); } catch { queue = null; }
+                }
+                if (!queue || !Array.isArray(queue.submissions)) {
+                    queue = { submissions: [] };
+                }
+
+                const alreadyPending = queue.submissions.some(s =>
+                    s && s.name === entry.name && s.submitterSlug === submitterSlug
+                );
+                if (alreadyPending) {
+                    return jsonResponse({ ok: true, queued: false, alreadyPending: true }, 200, env);
+                }
+
+                queue.submissions.push({
+                    name: entry.name,
+                    muscle: entry.muscle,
+                    synonyms: entry.synonyms,
+                    submittedAt: Date.now(),
+                    submitterSlug,
+                });
+
+                const putOpts = {
+                    httpMetadata: { contentType: 'application/json' },
+                };
+                if (existing) putOpts.onlyIf = { etagMatches: existing.etag };
+                const putResult = await env.BUCKET.put(
+                    COMMUNITY_QUEUE_KEY,
+                    JSON.stringify(queue),
+                    putOpts
+                );
+                if (putResult !== null) break;
+                if (attempt >= MAX_ATTEMPTS) {
+                    return jsonResponse(
+                        { error: 'Concurrent update; please retry' },
+                        503, env
+                    );
+                }
+            }
+            return jsonResponse({ ok: true, queued: true }, 200, env);
         }
 
         // ====================================================================
@@ -311,6 +403,43 @@ function isValidEmail(s) {
     // not RFC-perfect, but rejects obvious garbage. Good enough as a guard
     // against typos and accidents; doesn't replace real auth.
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+// Validate + normalize a community-pool exercise submission. Returns
+// { ok: true, entry } on success or { ok: false, error } on failure;
+// error strings surface in a client infoSheet so they need to be readable.
+export function validateCommunityExercise(raw) {
+    if (!raw || typeof raw !== 'object') {
+        return { ok: false, error: 'Missing exercise payload.' };
+    }
+    const nameRaw = typeof raw.name === 'string' ? raw.name.trim().toLowerCase() : '';
+    if (!nameRaw) return { ok: false, error: 'Exercise name is required.' };
+    if (nameRaw.length > 60) return { ok: false, error: 'Name must be 60 characters or fewer.' };
+    if (/[\x00-\x1f]/.test(nameRaw)) return { ok: false, error: 'Name contains invalid characters.' };
+
+    const muscle = typeof raw.muscle === 'string' ? raw.muscle : '';
+    if (!VALID_MUSCLES.includes(muscle)) {
+        return { ok: false, error: `Muscle must be one of: ${VALID_MUSCLES.join(', ')}.` };
+    }
+
+    const synonyms = [];
+    if (Array.isArray(raw.synonyms)) {
+        if (raw.synonyms.length > 10) {
+            return { ok: false, error: 'Too many synonyms (max 10).' };
+        }
+        for (const s of raw.synonyms) {
+            if (typeof s !== 'string') continue;
+            const trimmed = s.trim().toLowerCase();
+            if (!trimmed) continue;
+            if (trimmed.length > 40) {
+                return { ok: false, error: 'Synonym too long (max 40 characters).' };
+            }
+            if (/[\x00-\x1f]/.test(trimmed)) continue;
+            synonyms.push(trimmed);
+        }
+    }
+
+    return { ok: true, entry: { name: nameRaw, muscle, synonyms } };
 }
 
 // Hash an email + salt to a directory-safe slug, matching the PHP version's

@@ -608,6 +608,12 @@ const WHATS_NEW = {
             'Muscle group colors standardized across all views.',
         ],
     },
+    '9.42': {
+        items: [
+            'Browse community exercises — open Profile → Custom exercises → Browse to add lifts other people have shared.',
+            'Share your own — tap Submit to community inside any custom exercise to send it in for review.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
@@ -839,6 +845,13 @@ const getActiveCustoms = async () => (await performDB('customExercises', 'getAll
 
 // Item 13: merge custom exercises into the in-memory library, then rebuild
 // the matchOrder so voice + search pick them up.
+//
+// v9.42: when a user's custom collides with a built-in name, the built-in
+// has been promoted (Nick added it to exerciseLibrary in source). Tombstone
+// the custom so the Profile row clears and the tombstone propagates to
+// every other device the user owns via the existing sync path. PRs and
+// historical sets keep working — they're keyed by exercise name, and the
+// built-in takes over both the search match and the muscle-group color.
 async function loadCustomExercisesIntoLibrary() {
     const customs = await getActiveCustoms();
     for (const c of customs) {
@@ -853,9 +866,18 @@ async function loadCustomExercisesIntoLibrary() {
         } else if (existing.custom) {
             // keep muscle assignment in sync if user edited
             existing.muscle = c.muscle || existing.muscle;
+        } else {
+            // Built-in catalog now owns this name — auto-clean the dup.
+            await tombstoneCustomOnPromotion(c);
         }
     }
     rebuildMatchOrder();
+}
+
+async function tombstoneCustomOnPromotion(c) {
+    const next = { ...c, deleted: true, modifiedAt: Date.now() };
+    await performDB('customExercises', 'put', next);
+    markUnsynced();
 }
 
 // Item 8: drop tombstones older than 90 days. Runs on boot and before every sync.
@@ -2398,8 +2420,13 @@ function initActionDispatcher() {
         // v9.32: What's New bottom-sheet — dismissed from either the
         // primary "Got it" button or the Done sheet-header button.
         closeWhatsNew,
+        // v9.42: Community exercise pool — Browse button on Profile, per-row
+        // Add button inside the sheet, Submit-to-community row inside the
+        // custom editor.
+        browseCommunity, closeCommunity, importCommunityExercise,
+        submitCurrentCustom,
     };
-    const INPUT_ACTIONS = { filterExercises, filterSwapExercises };
+    const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
     // in a number input so a single tap lets the user type the replacement
     // instead of having to long-press to select. Applied via
@@ -3543,6 +3570,7 @@ function newCustomExercise() {
     $('custom-name').value = '';
     $('custom-name').disabled = false;
     $('custom-delete-wrap').style.display = 'none';
+    $('custom-submit-wrap').style.display = 'none';   // v9.42: submit gated on save
     setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === 'arms');
     $('custom-overlay').classList.add('active');
     setTimeout(() => $('custom-name').focus(), 350);
@@ -3555,6 +3583,7 @@ function editCustomExercise(c) {
     // Allow muscle re-tagging only.
     $('custom-name').disabled = true;
     $('custom-delete-wrap').style.display = '';
+    $('custom-submit-wrap').style.display = '';
     setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === c.muscle);
     $('custom-overlay').classList.add('active');
 }
@@ -3633,6 +3662,245 @@ async function deleteCustomExercise() {
     await renderCustomsList();
     await renderAll();
     haptic(20);
+}
+
+// ============================================================================
+// v9.42: Community exercise pool
+//
+// Browse a Nick-curated catalog stored at community/exercises.json in R2
+// (one shared blob, all users read it). Submit your own customs into a
+// moderation queue (community/queue.json). Both paths go through the same
+// worker + bearer token the rest of sync uses.
+// ============================================================================
+
+const COMMUNITY_CACHE_KEY = 'ironCommunityCatalog';
+const COMMUNITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;   // refresh after a day
+
+function readCommunityCache() {
+    try {
+        const raw = localStorage.getItem(COMMUNITY_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.exercises)) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+function writeCommunityCache(payload) {
+    try {
+        localStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify({
+            exercises: payload.exercises || [],
+            updatedAt: Number(payload.updatedAt) || 0,
+            fetchedAt: Date.now(),
+        }));
+    } catch {
+        // Quota / private-mode — non-fatal; in-memory render still works.
+    }
+}
+
+// Fetch the catalog from the worker. Returns the parsed payload or null on
+// failure. Failure is non-fatal: callers fall back to cache, then to empty.
+async function fetchCommunityCatalog() {
+    if (!getToken()) return null;
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({ action: 'getCommunity' }),
+        });
+        if (!res.ok) return null;
+        const reply = await res.json();
+        if (!reply || !Array.isArray(reply.exercises)) return null;
+        writeCommunityCache(reply);
+        return reply;
+    } catch {
+        return null;
+    }
+}
+
+async function ensureCommunityCatalog({ force = false } = {}) {
+    const cached = readCommunityCache();
+    const fresh = cached && (Date.now() - (cached.fetchedAt || 0) < COMMUNITY_CACHE_TTL_MS);
+    if (cached && fresh && !force) return cached;
+    const fetched = await fetchCommunityCatalog();
+    return fetched || cached || { exercises: [], updatedAt: 0, fetchedAt: 0 };
+}
+
+let _communityCatalogInMemory = null;
+
+async function browseCommunity() {
+    $('community-overlay').classList.add('active');
+    $('community-search').value = '';
+    $('community-results').innerHTML = `<div class="search-empty">Loading…</div>`;
+    setTimeout(() => $('community-search')?.focus({ preventScroll: true }), 250);
+
+    const cached = readCommunityCache();
+    if (cached) {
+        _communityCatalogInMemory = cached;
+        await renderCommunityResults('');
+    }
+    const fresh = await ensureCommunityCatalog({ force: !cached });
+    _communityCatalogInMemory = fresh;
+    // Only re-render if the overlay's still open — user may have dismissed.
+    if ($('community-overlay').classList.contains('active')) {
+        const query = ($('community-search').value || '').toLowerCase().trim();
+        await renderCommunityResults(query);
+    }
+}
+
+function closeCommunity() {
+    $('community-overlay').classList.remove('active');
+}
+
+function filterCommunity(el) {
+    renderCommunityResults((el?.value || '').toLowerCase().trim());
+}
+
+async function renderCommunityResults(query) {
+    const results = $('community-results');
+    if (!results) return;
+    const catalog = _communityCatalogInMemory || { exercises: [] };
+    if (!catalog.exercises.length) {
+        results.innerHTML = `<div class="search-empty">No community exercises yet.</div>`;
+        return;
+    }
+    // Build a set of names the user already has (active customs OR built-ins)
+    // so we can render "Added" instead of an Add button for those rows.
+    const haveSet = new Set(exerciseLibrary.map(ex => ex.name));
+
+    const matches = catalog.exercises
+        .filter(ex => ex && typeof ex.name === 'string')
+        .filter(ex => !query
+            || ex.name.includes(query)
+            || (Array.isArray(ex.synonyms) && ex.synonyms.some(s => typeof s === 'string' && s.includes(query))))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!matches.length) {
+        results.innerHTML = `<div class="search-empty">No matches.</div>`;
+        return;
+    }
+
+    results.innerHTML = matches.map(ex => {
+        const muscle = ex.muscle || 'arms';
+        const have = haveSet.has(ex.name);
+        const dot = escapeHtml(muscleColor[muscle] || '#888');
+        const name = escapeHtml(titleCase(ex.name));
+        const muscleLabel = escapeHtml(titleCase(muscle));
+        const action = have
+            ? `<span class="community-row-added">Added</span>`
+            : `<button class="community-row-add" data-action="importCommunityExercise" data-exercise-name="${escapeHtml(ex.name)}">Add</button>`;
+        return `
+            <div class="community-row">
+                <span class="muscle-tag" style="background:${dot}"></span>
+                <div class="community-row-text">
+                    <span class="community-row-name">${name}</span>
+                    <span class="community-row-muscle">${muscleLabel}</span>
+                </div>
+                ${action}
+            </div>`;
+    }).join('');
+}
+
+async function importCommunityExercise(el) {
+    const name = el?.dataset?.exerciseName;
+    if (!name) return;
+    const catalog = _communityCatalogInMemory || readCommunityCache() || { exercises: [] };
+    const entry = catalog.exercises.find(e => e && e.name === name);
+    if (!entry) return;
+
+    // Same collision check as saveCustomExercise — never silently overwrite
+    // a built-in or an existing custom.
+    const collision = exerciseLibrary.find(ex => ex.name === entry.name);
+    if (collision) {
+        haptic([20, 50, 20]);
+        await infoSheet({
+            title: 'Already in your library',
+            body: `"${titleCase(entry.name)}" is already available. Open the search to use it.`,
+        });
+        return;
+    }
+
+    const record = {
+        name: entry.name,
+        muscle: entry.muscle || 'arms',
+        synonyms: Array.isArray(entry.synonyms) ? entry.synonyms : [],
+        modifiedAt: Date.now(),
+    };
+    await performDB('customExercises', 'put', record);
+    markUnsynced();
+
+    exerciseLibrary.push({ ...record, custom: true });
+    rebuildMatchOrder();
+    markFrequencyDirty();
+
+    await renderCustomsList();
+    // Re-render the community list so the row flips to "Added".
+    const query = ($('community-search')?.value || '').toLowerCase().trim();
+    await renderCommunityResults(query);
+    showSnackbar(`Added "${titleCase(entry.name)}"`);
+    haptic(15);
+}
+
+async function submitCurrentCustom() {
+    if (!editingCustomExercise) return;
+    const name = editingCustomExercise.name;
+    if (!name) return;
+    if (!userProfile?.email) {
+        await infoSheet({
+            title: 'Email required',
+            body: 'Add your email in Profile so submissions can be tracked.',
+        });
+        return;
+    }
+    if (!getToken()) {
+        await infoSheet({
+            title: 'Access key required',
+            body: 'Add your access key in Profile before submitting.',
+        });
+        return;
+    }
+    const ok = await confirmSheet({
+        title: `Submit "${titleCase(name)}"?`,
+        body: 'Send this custom exercise to the community pool for review. Approved entries will appear in Browse community.',
+        confirmLabel: 'Submit',
+    });
+    if (!ok) return;
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({
+                action: 'submitExercise',
+                user: userProfile,
+                exercise: {
+                    name,
+                    muscle: editingCustomExercise.muscle,
+                    synonyms: Array.isArray(editingCustomExercise.synonyms) ? editingCustomExercise.synonyms : [],
+                },
+            }),
+        });
+        if (res.status === 400) {
+            const err = await res.json().catch(() => ({}));
+            await infoSheet({
+                title: "Can't submit",
+                body: err.error || 'The server rejected this exercise.',
+            });
+            return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const reply = await res.json();
+        if (reply.alreadyPending) {
+            showSnackbar('Already in the review queue');
+        } else {
+            showSnackbar('Submitted for review');
+        }
+        haptic(15);
+    } catch (err) {
+        showSnackbar('Submit failed; try again later');
+    }
 }
 
 // ============================================================================
