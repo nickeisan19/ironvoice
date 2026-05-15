@@ -148,8 +148,11 @@ Text on gold: always `#1a1300`. Active/pressed: `#e6ad00`.
 - Secondary affordance — label color, not a primary gold CTA
 
 ### Header Icon Buttons (`.icon-btn`)
-- Home, help, target, sync icons → `--label` (navigation chrome, not CTAs)
-- Background: `rgba(120,120,128,0.20)` — neutral pill, consistent both modes
+Home, help, plate calculator, sync/download icons in the header strip.
+- **Dark mode:** gold background (`--gold`), dark icon (`#1a1300`)
+- **Light mode:** black background (`#000000`), gold icon (`--gold`)
+- Active/pressed: `#e6ad00` dark / `#1a1a1a` light
+- Controlled via `--icon-btn-bg`, `--icon-btn-color`, `--icon-btn-bg-active` tokens
 
 ### Voice Listening Status (`#status.listening`)
 - Dot and text → `--gold` (mic-brand color signals "I'm listening")

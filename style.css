@@ -40,6 +40,11 @@
   /* Dark mode: headings glow gold — interactive brand cue */
   --heading-color: var(--gold);
 
+  /* Icon button pills in the header */
+  --icon-btn-bg: var(--gold);
+  --icon-btn-color: #1a1300;
+  --icon-btn-bg-active: #e6ad00;
+
   /* Translucent backgrounds — overridden in light mode */
   --frosted-bg: rgba(30, 30, 30, 0.85);
   --header-scrolled-bg: rgba(18, 18, 18, 0.72);
@@ -97,6 +102,11 @@
   /* Light mode: headings are dark text, not gold */
   --heading-color: var(--label);
 
+  /* Icon button pills — black background, gold icon in light mode */
+  --icon-btn-bg: #000000;
+  --icon-btn-color: var(--gold);
+  --icon-btn-bg-active: #1a1a1a;
+
   --frosted-bg: rgba(250, 247, 242, 0.85);
   --header-scrolled-bg: rgba(250, 247, 242, 0.78);
   --modal-dim: rgba(0, 0, 0, 0.30);
@@ -137,6 +147,10 @@
     --blue-grad: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
 
     --heading-color: var(--label);
+
+    --icon-btn-bg: #000000;
+    --icon-btn-color: var(--gold);
+    --icon-btn-bg-active: #1a1a1a;
 
     --frosted-bg: rgba(250, 247, 242, 0.85);
     --header-scrolled-bg: rgba(250, 247, 242, 0.78);
@@ -707,8 +721,8 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
 .header-actions { display: flex; gap: 8px; }
 
 .icon-btn {
-  background: rgba(120, 120, 128, 0.20);
-  border: none; color: var(--label);
+  background: var(--icon-btn-bg);
+  border: none; color: var(--icon-btn-color);
   width: 36px; height: 36px;
   border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
@@ -722,7 +736,7 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
   position: absolute;
   inset: -4px;
 }
-.icon-btn:active { background: rgba(120, 120, 128, 0.30); }
+.icon-btn:active { background: var(--icon-btn-bg-active); }
 .icon-btn svg { width: 18px; height: 18px; }
 .icon-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 

@@ -218,8 +218,10 @@ The full spec lives in `brand.md`. Key rules Claude must follow:
   state on the Hero Load card and the SW update banner background. Blue is NOT
   used for any interactive element (buttons, links, row actions, focus rings).
   If you're tempted to use blue for a button or text link, use gold instead.
-- **`--label` for icon-btn** — home, help, target, sync icons are navigation
-  chrome. Color: `var(--label)` (white in dark / black in light). Not gold, not blue.
+- **Header icon buttons (`.icon-btn`)** — home, help, plate calculator, sync:
+  dark mode = gold background + `#1a1300` icon; light mode = black background +
+  gold icon. Controlled via `--icon-btn-bg` / `--icon-btn-color` /
+  `--icon-btn-bg-active` tokens in each `:root` block.
 - **`--label` for PR row share icon** — secondary affordance, not a CTA.
 - **Dark bg `#121212`, light bg `#faf7f2`** (warm cream, not cool gray).
 - **`--label` is pure white (`#ffffff`) in dark mode, pure black (`#000000`)
