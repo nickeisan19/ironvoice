@@ -1741,21 +1741,101 @@ either ignores or approves; the absence-on-client just means no
 UI chip is shown.
 
 **Don't:**
-- Don't add a `community/decisions.json` for explicit rejection
-  reasons. The 30-day time-decay is the contract; rejection
-  reasons would require admin action on every reject.
 - Don't surface "Why wasn't this approved?" copy. The
   `not-added` chip is intentionally terse — Nick's curation
   reasoning isn't always exhibitable.
-- Don't snackbar on `not-added` transitions. The state change
-  is silent by design.
 - Don't tighten the 30-day threshold without a concrete reason.
   Nick's review cadence is informal; punishing slow reviews
   with premature "Not added" labels would train submitters to
-  resubmit constantly.
+  resubmit constantly. (v9.46 supersedes this for *explicit*
+  rejections — those flip the chip immediately. The 30-day path
+  remains for submissions Nick neither approves nor rejects.)
 - Don't move the server-side gates into client-side. The
   community catalog is the server's authoritative data; making
   the client gatekeep on a possibly-stale cache invites races.
+
+**In-app admin review + explicit rejection (v9.46).** Manual
+JSON editing in the R2 dashboard is retired as the primary
+approval path. A new admin-only review sheet inside the
+Exercises hub lets Nick approve / reject submissions from his
+phone; rejected submissions surface to submitters immediately
+instead of waiting on the 30-day time-decay path.
+
+**Admin gate.** Worker reads `env.ADMIN_EMAIL` (set via
+`wrangler secret put ADMIN_EMAIL`). New helper `isAdmin(email,
+env)` does a timing-safe lowercase compare. Empty env var =
+no admin = all admin actions 403. Client has a hardcoded
+constant (`ADMIN_EMAIL` in [app.js](app.js)) for the cosmetic
+"show the Review row" check — spoofing it just makes the button
+non-functional because the worker is the real boundary.
+
+**Two new worker actions.**
+
+- `getReviewQueue` — admin-only. Returns
+  `{ submissions: [...] }` from `community/queue.json`.
+  Submitter slugs are hashed — the admin never sees plaintext
+  submitter emails.
+- `decideExercise` — admin-only. Body
+  `{ name, decision: 'approve'|'reject' }`. **Approve**: reads
+  the submission from queue, appends `{name, muscle, synonyms}`
+  to `community/exercises.json`, bumps `updatedAt`, removes
+  from queue. **Reject**: removes from queue, appends
+  `{name, decidedAt}` to a new `community/decisions.json`
+  (capped at the 200 most-recent so the blob stays bounded).
+  Both paths use etag-conditional puts with the same retry
+  pattern as `backup`. Both paths are idempotent — a duplicate
+  decision call on a name that's already gone returns
+  `{ ok: false, missing: true }` and the client refreshes.
+
+**`getCommunity` response shape extended.** Now returns
+`{ exercises, updatedAt, rejected }` where `rejected` is the
+contents of `community/decisions.json` (empty array if absent).
+Backwards-compatible — old clients ignore the new field.
+
+**Submitter-side reconciliation** adds an explicit-rejection
+branch alongside the existing approval and time-decay branches
+in `reconcilePendingAgainstCatalog` ([app.js](app.js)):
+
+1. Name in catalog → flip to `approved` + celebratory snackbar
+   `"<name>" was added to the community!`.
+2. Name in catalog.rejected → flip to `not-added` + soft
+   snackbar `"<name>" wasn't added to the community this time`.
+3. Pending >30d, neither of the above → flip to `not-added`
+   silently (time-decay; Nick took no explicit action).
+
+The v9.45 "snackbar on not-added is silent" rule applies only
+to the time-decay path now. Explicit admin decisions fire a
+soft snackbar so the submitter learns the outcome from the
+admin's action, not from inferred silence.
+
+**`writeCommunityCache`** ([app.js](app.js)) now persists
+`rejected: payload.rejected ?? []` alongside the catalog so
+the rejection signal survives reloads and offline boots.
+Forgetting this means the rejection chip disappears the moment
+the cache is rewritten.
+
+**Review queue sheet** (`#review-queue-overlay`) is admin-only
+UI. Cards mirror `.community-row`'s visual language — muscle
+dot + name + submitted-when, with Approve (gold) and Reject
+(red outline) side-by-side. Empty state when the queue's
+clear. Sorted oldest-first so first-in-first-reviewed.
+
+**Don't:**
+- Don't show the Review submissions row to non-admins. Even
+  though the worker rejects unauthorized calls, exposing the
+  affordance is needless noise for regular testers.
+- Don't add a reason field on rejections. The chip says "Not
+  added"; an explanation surface would require structured
+  copy entry on the admin side and a per-submission display
+  on the submitter side. Defer until a tester asks "why?"
+- Don't bulk-approve or bulk-reject. Per-entry decisions are
+  the contract at the queue depths in play (single-digit per
+  week).
+- Don't multi-admin. Single ADMIN_EMAIL matches the project's
+  single-user framing.
+- Don't keep approved decisions in `decisions.json` — catalog
+  appearance is the approval signal, so writing it twice would
+  just create drift.
 
 ---
 

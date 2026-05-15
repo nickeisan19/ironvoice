@@ -37,6 +37,7 @@ const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
 // wrangler CLI and copies approved entries into exercises.json.
 const COMMUNITY_EXERCISES_KEY = 'community/exercises.json';
 const COMMUNITY_QUEUE_KEY     = 'community/queue.json';
+const COMMUNITY_DECISIONS_KEY = 'community/decisions.json';
 const VALID_MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
 
 export default {
@@ -85,7 +86,7 @@ export default {
         }
 
         const action = body.action || 'backup';
-        if (!['ping', 'backup', 'restore', 'getCommunity', 'submitExercise'].includes(action)) {
+        if (!['ping', 'backup', 'restore', 'getCommunity', 'submitExercise', 'getReviewQueue', 'decideExercise'].includes(action)) {
             return jsonResponse({ error: 'Invalid action' }, 400, env);
         }
 
@@ -97,12 +98,21 @@ export default {
             );
         }
 
-        // ---- getCommunity (no user; global catalog) ---------------------------
+        // ---- getCommunity (no user; global catalog + rejections) --------------
         // Returns the curated community catalog. Bearer token still required
         // (same as every other action) but no per-user namespace touched.
+        // Rejections are returned alongside so submitters can flip their
+        // "Submitted" chip to "Not added" without waiting on time-decay.
         if (action === 'getCommunity') {
-            const catalog = await readCommunityCatalog(env);
-            return jsonResponse(catalog, 200, env);
+            const [catalog, decisions] = await Promise.all([
+                readCommunityCatalog(env),
+                readCommunityDecisions(env),
+            ]);
+            return jsonResponse({
+                exercises: catalog.exercises,
+                updatedAt: catalog.updatedAt,
+                rejected: decisions.rejected,
+            }, 200, env);
         }
 
         // ---- Validate user email ---------------------------------------------
@@ -222,6 +232,165 @@ export default {
                 }
             }
             return jsonResponse({ ok: true, queued: true }, 200, env);
+        }
+
+        // ====================================================================
+        // getReviewQueue — admin-only: returns pending submissions
+        // ====================================================================
+        if (action === 'getReviewQueue') {
+            if (!isAdmin(email, env)) {
+                return jsonResponse({ error: 'Forbidden' }, 403, env);
+            }
+            const queue = await readCommunityQueue(env);
+            return jsonResponse({ submissions: queue.submissions }, 200, env);
+        }
+
+        // ====================================================================
+        // decideExercise — admin-only: approve or reject a pending submission
+        //
+        // Approve: append to community/exercises.json (bumping updatedAt),
+        //          then remove from community/queue.json.
+        // Reject:  remove from queue, append to community/decisions.json so
+        //          the submitter's chip flips immediately on next refresh.
+        //
+        // Both blob writes use etag-conditional puts; the operation is
+        // idempotent — a duplicate decision call on the same name is a
+        // no-op after the queue entry's gone.
+        // ====================================================================
+        if (action === 'decideExercise') {
+            if (!isAdmin(email, env)) {
+                return jsonResponse({ error: 'Forbidden' }, 403, env);
+            }
+            const targetName = typeof body.name === 'string' ? body.name.trim().toLowerCase() : '';
+            const decision = body.decision === 'approve' ? 'approve' : (body.decision === 'reject' ? 'reject' : null);
+            if (!targetName) return jsonResponse({ error: 'Missing name' }, 400, env);
+            if (!decision)   return jsonResponse({ error: 'decision must be "approve" or "reject"' }, 400, env);
+
+            // Snapshot the submission from the queue (we need its
+            // muscle/synonyms on the approve path; both paths need its
+            // presence-check). Etag-conditional removal happens later.
+            const queueObj = await env.BUCKET.get(COMMUNITY_QUEUE_KEY);
+            let queue;
+            if (queueObj) {
+                try { queue = JSON.parse(await queueObj.text()); } catch { queue = null; }
+            }
+            if (!queue || !Array.isArray(queue.submissions)) {
+                queue = { submissions: [] };
+            }
+            const submission = queue.submissions.find(s => s && s.name === targetName);
+            if (!submission) {
+                return jsonResponse({ ok: false, error: 'Submission no longer in queue', missing: true }, 200, env);
+            }
+
+            if (decision === 'approve') {
+                // Append to exercises.json (or short-circuit if a previous
+                // approval already landed it).
+                const MAX_ATTEMPTS = 3;
+                let attempt = 0;
+                while (true) {
+                    attempt++;
+                    const existing = await env.BUCKET.get(COMMUNITY_EXERCISES_KEY);
+                    let catalog;
+                    if (existing) {
+                        try { catalog = JSON.parse(await existing.text()); } catch { catalog = null; }
+                    }
+                    if (!catalog || !Array.isArray(catalog.exercises)) {
+                        catalog = { exercises: [], updatedAt: 0 };
+                    }
+                    const already = catalog.exercises.some(e => e && e.name === targetName);
+                    if (!already) {
+                        catalog.exercises.push({
+                            name: submission.name,
+                            muscle: submission.muscle,
+                            synonyms: Array.isArray(submission.synonyms) ? submission.synonyms : [],
+                        });
+                    }
+                    catalog.updatedAt = Date.now();
+                    const putOpts = { httpMetadata: { contentType: 'application/json' } };
+                    if (existing) putOpts.onlyIf = { etagMatches: existing.etag };
+                    const putResult = await env.BUCKET.put(
+                        COMMUNITY_EXERCISES_KEY,
+                        JSON.stringify(catalog),
+                        putOpts
+                    );
+                    if (putResult !== null) break;
+                    if (attempt >= MAX_ATTEMPTS) {
+                        return jsonResponse({ error: 'Concurrent update on catalog; please retry' }, 503, env);
+                    }
+                }
+            } else {
+                // Reject: log to decisions.json so the submitter's chip
+                // flips on their next refresh. Cap at 200 most-recent so
+                // the blob stays bounded.
+                const MAX_ATTEMPTS = 3;
+                let attempt = 0;
+                while (true) {
+                    attempt++;
+                    const existing = await env.BUCKET.get(COMMUNITY_DECISIONS_KEY);
+                    let decisions;
+                    if (existing) {
+                        try { decisions = JSON.parse(await existing.text()); } catch { decisions = null; }
+                    }
+                    if (!decisions || !Array.isArray(decisions.rejected)) {
+                        decisions = { rejected: [] };
+                    }
+                    if (!decisions.rejected.some(r => r && r.name === targetName)) {
+                        decisions.rejected.push({ name: targetName, decidedAt: Date.now() });
+                    }
+                    // Keep only the most recent 200.
+                    if (decisions.rejected.length > 200) {
+                        decisions.rejected = decisions.rejected
+                            .slice()
+                            .sort((a, b) => (b.decidedAt || 0) - (a.decidedAt || 0))
+                            .slice(0, 200);
+                    }
+                    const putOpts = { httpMetadata: { contentType: 'application/json' } };
+                    if (existing) putOpts.onlyIf = { etagMatches: existing.etag };
+                    const putResult = await env.BUCKET.put(
+                        COMMUNITY_DECISIONS_KEY,
+                        JSON.stringify(decisions),
+                        putOpts
+                    );
+                    if (putResult !== null) break;
+                    if (attempt >= MAX_ATTEMPTS) {
+                        return jsonResponse({ error: 'Concurrent update on decisions; please retry' }, 503, env);
+                    }
+                }
+            }
+
+            // Both decision paths: remove the entry from the queue.
+            const MAX_ATTEMPTS = 3;
+            let attempt = 0;
+            while (true) {
+                attempt++;
+                const existing = await env.BUCKET.get(COMMUNITY_QUEUE_KEY);
+                let q;
+                if (existing) {
+                    try { q = JSON.parse(await existing.text()); } catch { q = null; }
+                }
+                if (!q || !Array.isArray(q.submissions)) {
+                    q = { submissions: [] };
+                }
+                const before = q.submissions.length;
+                q.submissions = q.submissions.filter(s => !(s && s.name === targetName));
+                if (q.submissions.length === before) {
+                    // Already removed by a concurrent admin action — done.
+                    break;
+                }
+                const putOpts = { httpMetadata: { contentType: 'application/json' } };
+                if (existing) putOpts.onlyIf = { etagMatches: existing.etag };
+                const putResult = await env.BUCKET.put(
+                    COMMUNITY_QUEUE_KEY,
+                    JSON.stringify(q),
+                    putOpts
+                );
+                if (putResult !== null) break;
+                if (attempt >= MAX_ATTEMPTS) {
+                    return jsonResponse({ error: 'Concurrent update on queue; please retry' }, 503, env);
+                }
+            }
+
+            return jsonResponse({ ok: true, decision }, 200, env);
         }
 
         // ====================================================================
@@ -437,6 +606,46 @@ async function readCommunityCatalog(env) {
     } catch {
         return { exercises: [], updatedAt: 0 };
     }
+}
+
+// Read the community moderation queue. Fail-soft like readCommunityCatalog.
+async function readCommunityQueue(env) {
+    const obj = await env.BUCKET.get(COMMUNITY_QUEUE_KEY);
+    if (obj === null) return { submissions: [] };
+    try {
+        const parsed = JSON.parse(await obj.text());
+        return {
+            submissions: Array.isArray(parsed.submissions) ? parsed.submissions : [],
+        };
+    } catch {
+        return { submissions: [] };
+    }
+}
+
+// Read the rejection-decisions blob. Returned alongside the catalog from
+// getCommunity so submitters can flip their "Submitted" chip to "Not
+// added" without waiting on the 30-day time-decay path.
+async function readCommunityDecisions(env) {
+    const obj = await env.BUCKET.get(COMMUNITY_DECISIONS_KEY);
+    if (obj === null) return { rejected: [] };
+    try {
+        const parsed = JSON.parse(await obj.text());
+        return {
+            rejected: Array.isArray(parsed.rejected) ? parsed.rejected : [],
+        };
+    } catch {
+        return { rejected: [] };
+    }
+}
+
+// Admin gate for getReviewQueue / decideExercise. Constant-time compare
+// against env.ADMIN_EMAIL (lowercased + trimmed both sides). Empty env
+// var = no admin = all admin actions 403.
+function isAdmin(email, env) {
+    const expected = (env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const actual = (email || '').trim().toLowerCase();
+    if (!expected || !actual) return false;
+    return timingSafeEqual(expected, actual);
 }
 
 // Validate + normalize a community-pool exercise submission. Returns

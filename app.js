@@ -633,6 +633,12 @@ const WHATS_NEW = {
             'When a submission gets approved, you’ll get a snackbar the next time you open the app.',
         ],
     },
+    '9.46': {
+        items: [
+            'Submission decisions now reach you faster — you’ll get a snackbar as soon as your exercise is added to the community or declined for this round.',
+            'No change for your day-to-day logging; this is just a tighter feedback loop on community contributions.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
@@ -2452,6 +2458,10 @@ function initActionDispatcher() {
         // two CTAs route to the existing custom editor + community sheet.
         openExercises, closeExercises,
         newCustomExerciseFromHub, browseCommunityFromHub,
+        // v9.46: Admin review queue — Review submissions row in the
+        // Exercises hub (admin-only), Approve / Reject per-row inside.
+        openReviewQueue, closeReviewQueue,
+        approveSubmission, rejectSubmission,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -3723,6 +3733,16 @@ const COMMUNITY_CACHE_KEY = 'ironCommunityCatalog';
 const COMMUNITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;   // refresh after a day
 const COMMUNITY_SEEN_KEY = 'ironCommunitySeenUpdatedAt';
 
+// v9.46: Admin identity (cosmetic — controls whether the Review row
+// surfaces on the client). The worker's ADMIN_EMAIL is the real gate;
+// changing this constant just shows/hides UI.
+const ADMIN_EMAIL = 'nickeisan19@gmail.com';
+
+function isCurrentUserAdmin() {
+    const actual = (userProfile?.email || '').trim().toLowerCase();
+    return !!actual && actual === ADMIN_EMAIL.toLowerCase();
+}
+
 function readCommunityCache() {
     try {
         const raw = localStorage.getItem(COMMUNITY_CACHE_KEY);
@@ -3740,6 +3760,9 @@ function writeCommunityCache(payload) {
         localStorage.setItem(COMMUNITY_CACHE_KEY, JSON.stringify({
             exercises: payload.exercises || [],
             updatedAt: Number(payload.updatedAt) || 0,
+            // v9.46: persist the rejection list alongside the catalog so the
+            // signal survives reloads and offline boots.
+            rejected: Array.isArray(payload.rejected) ? payload.rejected : [],
             fetchedAt: Date.now(),
         }));
     } catch {
@@ -3816,6 +3839,11 @@ let _communityCatalogInMemory = null;
 // taps Browse.
 async function openExercises() {
     $('exercises-overlay').classList.add('active');
+    // v9.46: surface the admin Review submissions row only for Nick.
+    // Server is the actual gate; this just controls visibility.
+    const adminRow = $('exercises-admin-row');
+    if (adminRow) adminRow.hidden = !isCurrentUserAdmin();
+    if (isCurrentUserAdmin()) refreshReviewQueueCount();
     await renderCustomsList();
     // Kick off a refresh in the background. The badge clears when the
     // user actually opens this sheet, so even a still-pending fetch
@@ -4044,10 +4072,12 @@ function removePendingSubmission(name) {
     writePendingSubmissions(next);
 }
 
-// Called on every fresh community-catalog fetch. Flips matching pending
-// submissions to 'approved' (with a one-time snackbar) and ages stale
-// ones to 'not-added' after PENDING_NOT_ADDED_DAYS. Time-decay is the
-// rejection signal — Nick never needs to mark anything as rejected.
+// Called on every fresh community-catalog fetch. Three resolution paths:
+//   1. name appears in catalog        → 'approved'  + celebratory snackbar
+//   2. name appears in catalog.rejected → 'not-added' + soft snackbar (v9.46)
+//   3. pending > 30d, neither of above → 'not-added' silently (time-decay)
+// Approval and explicit-rejection both fire a one-time notification;
+// time-decay is silent (since Nick took no explicit action).
 function reconcilePendingAgainstCatalog(catalog) {
     const list = readPendingSubmissions();
     if (!list.length) return;
@@ -4056,9 +4086,15 @@ function reconcilePendingAgainstCatalog(catalog) {
             .map(e => e && typeof e.name === 'string' ? e.name : null)
             .filter(Boolean)
     );
+    const rejectedNames = new Set(
+        (catalog?.rejected || [])
+            .map(r => r && typeof r.name === 'string' ? r.name : null)
+            .filter(Boolean)
+    );
     const cutoff = Date.now() - PENDING_NOT_ADDED_DAYS * 86400 * 1000;
     let changed = false;
     const newlyApproved = [];
+    const newlyRejected = [];
     for (const p of list) {
         if (p.status === 'pending' && catalogNames.has(p.name)) {
             p.status = 'approved';
@@ -4067,17 +4103,28 @@ function reconcilePendingAgainstCatalog(catalog) {
                 p.notified = true;
                 newlyApproved.push(p.name);
             }
+        } else if (p.status === 'pending' && rejectedNames.has(p.name)) {
+            p.status = 'not-added';
+            changed = true;
+            if (!p.notified) {
+                p.notified = true;
+                newlyRejected.push(p.name);
+            }
         } else if (p.status === 'pending' && (p.submittedAt || 0) < cutoff) {
             p.status = 'not-added';
             changed = true;
         }
     }
     if (changed) writePendingSubmissions(list);
-    // Snackbar once per approval. Stagger if multiple landed in the
-    // same refresh so they don't stomp on each other.
-    newlyApproved.forEach((name, i) => {
+    // Snackbar once per decision. Stagger if multiple landed together so
+    // they don't stomp on each other.
+    const messages = [
+        ...newlyApproved.map(name => `“${titleCase(name)}” was added to the community!`),
+        ...newlyRejected.map(name => `“${titleCase(name)}” wasn't added to the community this time`),
+    ];
+    messages.forEach((msg, i) => {
         setTimeout(() => {
-            showSnackbar(`“${titleCase(name)}” was added to the community!`);
+            showSnackbar(msg);
             haptic(15);
         }, i * 2200);
     });
@@ -4164,6 +4211,157 @@ async function submitCurrentCustom() {
         }
     } catch (err) {
         showSnackbar('Submit failed; try again later');
+    }
+}
+
+// ============================================================================
+// v9.46: Admin review queue (Nick-only)
+//
+// Opens from the "Review submissions · N pending" row inside the Exercises
+// hub. Lists pending entries with Approve/Reject buttons. Worker enforces
+// admin via ADMIN_EMAIL — client-side gates are cosmetic only.
+// ============================================================================
+
+let _reviewQueueInMemory = [];
+
+async function refreshReviewQueueCount() {
+    const countEl = $('review-queue-count');
+    if (!countEl) return;
+    if (!isCurrentUserAdmin() || !getToken() || !userProfile?.email) {
+        countEl.textContent = '—';
+        return;
+    }
+    try {
+        const submissions = await fetchReviewQueue();
+        _reviewQueueInMemory = submissions;
+        countEl.textContent = submissions.length === 0
+            ? 'None pending'
+            : `${submissions.length} pending`;
+    } catch {
+        countEl.textContent = '—';
+    }
+}
+
+async function fetchReviewQueue() {
+    const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ action: 'getReviewQueue', user: userProfile }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const reply = await res.json();
+    return Array.isArray(reply.submissions) ? reply.submissions : [];
+}
+
+async function openReviewQueue() {
+    $('review-queue-overlay').classList.add('active');
+    $('review-queue-list').innerHTML = `<div class="search-empty">Loading…</div>`;
+    try {
+        _reviewQueueInMemory = await fetchReviewQueue();
+        renderReviewQueue();
+    } catch {
+        $('review-queue-list').innerHTML = `<div class="search-empty">Couldn’t load — try again later.</div>`;
+    }
+}
+
+function closeReviewQueue() {
+    $('review-queue-overlay').classList.remove('active');
+}
+
+function renderReviewQueue() {
+    const list = $('review-queue-list');
+    if (!list) return;
+    const subs = _reviewQueueInMemory || [];
+    if (!subs.length) {
+        list.innerHTML = `<div class="search-empty">No submissions to review.</div>`;
+        return;
+    }
+    // Sort oldest first — first in, first reviewed.
+    const sorted = subs.slice().sort((a, b) => (a.submittedAt || 0) - (b.submittedAt || 0));
+    list.innerHTML = sorted.map(s => {
+        const name = escapeHtml(titleCase(s.name));
+        const muscle = escapeHtml(titleCase(s.muscle || 'arms'));
+        const dot = escapeHtml(muscleColor[s.muscle] || '#888');
+        const age = relativeAge(s.submittedAt);
+        const nameAttr = escapeHtml(s.name);
+        return `
+            <div class="review-row">
+                <div class="review-row-top">
+                    <span class="muscle-tag" style="background:${dot}"></span>
+                    <div class="review-row-meta">
+                        <span class="review-row-name">${name}</span>
+                        <span class="review-row-sub">${muscle} · submitted ${age}</span>
+                    </div>
+                </div>
+                <div class="review-row-actions">
+                    <button class="review-row-approve" data-action="approveSubmission" data-name="${nameAttr}">Approve</button>
+                    <button class="review-row-reject" data-action="rejectSubmission" data-name="${nameAttr}">Reject</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function relativeAge(timestamp) {
+    const ms = Date.now() - (Number(timestamp) || 0);
+    if (ms < 60 * 1000) return 'just now';
+    const m = Math.round(ms / 60000);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.round(h / 24);
+    if (d < 30) return `${d}d ago`;
+    return `${Math.round(d / 30)}mo ago`;
+}
+
+async function approveSubmission(el) {
+    const name = el?.dataset?.name;
+    if (!name) return;
+    await postDecision(name, 'approve');
+}
+
+async function rejectSubmission(el) {
+    const name = el?.dataset?.name;
+    if (!name) return;
+    await postDecision(name, 'reject');
+}
+
+async function postDecision(name, decision) {
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({
+                action: 'decideExercise',
+                user: userProfile,
+                name,
+                decision,
+            }),
+        });
+        if (res.status === 403) {
+            await infoSheet({
+                title: 'Not authorized',
+                body: 'The server didn’t recognize you as the admin. Check that ADMIN_EMAIL matches the email in Profile.',
+            });
+            return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const reply = await res.json();
+        if (reply.missing) {
+            showSnackbar('Already handled — refreshing.');
+        } else {
+            showSnackbar(decision === 'approve' ? `Approved “${titleCase(name)}”` : `Rejected “${titleCase(name)}”`);
+            haptic(15);
+        }
+        // Pop the row from memory + re-render, then refresh the count.
+        _reviewQueueInMemory = _reviewQueueInMemory.filter(s => s.name !== name);
+        renderReviewQueue();
+        await refreshReviewQueueCount();
+        // Force a catalog refresh so submitter clients pick up the
+        // approval / rejection on their next visibility resume.
+        await ensureCommunityCatalog({ force: true });
+    } catch (err) {
+        showSnackbar('Action failed; try again');
     }
 }
 

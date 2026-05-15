@@ -769,6 +769,64 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
   text-transform: uppercase;
 }
 
+/* v9.46: review queue sheet (admin-only) — one card per pending
+   submission inside #review-queue-list. Each card stacks a meta row
+   (muscle dot + name + submitted-when) above two side-by-side action
+   buttons (Approve gold, Reject red). Mirrors .community-row shape so
+   the visual language stays consistent. */
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.review-row {
+  background: var(--surface-2);
+  border: 0.5px solid var(--hairline);
+  border-radius: 14px;
+  padding: 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.review-row-top { display: flex; align-items: center; gap: 12px; }
+.review-row-top .muscle-tag { width: 12px; height: 12px; flex-shrink: 0; }
+.review-row-meta {
+  display: flex; flex-direction: column;
+  flex: 1; min-width: 0;
+}
+.review-row-name {
+  font-weight: 600;
+  color: var(--label);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.review-row-sub {
+  font-size: 0.78rem;
+  color: var(--label-secondary);
+  margin-top: 2px;
+}
+.review-row-actions { display: flex; gap: 8px; }
+.review-row-approve,
+.review-row-reject {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 44px;
+}
+.review-row-approve { background: var(--gold); color: #1a1300; }
+.review-row-approve:active { background: #e6ad00; transform: scale(0.98); }
+.review-row-reject {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+.review-row-reject:active { background: rgba(255, 59, 48, 0.12); transform: scale(0.98); }
+
 /* v9.44: status chip on each custom-exercise row inside the Exercises
    hub when the canonical name has a tracked community submission.
    Three variants by submission state — pending / approved / not-added. */

@@ -311,6 +311,13 @@
                 <button class="sheet-close" data-action="closeExercises">Done</button>
             </div>
             <div class="sheet-body">
+                <!-- v9.46: admin-only Review submissions row. Toggled visible by openExercises() when isCurrentUserAdmin(). -->
+                <div class="grouped-list" id="exercises-admin-row" hidden>
+                    <button class="row-action" data-action="openReviewQueue">
+                        <span>Review submissions</span>
+                        <span class="row-trailing" id="review-queue-count">—</span>
+                    </button>
+                </div>
                 <div class="grouped-list" id="exercises-actions">
                     <button class="row-action" data-action="newCustomExerciseFromHub"><span>+ New exercise</span></button>
                     <button class="row-action" data-action="browseCommunityFromHub">
@@ -321,6 +328,22 @@
                 <div class="section-label" style="margin-top:22px"><span>Your custom exercises</span></div>
                 <div class="grouped-list" id="exercises-list"></div>
                 <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate. Submit a custom from its editor to share with the community.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.46: Admin review queue (gated by ADMIN_EMAIL on the worker).
+         Opened from the Review submissions row inside the Exercises hub. -->
+    <div id="review-queue-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="review-queue-title">
+            <div class="sheet-header sheet-header-3col">
+                <span></span>
+                <span class="sheet-title-text" id="review-queue-title">Review submissions</span>
+                <button class="sheet-close" data-action="closeReviewQueue">Done</button>
+            </div>
+            <div class="sheet-body">
+                <div id="review-queue-list" class="review-list"></div>
+                <div class="section-foot" style="margin-top:18px">Approve adds the exercise to the community pool. Reject removes it from the queue and lets the submitter know.</div>
             </div>
         </div>
     </div>
