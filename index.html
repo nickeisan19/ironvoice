@@ -300,6 +300,31 @@
         </div>
     </div>
 
+    <!-- v9.43: Exercises hub — opened from the dumbbell icon in the header.
+         Hosts the user's custom exercises (tap to edit) plus two CTAs:
+         + New (custom editor) and Browse community. -->
+    <div id="exercises-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="exercises-title">
+            <div class="sheet-header sheet-header-3col">
+                <span></span>
+                <span class="sheet-title-text" id="exercises-title">Exercises</span>
+                <button class="sheet-close" data-action="closeExercises">Done</button>
+            </div>
+            <div class="sheet-body">
+                <div class="grouped-list" id="exercises-actions">
+                    <button class="row-action" data-action="newCustomExerciseFromHub"><span>+ New exercise</span></button>
+                    <button class="row-action" data-action="browseCommunityFromHub">
+                        <span>Browse community</span>
+                        <span class="row-trailing-new" id="exercises-community-new" hidden>New</span>
+                    </button>
+                </div>
+                <div class="section-label" style="margin-top:22px"><span>Your custom exercises</span></div>
+                <div class="grouped-list" id="exercises-list"></div>
+                <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate. Submit a custom from its editor to share with the community.</div>
+            </div>
+        </div>
+    </div>
+
     <!-- v9.42: Community exercise pool browser -->
     <div id="community-overlay" class="overlay" aria-hidden="true">
         <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="community-title">
@@ -494,6 +519,13 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2V11z"/>
                     </svg>
+                </button>
+                <button class="icon-btn" id="exercises-fab" data-action="openExercises" aria-label="Exercises">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <!-- Dumbbell: short outer plates, taller inner plates, bar across -->
+                        <path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/>
+                    </svg>
+                    <span class="icon-btn-badge" id="exercises-badge" aria-hidden="true"></span>
                 </button>
                 <button class="icon-btn" data-action="openHelp" aria-label="Voice commands">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 4"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
@@ -794,17 +826,7 @@
                     <div class="section-foot">Templates filter the picker, set per-exercise targets, and track progress.</div>
                 </div>
 
-                <div class="settings-section">
-                    <div class="section-label">
-                        <span>Custom exercises</span>
-                        <span class="section-actions">
-                            <button class="section-add" data-action="browseCommunity">Browse</button>
-                            <button class="section-add" data-action="newCustomExercise">+ New</button>
-                        </span>
-                    </div>
-                    <div class="grouped-list" id="customs-list"></div>
-                    <div class="section-foot">Add anything not in the built-in library. Tagged with a muscle group so charts and journal stay accurate. Browse the community pool to import exercises others have shared.</div>
-                </div>
+                <!-- v9.43: Custom exercises moved to the Exercises hub (header dumbbell icon). -->
 
                 <div class="settings-section">
                     <div class="section-label">Voice</div>

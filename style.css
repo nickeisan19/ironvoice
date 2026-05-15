@@ -740,6 +740,35 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
 .icon-btn svg { width: 18px; height: 18px; }
 .icon-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
+/* v9.43: dumbbell icon badge — pip in the top-right corner when new
+   community exercises exist. Hidden by default; the .has-badge class
+   on the parent button reveals it. */
+.icon-btn-badge {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 1.5px solid var(--icon-btn-bg);
+  display: none;
+  pointer-events: none;
+}
+.icon-btn.has-badge .icon-btn-badge { display: block; }
+
+/* v9.43: inline "New" chip on the Browse community row inside the
+   Exercises hub. Mirrors the badge signal in-sheet so the user knows
+   what the pip referred to. */
+.row-trailing-new {
+  background: var(--gold);
+  color: #1a1300;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 #status {
   display: inline-flex; align-items: center; gap: 6px;
   color: var(--label-secondary);

@@ -404,6 +404,11 @@ window.addEventListener('load', () => {
     showScreen('home');   // mark Home tab active on first load
     startWorkoutClockTick();
     acknowledgeVersionLanding();
+    // v9.43: paint the badge from cached state first, then refresh in
+    // the background so the dumbbell icon reflects current community
+    // state without blocking initial render.
+    updateExercisesBadge();
+    setTimeout(() => { ensureCommunityCatalog().catch(() => {}); }, 2000);
     // v8: auto-sync triggers
     document.addEventListener('visibilitychange', onVisibilityChange);
     // Boot-time catch-up: if the page was killed before a previous sync
@@ -612,6 +617,13 @@ const WHATS_NEW = {
         items: [
             'Browse community exercises — open Profile → Custom exercises → Browse to add lifts other people have shared.',
             'Share your own — tap Submit to community inside any custom exercise to send it in for review.',
+        ],
+    },
+    '9.43': {
+        items: [
+            'New dumbbell icon at the top — your one-tap hub for managing exercises.',
+            'Custom exercises moved out of Profile and into the new hub.',
+            'A gold dot on the dumbbell signals when new community exercises are waiting for you.',
         ],
     },
 };
@@ -2425,6 +2437,11 @@ function initActionDispatcher() {
         // custom editor.
         browseCommunity, closeCommunity, importCommunityExercise,
         submitCurrentCustom,
+        // v9.43: Exercises hub — header dumbbell icon opens this bottom
+        // sheet. Custom-exercise list was moved here from Profile; the
+        // two CTAs route to the existing custom editor + community sheet.
+        openExercises, closeExercises,
+        newCustomExerciseFromHub, browseCommunityFromHub,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -3544,7 +3561,8 @@ async function deleteTemplate() {
 // ============================================================================
 
 async function renderCustomsList() {
-    const list = $('customs-list');
+    // v9.43: list moved from Profile to the Exercises hub sheet.
+    const list = $('exercises-list');
     if (!list) return;
     list.innerHTML = "";
     const customs = await getActiveCustoms();
@@ -3675,6 +3693,7 @@ async function deleteCustomExercise() {
 
 const COMMUNITY_CACHE_KEY = 'ironCommunityCatalog';
 const COMMUNITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;   // refresh after a day
+const COMMUNITY_SEEN_KEY = 'ironCommunitySeenUpdatedAt';
 
 function readCommunityCache() {
     try {
@@ -3698,6 +3717,33 @@ function writeCommunityCache(payload) {
     } catch {
         // Quota / private-mode — non-fatal; in-memory render still works.
     }
+    updateExercisesBadge();
+}
+
+// v9.43: Header dumbbell icon shows a gold pip when the community catalog
+// has changed since the user last opened the Exercises hub. Compares the
+// cached community.updatedAt against ironCommunitySeenUpdatedAt; the pip
+// clears when the hub opens.
+function updateExercisesBadge() {
+    const btn = $('exercises-fab');
+    if (!btn) return;
+    const cached = readCommunityCache();
+    const seen = Number(localStorage.getItem(COMMUNITY_SEEN_KEY)) || 0;
+    const has =
+        !!cached &&
+        Number(cached.updatedAt) > seen &&
+        Array.isArray(cached.exercises) &&
+        cached.exercises.length > 0;
+    btn.classList.toggle('has-badge', has);
+    const inSheetPip = $('exercises-community-new');
+    if (inSheetPip) inSheetPip.hidden = !has;
+}
+
+function markCommunitySeen() {
+    const cached = readCommunityCache();
+    const stamp = Number(cached?.updatedAt) || Date.now();
+    localStorage.setItem(COMMUNITY_SEEN_KEY, String(stamp));
+    updateExercisesBadge();
 }
 
 // Fetch the catalog from the worker. Returns the parsed payload or null on
@@ -3729,6 +3775,36 @@ async function ensureCommunityCatalog({ force = false } = {}) {
 }
 
 let _communityCatalogInMemory = null;
+
+// v9.43: Exercises hub — the dumbbell icon's bottom sheet. Hosts the
+// custom-exercise list (moved here from Profile) plus + New / Browse
+// community CTAs. Opens with the latest community catalog already
+// requested so the badge / "New" chip reflect reality before the user
+// taps Browse.
+async function openExercises() {
+    $('exercises-overlay').classList.add('active');
+    await renderCustomsList();
+    // Kick off a refresh in the background. The badge clears when the
+    // user actually opens this sheet, so even a still-pending fetch
+    // doesn't break the "you've seen this" semantics.
+    ensureCommunityCatalog().then(() => {
+        markCommunitySeen();
+    });
+}
+
+function closeExercises() {
+    $('exercises-overlay').classList.remove('active');
+}
+
+function newCustomExerciseFromHub() {
+    closeExercises();
+    newCustomExercise();
+}
+
+function browseCommunityFromHub() {
+    closeExercises();
+    browseCommunity();
+}
 
 async function browseCommunity() {
     $('community-overlay').classList.add('active');

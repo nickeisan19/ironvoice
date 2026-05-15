@@ -1573,6 +1573,83 @@ and the search still works exactly the same.
   need. R2 dashboard / `wrangler r2 object put` is fine at this
   scale.
 
+**Exercises hub + dumbbell header icon (v9.43).** Custom-exercise
+management moved out of Profile and into a dedicated bottom sheet
+fronted by a new dumbbell icon in the global header. The
+motivation was reachability: "manage exercises" used to require
+navigating to Profile and scrolling — three taps for what is now
+one. The Profile screen is for *account/identity/data* (email,
+access key, theme, voice, export); exercises are a *content
+library* that should live behind their own affordance, not buried
+in a settings list.
+
+**Header icon.** Fifth `.icon-btn` in `#app-header` ([index.html](index.html)),
+positioned between Home and Help (`#exercises-fab`,
+`data-action="openExercises"`). Inline SVG dumbbell — short outer
+plates, taller inner plates, horizontal bar — matching the
+`stroke="currentColor"` line-art style of the other header icons
+so it inherits the gold-or-black-icon-bg theming the rest of the
+row already does. Don't swap to a filled glyph; the consistency
+with `home`, `openHelp`, `openPlate`, `syncToNAS` is the visual
+contract.
+
+**Bottom sheet (`#exercises-overlay`).** Three sections top to
+bottom:
+1. Two CTA rows in a `.grouped-list`: **+ New exercise** (routes
+   to the existing custom editor via `newCustomExerciseFromHub`,
+   which closes the hub first so the editor lands on a clean
+   stack) and **Browse community** (routes to
+   `browseCommunityFromHub` → existing `#community-overlay`).
+2. **Your custom exercises** — the `#exercises-list`
+   `.grouped-list` populated by `renderCustomsList` (same
+   function as before, just retargeted from the deleted
+   `#customs-list` Profile element). Tap-to-edit semantics
+   preserved — opens `#custom-overlay` exactly like the Profile
+   list did.
+3. Footnote explaining the submit-to-community path.
+
+Don't merge the two CTAs into a single segmented control; the
+"+ New" and "Browse" intents are different enough (create vs.
+import) that splitting them is right. Don't move the list above
+the CTAs; the action-first layout puts the primary verbs at the
+top of the sheet where the thumb naturally lands.
+
+**Community "new" indicator (badge + chip).** A gold pip at the
+top-right of the dumbbell icon (`.icon-btn-badge`, revealed via
+`.has-badge` on the parent button) signals that the community
+catalog has changed since the user last opened the hub. Driven
+by `updateExercisesBadge()` ([app.js](app.js)): compares the
+cached `community.updatedAt` against `ironCommunitySeenUpdatedAt`
+in localStorage; pip shows if `updatedAt > seen` and the catalog
+is non-empty. Inside the hub, a small "New" chip
+(`.row-trailing-new`, `#exercises-community-new`) appears on the
+Browse community row when the same condition is true — so the
+user knows what the pip referred to once the sheet is open.
+
+`markCommunitySeen()` writes the cache's `updatedAt` to
+`ironCommunitySeenUpdatedAt` and recomputes the badge. Fires
+from `openExercises()` after the background `ensureCommunityCatalog()`
+resolves, so even if the user opens the hub before the fetch
+completes, the badge clears on the *next* boot once the seen
+timestamp has the latest value.
+
+`writeCommunityCache()` calls `updateExercisesBadge()` so every
+catalog refresh (boot, hub open, Browse open) keeps the pip
+honest. The boot path adds a 2-second-deferred
+`ensureCommunityCatalog()` so the badge reflects current state
+without blocking initial render.
+
+Don't replace the localStorage timestamp comparison with a
+per-exercise-name diff. The `updatedAt` signal is Nick-controlled
+(set when he edits `community/exercises.json`), which is exactly
+the right granularity for "Nick published new exercises" — a
+name diff would also fire on submissions Nick rejected, which
+isn't the intended signal.
+
+**Don't surface badges on other header icons** without a clear
+reason. The visual language is "the dumbbell's pip means new
+community exercises"; adding pips elsewhere dilutes that.
+
 ---
 
 ## Conventions Nick follows
