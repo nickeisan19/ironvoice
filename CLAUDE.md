@@ -200,27 +200,36 @@ instead.
 
 ---
 
-## Brand palette — Iron Velocity (v9.38)
+## Brand palette — Iron Velocity (v9.40)
 
 The full spec lives in `brand.md`. Key rules Claude must follow:
 
 - **Gold (`#FFC107`, `--gold`) is the primary brand signal** — mic FAB, Start
   Workout, Add Set, stepper buttons, active tab bar, week-strip selected day,
-  sheet Done buttons, and all session-card labels (IN PROGRESS / SET / VOLUME /
-  REST). Text on gold: always `#1a1300`. Active/pressed: `#e6ad00`.
+  sheet Done buttons, all session-card labels (IN PROGRESS / SET / VOLUME /
+  REST), AND all primary sheet CTAs (`.primary-btn`), row actions (`.row-action`),
+  link text (`.section-add`, `.snackbar-action`), PR segmented tabs active,
+  session header checkmark, and voice listening indicator. Text on gold: always
+  `#1a1300`. Active/pressed: `#e6ad00`.
 - **`--heading-color` token** — dark mode: `var(--gold)`; light mode:
   `var(--label)`. Applied to `h1`, `.screen-header h2`, and `.modal h2`.
   Never hardcode gold on headings; the token handles mode switching.
-- **Blue (`#2196F3`, `--blue`) is secondary** — Share, Sync, Confirm sheets
-  (`.primary-btn`), the History rollup Rest cell (scannability anchor). Not
-  used for workout CTAs or headings.
+- **Blue (`#2196F3`, `--blue`) is semantic-only** — the "steady" training-load
+  state on the Hero Load card and the SW update banner background. Blue is NOT
+  used for any interactive element (buttons, links, row actions, focus rings).
+  If you're tempted to use blue for a button or text link, use gold instead.
 - **`--label` for icon-btn** — home, help, target, sync icons are navigation
-  chrome. Color: `var(--label)` (white dark / dark light). Not blue.
+  chrome. Color: `var(--label)` (white in dark / black in light). Not gold, not blue.
+- **`--label` for PR row share icon** — secondary affordance, not a CTA.
 - **Dark bg `#121212`, light bg `#faf7f2`** (warm cream, not cool gray).
+- **`--label` is pure white (`#ffffff`) in dark mode, pure black (`#000000`)
+  in light mode.** Secondary/tertiary variants use white or black with opacity,
+  not grey base colors. Hairlines in light mode use `rgba(0,0,0,...)` not
+  `rgba(60,60,67,...)`.
 - **Session card**: warm gold tint background
   (`rgba(255,193,7,0.18) → rgba(255,143,0,0.10)`), all labels gold.
-- **History rollup Rest cell stays blue** — deliberate contrast anchor;
-  the session-card REST label is gold but the rollup's blue is its own rule.
+- **History rollup Rest cell** → `var(--label)` — same as other rollup cells.
+  The "deliberate blue contrast anchor" rule from v9.33 was retired in v9.40.
 
 ---
 
