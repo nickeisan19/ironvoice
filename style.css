@@ -769,6 +769,32 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
   text-transform: uppercase;
 }
 
+/* v9.44: status chip on each custom-exercise row inside the Exercises
+   hub when the canonical name has a tracked community submission.
+   Three variants by submission state — pending / approved / not-added. */
+.row-trailing-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  margin-right: 6px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.row-trailing-status.is-pending {
+  background: rgba(255, 193, 7, 0.18);
+  color: var(--gold);
+}
+.row-trailing-status.is-approved {
+  background: rgba(76, 175, 80, 0.18);
+  color: #66bb6a;
+}
+.row-trailing-status.is-not-added {
+  background: var(--surface-3);
+  color: var(--label-tertiary);
+}
+
 #status {
   display: inline-flex; align-items: center; gap: 6px;
   color: var(--label-secondary);

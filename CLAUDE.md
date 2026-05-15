@@ -1650,6 +1650,113 @@ isn't the intended signal.
 reason. The visual language is "the dumbbell's pip means new
 community exercises"; adding pips elsewhere dilutes that.
 
+**Submission auto-rejection + submitter feedback (v9.44).** The
+v9.42 submit flow was append-and-forget — every submission hit
+`community/queue.json` regardless of redundancy, and the
+submitter never heard back. v9.44 layers two gates around the
+queue and a per-submitter status tracker around the result.
+
+**Two-layer auto-rejection.** Each layer rejects what *that
+side* can authoritatively know — no shared data between client
+and server beyond the existing payload.
+
+1. **Client-side pre-flight** ([app.js](app.js)
+   `validateSubmissionLocally`). Runs inside `submitCurrentCustom`
+   *before* the POST fires. Rejects:
+   - Name matches a built-in or active custom in
+     `exerciseLibrary` → "Already in your library" / "Already
+     in the built-in library."
+   - Name matches a built-in's synonym (e.g. "bench" → built-in
+     "bench press") → "Already covered."
+   - Name shorter than 3 chars or contains no letters →
+     "Name's too short" / "Add some letters."
+   Each rejection surfaces via `infoSheet`, returns before any
+   network call.
+2. **Server-side gate** ([worker.js](worker.js) `submitExercise`).
+   Reads `community/exercises.json` via the new
+   `readCommunityCatalog(env)` helper (shared with
+   `getCommunity`) before queuing. Rejects:
+   - Name already in the curated pool → HTTP 200,
+     `{ ok: true, queued: false, alreadyInCatalog: true }`.
+     **Note**: this is informational, not an error — 200 with
+     a flag, not 400 with a message. Client distinguishes via
+     the flag and shows a friendly snackbar pointing the user
+     to Browse community.
+   - Name already pending from a *different* submitter → 200,
+     `{ ..., alreadyPendingFromOther: true }`. Snackbar:
+     "Someone else is already proposing this."
+   - Name already pending from the *same* submitter → keeps the
+     existing `alreadyPending: true` path.
+
+The server still does the structural validation
+(`validateCommunityExercise`) — that's about shape (name length,
+muscle enum, synonyms array bounds) and is orthogonal to the
+content gates above. Don't fold the gates into
+`validateCommunityExercise` — they need R2 reads, which the
+structural validator deliberately doesn't.
+
+**Pending-submission tracker.** Stored in
+`localStorage.ironPendingSubmissions` as
+`[{ name, submittedAt, status, notified? }]` where status ∈
+`pending` / `approved` / `not-added`. Helpers in
+[app.js](app.js): `readPendingSubmissions`,
+`writePendingSubmissions`, `addPendingSubmission`,
+`removePendingSubmission`, `getPendingSubmission`,
+`reconcilePendingAgainstCatalog`.
+
+**Reconciliation** runs whenever a fresh community catalog
+lands (inside `ensureCommunityCatalog`, only on actual fetch —
+not on the bare-cache short-circuit). For each pending entry:
+
+- Name appears in the fresh catalog → flip to `approved` and
+  fire a one-time snackbar: `"<name>" was added to the
+  community!`. The `notified` marker prevents the snackbar from
+  re-firing on later refreshes; the chip stays.
+- Pending for ≥30 days AND name still absent → silently flip to
+  `not-added`. No snackbar. This is the **rejection-by-absence**
+  path that lets Nick decline submissions without ever editing
+  a "rejected" flag or writing a `decisions.json`.
+
+**Visibility-resume refresh.** `onVisibilityChange` now triggers
+`ensureCommunityCatalog()` on the `'visible'` branch if the
+cache is older than 6 hours, so "submit → close app → Nick
+approves an hour later → user reopens" surfaces the approval
+snackbar within seconds of foreground. Don't tighten below 6h —
+the boot fetch + the hub-open fetch already cover the common
+cases, and the resume hook is for the *rare* gap between them.
+
+**Status chips** (`.row-trailing-status` with `.is-pending`,
+`.is-approved`, `.is-not-added`) render inside `renderCustomsList`
+for each custom whose canonical name has a tracked submission.
+The chip sits between the meta column and the chevron. Approved
+chips stay visible permanently — it's a small badge of honor for
+the submitter and a stable receipt that the contribution landed.
+
+**Cleanup paths.** `deleteCustomExercise` and
+`tombstoneCustomOnPromotion` both call `removePendingSubmission`
+so deleting the local custom (or having it auto-de-duped by a
+built-in promotion) immediately clears the chip. The queue entry
+on the server is left orphaned — Nick spots it during review and
+either ignores or approves; the absence-on-client just means no
+UI chip is shown.
+
+**Don't:**
+- Don't add a `community/decisions.json` for explicit rejection
+  reasons. The 30-day time-decay is the contract; rejection
+  reasons would require admin action on every reject.
+- Don't surface "Why wasn't this approved?" copy. The
+  `not-added` chip is intentionally terse — Nick's curation
+  reasoning isn't always exhibitable.
+- Don't snackbar on `not-added` transitions. The state change
+  is silent by design.
+- Don't tighten the 30-day threshold without a concrete reason.
+  Nick's review cadence is informal; punishing slow reviews
+  with premature "Not added" labels would train submitters to
+  resubmit constantly.
+- Don't move the server-side gates into client-side. The
+  community catalog is the server's authoritative data; making
+  the client gatekeep on a possibly-stale cache invites races.
+
 ---
 
 ## Conventions Nick follows

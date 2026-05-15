@@ -626,6 +626,13 @@ const WHATS_NEW = {
             'A gold dot on the dumbbell signals when new community exercises are waiting for you.',
         ],
     },
+    '9.45': {
+        items: [
+            'Submitting an exercise that already exists in your library or the community pool now tells you right away — no more waiting on a review for a duplicate.',
+            'Custom exercises you’ve submitted show their review status right on the row — Submitted, In community, or Not added.',
+            'When a submission gets approved, you’ll get a snackbar the next time you open the app.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
@@ -890,6 +897,9 @@ async function tombstoneCustomOnPromotion(c) {
     const next = { ...c, deleted: true, modifiedAt: Date.now() };
     await performDB('customExercises', 'put', next);
     markUnsynced();
+    // v9.44: if the promoted name had a pending submission, clear the
+    // tracker — the built-in win supersedes the community proposal.
+    removePendingSubmission(c.name);
 }
 
 // Item 8: drop tombstones older than 90 days. Runs on boot and before every sync.
@@ -3577,10 +3587,25 @@ async function renderCustomsList() {
         const name = escapeHtml(titleCase(c.name));
         const muscle = escapeHtml(titleCase(c.muscle));
         const dot = escapeHtml(muscleColor[c.muscle] || '#888');
-        row.innerHTML = `<div class="tpl-meta"><span class="tpl-name">${name}</span><span class="tpl-count"><span class="leg-dot" style="background:${dot};display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle"></span>${muscle}</span></div><span class="chev">›</span>`;
+        // v9.44: optional status chip if this custom has a tracked
+        // community submission. Pending = gold dot, approved = green check,
+        // not-added = muted grey.
+        const pending = getPendingSubmission(c.name);
+        const chip = pending ? renderSubmissionChip(pending.status) : '';
+        row.innerHTML = `<div class="tpl-meta"><span class="tpl-name">${name}</span><span class="tpl-count"><span class="leg-dot" style="background:${dot};display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle"></span>${muscle}</span></div>${chip}<span class="chev">›</span>`;
         row.addEventListener('click', () => editCustomExercise(c));
         list.appendChild(row);
     });
+}
+
+function renderSubmissionChip(status) {
+    if (status === 'approved') {
+        return `<span class="row-trailing-status is-approved" title="Added to community">In community</span>`;
+    }
+    if (status === 'not-added') {
+        return `<span class="row-trailing-status is-not-added" title="Not added to community">Not added</span>`;
+    }
+    return `<span class="row-trailing-status is-pending" title="Submission pending review">Submitted</span>`;
 }
 
 function newCustomExercise() {
@@ -3674,6 +3699,9 @@ async function deleteCustomExercise() {
     const idx = exerciseLibrary.findIndex(ex => ex.name === editingCustomExercise.name && ex.custom);
     if (idx >= 0) exerciseLibrary.splice(idx, 1);
     rebuildMatchOrder();
+
+    // v9.44: drop any pending-submission chip for the deleted name.
+    removePendingSubmission(editingCustomExercise.name);
 
     $('custom-overlay').classList.remove('active');
     editingCustomExercise = null;
@@ -3771,7 +3799,12 @@ async function ensureCommunityCatalog({ force = false } = {}) {
     const fresh = cached && (Date.now() - (cached.fetchedAt || 0) < COMMUNITY_CACHE_TTL_MS);
     if (cached && fresh && !force) return cached;
     const fetched = await fetchCommunityCatalog();
-    return fetched || cached || { exercises: [], updatedAt: 0, fetchedAt: 0 };
+    const result = fetched || cached || { exercises: [], updatedAt: 0, fetchedAt: 0 };
+    // v9.44: every fresh catalog is an opportunity to detect approvals
+    // and expire stale submissions. Cheap; runs only when the cache
+    // actually changed (the bare-cached early return above skips this).
+    if (fetched) reconcilePendingAgainstCatalog(result);
+    return result;
 }
 
 let _communityCatalogInMemory = null;
@@ -3919,6 +3952,142 @@ async function importCommunityExercise(el) {
     haptic(15);
 }
 
+// v9.44: client-side pre-flight for community submissions. Catches the
+// obvious-redundancy cases (already in built-in or active custom; matches
+// a built-in synonym; too short / non-letter) BEFORE the POST fires, so
+// the queue stays focused on genuinely novel additions and Nick doesn't
+// review noise. Returns null on success, or { title, body } for infoSheet.
+function validateSubmissionLocally(name) {
+    const canon = (name || '').trim().toLowerCase();
+    if (canon.length < 3) {
+        return {
+            title: "Name's too short",
+            body: 'Use at least three letters so the exercise is easy to find.',
+        };
+    }
+    if (!/[a-z]/.test(canon)) {
+        return {
+            title: 'Add some letters',
+            body: 'Submissions need a real name — numbers or symbols alone aren’t enough.',
+        };
+    }
+    const existing = exerciseLibrary.find(ex => ex.name === canon);
+    if (existing) {
+        const title = existing.custom
+            ? 'Already in your library'
+            : 'Already in the built-in library';
+        const body = existing.custom
+            ? `"${titleCase(canon)}" is already one of your customs — no need to submit a copy.`
+            : `"${titleCase(canon)}" is already shipped with the app, so submitting it won’t add anything new.`;
+        return { title, body };
+    }
+    // Synonym hit on a built-in entry — e.g., submitting "bench" when
+    // "bench press" already lists it as a synonym. Custom synonyms are
+    // empty today so this only flags shipped overlaps.
+    const synonymHit = exerciseLibrary.find(ex =>
+        !ex.custom && Array.isArray(ex.synonyms) && ex.synonyms.includes(canon)
+    );
+    if (synonymHit) {
+        return {
+            title: 'Already covered',
+            body: `"${titleCase(canon)}" is already a nickname for "${titleCase(synonymHit.name)}" in the built-in library.`,
+        };
+    }
+    return null;
+}
+
+// v9.44: pending-submission tracker. Stored in localStorage so it
+// survives reloads and works without a backend round-trip. Each entry:
+//   { name, submittedAt, status, notified? }
+// status ∈ 'pending' | 'approved' | 'not-added'.
+const PENDING_SUBMISSIONS_KEY = 'ironPendingSubmissions';
+const PENDING_NOT_ADDED_DAYS = 30;
+
+function readPendingSubmissions() {
+    try {
+        const raw = localStorage.getItem(PENDING_SUBMISSIONS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(p => p && typeof p.name === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
+function writePendingSubmissions(arr) {
+    try {
+        localStorage.setItem(PENDING_SUBMISSIONS_KEY, JSON.stringify(arr || []));
+    } catch {
+        // Quota / private mode — non-fatal; chips just won't render this session.
+    }
+}
+
+function getPendingSubmission(name) {
+    if (!name) return null;
+    const canon = name.toLowerCase();
+    return readPendingSubmissions().find(p => p.name === canon) || null;
+}
+
+function addPendingSubmission(name) {
+    const canon = (name || '').trim().toLowerCase();
+    if (!canon) return;
+    const list = readPendingSubmissions();
+    if (list.some(p => p.name === canon)) return;   // idempotent
+    list.push({ name: canon, submittedAt: Date.now(), status: 'pending' });
+    writePendingSubmissions(list);
+}
+
+function removePendingSubmission(name) {
+    const canon = (name || '').trim().toLowerCase();
+    if (!canon) return;
+    const next = readPendingSubmissions().filter(p => p.name !== canon);
+    writePendingSubmissions(next);
+}
+
+// Called on every fresh community-catalog fetch. Flips matching pending
+// submissions to 'approved' (with a one-time snackbar) and ages stale
+// ones to 'not-added' after PENDING_NOT_ADDED_DAYS. Time-decay is the
+// rejection signal — Nick never needs to mark anything as rejected.
+function reconcilePendingAgainstCatalog(catalog) {
+    const list = readPendingSubmissions();
+    if (!list.length) return;
+    const catalogNames = new Set(
+        (catalog?.exercises || [])
+            .map(e => e && typeof e.name === 'string' ? e.name : null)
+            .filter(Boolean)
+    );
+    const cutoff = Date.now() - PENDING_NOT_ADDED_DAYS * 86400 * 1000;
+    let changed = false;
+    const newlyApproved = [];
+    for (const p of list) {
+        if (p.status === 'pending' && catalogNames.has(p.name)) {
+            p.status = 'approved';
+            changed = true;
+            if (!p.notified) {
+                p.notified = true;
+                newlyApproved.push(p.name);
+            }
+        } else if (p.status === 'pending' && (p.submittedAt || 0) < cutoff) {
+            p.status = 'not-added';
+            changed = true;
+        }
+    }
+    if (changed) writePendingSubmissions(list);
+    // Snackbar once per approval. Stagger if multiple landed in the
+    // same refresh so they don't stomp on each other.
+    newlyApproved.forEach((name, i) => {
+        setTimeout(() => {
+            showSnackbar(`“${titleCase(name)}” was added to the community!`);
+            haptic(15);
+        }, i * 2200);
+    });
+    // Status chips in the Exercises hub depend on this state, so re-render
+    // if the hub is visible.
+    if ($('exercises-overlay')?.classList.contains('active')) {
+        renderCustomsList();
+    }
+}
+
 async function submitCurrentCustom() {
     if (!editingCustomExercise) return;
     const name = editingCustomExercise.name;
@@ -3935,6 +4104,13 @@ async function submitCurrentCustom() {
             title: 'Access key required',
             body: 'Add your access key in Profile before submitting.',
         });
+        return;
+    }
+    // v9.44: client-side pre-flight — never POST a submission the user
+    // doesn't need to make.
+    const localReject = validateSubmissionLocally(name);
+    if (localReject) {
+        await infoSheet(localReject);
         return;
     }
     const ok = await confirmSheet({
@@ -3968,12 +4144,24 @@ async function submitCurrentCustom() {
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const reply = await res.json();
-        if (reply.alreadyPending) {
+        if (reply.alreadyInCatalog) {
+            showSnackbar(`“${titleCase(name)}” is already in the community pool`);
+        } else if (reply.alreadyPendingFromOther) {
+            showSnackbar('Someone else is already proposing this');
+        } else if (reply.alreadyPending) {
             showSnackbar('Already in the review queue');
+            addPendingSubmission(name);  // backfill chip if missing
+        } else if (reply.queued) {
+            showSnackbar('Submitted for review');
+            addPendingSubmission(name);
         } else {
             showSnackbar('Submitted for review');
         }
         haptic(15);
+        // Re-render the hub list so the chip appears immediately.
+        if ($('exercises-overlay')?.classList.contains('active')) {
+            renderCustomsList();
+        }
     } catch (err) {
         showSnackbar('Submit failed; try again later');
     }
@@ -6235,6 +6423,12 @@ function onVisibilityChange() {
         if (activeSession) acquireScreenWakeLock();
         // The clock can be many minutes stale if the page was suspended.
         updateWorkoutClock();
+        // v9.44: catch "submit, close app, Nick approves, user opens app"
+        // quickly. Only refresh if the cache is older than 6 hours so we
+        // don't hit the worker on every brief app switch.
+        const cached = readCommunityCache();
+        const stale = !cached || (Date.now() - (cached.fetchedAt || 0) > 6 * 60 * 60 * 1000);
+        if (stale) ensureCommunityCatalog().catch(() => {});
     }
 }
 

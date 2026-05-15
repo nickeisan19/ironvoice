@@ -101,20 +101,8 @@ export default {
         // Returns the curated community catalog. Bearer token still required
         // (same as every other action) but no per-user namespace touched.
         if (action === 'getCommunity') {
-            const obj = await env.BUCKET.get(COMMUNITY_EXERCISES_KEY);
-            if (obj === null) {
-                return jsonResponse({ exercises: [], updatedAt: 0 }, 200, env);
-            }
-            try {
-                const parsed = JSON.parse(await obj.text());
-                return jsonResponse({
-                    exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
-                    updatedAt: Number(parsed.updatedAt) || 0,
-                }, 200, env);
-            } catch (err) {
-                // Corrupt catalog → fail soft to empty list rather than 500.
-                return jsonResponse({ exercises: [], updatedAt: 0 }, 200, env);
-            }
+            const catalog = await readCommunityCatalog(env);
+            return jsonResponse(catalog, 200, env);
         }
 
         // ---- Validate user email ---------------------------------------------
@@ -160,8 +148,21 @@ export default {
             }
             const entry = validation.entry;
             const submitterSlug = slug;
-            const MAX_ATTEMPTS = 3;
 
+            // Auto-reject: name is already in the curated community pool.
+            // Read once before the retry loop — the catalog rarely changes
+            // mid-submission, and the worst case (race) is a duplicate
+            // entry Nick spots during review.
+            const catalog = await readCommunityCatalog(env);
+            if (catalog.exercises.some(e => e && e.name === entry.name)) {
+                return jsonResponse({
+                    ok: true,
+                    queued: false,
+                    alreadyInCatalog: true,
+                }, 200, env);
+            }
+
+            const MAX_ATTEMPTS = 3;
             let attempt = 0;
             while (true) {
                 attempt++;
@@ -174,11 +175,25 @@ export default {
                     queue = { submissions: [] };
                 }
 
-                const alreadyPending = queue.submissions.some(s =>
+                // Distinguish "same submitter" from "different submitter" for
+                // submitter feedback. Same-submitter dedup is the original
+                // queue-bloat guard; different-submitter is informational —
+                // the user learns someone else already proposed this name.
+                const sameSubmitter = queue.submissions.some(s =>
                     s && s.name === entry.name && s.submitterSlug === submitterSlug
                 );
-                if (alreadyPending) {
+                if (sameSubmitter) {
                     return jsonResponse({ ok: true, queued: false, alreadyPending: true }, 200, env);
+                }
+                const otherSubmitter = queue.submissions.some(s =>
+                    s && s.name === entry.name && s.submitterSlug !== submitterSlug
+                );
+                if (otherSubmitter) {
+                    return jsonResponse({
+                        ok: true,
+                        queued: false,
+                        alreadyPendingFromOther: true,
+                    }, 200, env);
                 }
 
                 queue.submissions.push({
@@ -403,6 +418,25 @@ function isValidEmail(s) {
     // not RFC-perfect, but rejects obvious garbage. Good enough as a guard
     // against typos and accidents; doesn't replace real auth.
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+// Read the curated community catalog from R2. Always returns
+// { exercises: [], updatedAt: number } — empty list if the blob is
+// absent or corrupt (fail-soft, never 500). Shared between getCommunity
+// (which returns this directly to the client) and submitExercise
+// (which checks the names list to auto-reject pool-dups pre-queue).
+async function readCommunityCatalog(env) {
+    const obj = await env.BUCKET.get(COMMUNITY_EXERCISES_KEY);
+    if (obj === null) return { exercises: [], updatedAt: 0 };
+    try {
+        const parsed = JSON.parse(await obj.text());
+        return {
+            exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
+            updatedAt: Number(parsed.updatedAt) || 0,
+        };
+    } catch {
+        return { exercises: [], updatedAt: 0 };
+    }
 }
 
 // Validate + normalize a community-pool exercise submission. Returns
