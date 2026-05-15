@@ -701,6 +701,16 @@ header {
   padding: env(safe-area-inset-top) 20px 0;
   background: transparent;
   transition: background 0.3s var(--ease);
+  /* v9.47: own GPU layer + paint containment so the .scrolled
+     backdrop-filter toggle during momentum scroll doesn't ripple
+     re-rasterizations into the tab bar's layer, which was the
+     symptom of "bottom row moving on Profile / PR / History /
+     Workout" — every screen scrolls and trips this toggle. */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  isolation: isolate;
 }
 header.scrolled {
   background: var(--header-scrolled-bg);
@@ -1578,7 +1588,11 @@ button.card-button:focus-visible {
   color: white;
   z-index: 9500;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transform: translateY(-100%);
+  /* v9.47: translate3d for own-GPU-layer promotion. */
+  transform: translate3d(0, -100%, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   transition: transform 0.45s var(--spring), background 0.15s ease;
   pointer-events: none;
   /* v9.3 — whole banner is the tap target. Hint affordance + suppress
@@ -1589,7 +1603,7 @@ button.card-button:focus-visible {
   -webkit-tap-highlight-color: transparent;
 }
 .update-banner.active {
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
   pointer-events: auto;
 }
 .update-banner:active {
@@ -1669,7 +1683,14 @@ button.card-button:focus-visible {
   position: fixed;
   bottom: calc(128px + env(safe-area-inset-bottom));
   left: 50%;
-  transform: translateX(-50%) translateY(24px);
+  /* v9.47: translate3d (not translateX + translateY) so iOS promotes
+     the snackbar to its own GPU layer. Without this, the snackbar's
+     backdrop-filter shares a paint context with neighbors and can
+     drag the tab bar visually during scroll-triggered repaints. */
+  transform: translate3d(-50%, 24px, 0);
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   background: var(--frosted-bg);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
@@ -1685,7 +1706,7 @@ button.card-button:focus-visible {
   transition: transform 0.4s var(--spring), opacity 0.25s var(--ease);
   max-width: calc(100vw - 32px);
 }
-.snackbar.active { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+.snackbar.active { display: flex; opacity: 1; transform: translate3d(-50%, 0, 0); }
 .snackbar-text {
   color: var(--label);
   font-size: 0.88rem;
@@ -1715,7 +1736,11 @@ button.card-button:focus-visible {
   position: fixed;
   top: calc(env(safe-area-inset-top) + 80px);
   left: 50%;
-  transform: translateX(-50%) translateY(-16px);
+  /* v9.47: translate3d for own-GPU-layer promotion (see .snackbar). */
+  transform: translate3d(-50%, -16px, 0);
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   background: var(--frosted-bg);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
@@ -1735,7 +1760,7 @@ button.card-button:focus-visible {
 .voice-response.active {
   display: block;
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translate3d(-50%, 0, 0);
 }
 .voice-response-text {
   color: var(--label);
@@ -2066,9 +2091,18 @@ button.card-button:focus-visible {
      snapping back to bottom — backdrop-filter interacts badly with
      the default paint pipeline during momentum scroll. translate3d
      forces a separate layer so the bar is composited independently
-     from the scrolling content and stays pinned. */
+     from the scrolling content and stays pinned.
+     v9.47: added isolation + backface-visibility for newer iOS
+     versions where translate3d alone wasn't enough — the header's
+     dynamic .scrolled backdrop-filter toggling during momentum
+     scroll was leaking re-rasterizations into the tab bar's layer
+     across the Profile / PR / History / Workout screens. */
   transform: translate3d(0, 0, 0);
   will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  isolation: isolate;
+  contain: paint;
 }
 
 .tab-btn {

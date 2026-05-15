@@ -679,10 +679,23 @@ function initOnlineHandler() {
 function initScroll() {
     const header = $('app-header');
     let ticking = false;
+    // v9.47: hysteresis so the class doesn't flip on every rAF tick when
+    // the user hovers right at the boundary (8px). Was contributing to
+    // tab-bar paint flickers on iOS during slow momentum scrolls because
+    // backdrop-filter add/remove kept re-rasterizing the header's layer
+    // adjacent to the tab bar's.
+    let scrolled = false;
     window.addEventListener('scroll', () => {
         if (!ticking) {
             requestAnimationFrame(() => {
-                header.classList.toggle('scrolled', window.scrollY > 8);
+                const y = window.scrollY;
+                if (!scrolled && y > 12) {
+                    scrolled = true;
+                    header.classList.add('scrolled');
+                } else if (scrolled && y < 4) {
+                    scrolled = false;
+                    header.classList.remove('scrolled');
+                }
                 ticking = false;
             });
             ticking = true;
@@ -3603,7 +3616,15 @@ async function renderCustomsList() {
         const pending = getPendingSubmission(c.name);
         const chip = pending ? renderSubmissionChip(pending.status) : '';
         row.innerHTML = `<div class="tpl-meta"><span class="tpl-name">${name}</span><span class="tpl-count"><span class="leg-dot" style="background:${dot};display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle"></span>${muscle}</span></div>${chip}<span class="chev">›</span>`;
-        row.addEventListener('click', () => editCustomExercise(c));
+        row.addEventListener('click', () => {
+            // v9.47: close the hub before opening the editor so the
+            // editor isn't hidden behind it (equal-z-index DOM paint
+            // race), and flag the return so closing the editor brings
+            // the hub back instead of dropping to Home.
+            closeExercises();
+            _returnToExercisesHub = true;
+            editCustomExercise(c);
+        });
         list.appendChild(row);
     });
 }
@@ -3645,6 +3666,7 @@ function cancelCustomExercise() {
     $('custom-overlay').classList.remove('active');
     editingCustomExercise = null;
     haptic(8);
+    maybeReturnToExercisesHub();   // v9.47: stack-back if entered via hub
 }
 
 async function saveCustomExercise() {
@@ -3689,6 +3711,7 @@ async function saveCustomExercise() {
     await renderCustomsList();
     await renderAll();   // re-render journal + chart with new muscle assignment
     haptic(15);
+    maybeReturnToExercisesHub();   // v9.47
 }
 
 async function deleteCustomExercise() {
@@ -3718,6 +3741,7 @@ async function deleteCustomExercise() {
     await renderCustomsList();
     await renderAll();
     haptic(20);
+    maybeReturnToExercisesHub();   // v9.47
 }
 
 // ============================================================================
@@ -3837,7 +3861,18 @@ let _communityCatalogInMemory = null;
 // community CTAs. Opens with the latest community catalog already
 // requested so the badge / "New" chip reflect reality before the user
 // taps Browse.
+//
+// v9.47 stacking fix: opening a sub-sheet from the hub (editor, browse,
+// review queue) closes the hub first to avoid the equal-z-index paint
+// race — #custom-overlay is line 96 in index.html, #exercises-overlay
+// is line 306, so without this the editor renders BEHIND the hub and
+// the user perceives a dead click. _returnToExercisesHub then tells
+// each sub-sheet's close handler to bring the hub back up so closing
+// the editor lands the user back on the hub list, not on Home.
+let _returnToExercisesHub = false;
+
 async function openExercises() {
+    _returnToExercisesHub = false;   // fresh entry — clear any stale flag
     $('exercises-overlay').classList.add('active');
     // v9.46: surface the admin Review submissions row only for Nick.
     // Server is the actual gate; this just controls visibility.
@@ -3857,13 +3892,27 @@ function closeExercises() {
     $('exercises-overlay').classList.remove('active');
 }
 
+// v9.47: each sub-sheet's close handler calls this. If the user got to
+// the sub-sheet via the hub (flag set when we closed the hub to open
+// it), reopen the hub so the back-out lands one level shallower instead
+// of dropping them to Home.
+function maybeReturnToExercisesHub() {
+    if (!_returnToExercisesHub) return;
+    _returnToExercisesHub = false;
+    // Defer slightly so the sub-sheet's close animation runs first,
+    // then the hub slides up cleanly without animation conflict.
+    setTimeout(() => openExercises(), 60);
+}
+
 function newCustomExerciseFromHub() {
     closeExercises();
+    _returnToExercisesHub = true;
     newCustomExercise();
 }
 
 function browseCommunityFromHub() {
     closeExercises();
+    _returnToExercisesHub = true;
     browseCommunity();
 }
 
@@ -3889,6 +3938,7 @@ async function browseCommunity() {
 
 function closeCommunity() {
     $('community-overlay').classList.remove('active');
+    maybeReturnToExercisesHub();   // v9.47
 }
 
 function filterCommunity(el) {
@@ -4254,6 +4304,10 @@ async function fetchReviewQueue() {
 }
 
 async function openReviewQueue() {
+    // v9.47: same stack pattern as the other sub-sheets — close hub,
+    // flag the return so closing the review queue brings the hub back.
+    closeExercises();
+    _returnToExercisesHub = true;
     $('review-queue-overlay').classList.add('active');
     $('review-queue-list').innerHTML = `<div class="search-empty">Loading…</div>`;
     try {
@@ -4266,6 +4320,7 @@ async function openReviewQueue() {
 
 function closeReviewQueue() {
     $('review-queue-overlay').classList.remove('active');
+    maybeReturnToExercisesHub();   // v9.47
 }
 
 function renderReviewQueue() {
