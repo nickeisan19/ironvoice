@@ -639,6 +639,11 @@ const WHATS_NEW = {
             'No change for your day-to-day logging; this is just a tighter feedback loop on community contributions.',
         ],
     },
+    '9.48': {
+        items: [
+            'Exercises you’ve had before show a Previously added hint and a Re-add button when they pop up in Browse community — easier to recognize your own contributions.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
@@ -3856,6 +3861,21 @@ async function ensureCommunityCatalog({ force = false } = {}) {
 
 let _communityCatalogInMemory = null;
 
+// v9.48: names of customs the user previously had but has since
+// tombstoned. Used by renderCommunityResults to mark rows as
+// "Previously added · Re-add" instead of bare "Add" so the user
+// recognizes returns of their own contributions / imports.
+// Populated when the community sheet opens; invalidated inline
+// after a successful re-add.
+let _communityTombstonedNames = new Set();
+
+async function loadTombstonedCustomNames() {
+    const all = await performDB('customExercises', 'getAll');
+    _communityTombstonedNames = new Set(
+        all.filter(c => c && c.deleted && typeof c.name === 'string').map(c => c.name)
+    );
+}
+
 // v9.43: Exercises hub — the dumbbell icon's bottom sheet. Hosts the
 // custom-exercise list (moved here from Profile) plus + New / Browse
 // community CTAs. Opens with the latest community catalog already
@@ -3922,6 +3942,10 @@ async function browseCommunity() {
     $('community-results').innerHTML = `<div class="search-empty">Loading…</div>`;
     setTimeout(() => $('community-search')?.focus({ preventScroll: true }), 250);
 
+    // v9.48: build the tombstoned-names set once before rendering so each
+    // row can branch into Added / Re-add / Add cleanly.
+    await loadTombstonedCustomNames();
+
     const cached = readCommunityCache();
     if (cached) {
         _communityCatalogInMemory = cached;
@@ -3972,18 +3996,31 @@ async function renderCommunityResults(query) {
     results.innerHTML = matches.map(ex => {
         const muscle = ex.muscle || 'arms';
         const have = haveSet.has(ex.name);
+        // v9.48: third state — name not currently in library but the
+        // user has had it before (tombstoned record). "Built-in
+        // collision wins" precedence is enforced by checking `have`
+        // first; a name that's now a built-in always shows Added.
+        const previouslyHad = !have && _communityTombstonedNames.has(ex.name);
         const dot = escapeHtml(muscleColor[muscle] || '#888');
         const name = escapeHtml(titleCase(ex.name));
         const muscleLabel = escapeHtml(titleCase(muscle));
-        const action = have
-            ? `<span class="community-row-added">Added</span>`
-            : `<button class="community-row-add" data-action="importCommunityExercise" data-exercise-name="${escapeHtml(ex.name)}">Add</button>`;
+        let action;
+        if (have) {
+            action = `<span class="community-row-added">Added</span>`;
+        } else if (previouslyHad) {
+            action = `<button class="community-row-add community-row-readd" data-action="importCommunityExercise" data-exercise-name="${escapeHtml(ex.name)}">Re-add</button>`;
+        } else {
+            action = `<button class="community-row-add" data-action="importCommunityExercise" data-exercise-name="${escapeHtml(ex.name)}">Add</button>`;
+        }
+        const historyHint = previouslyHad
+            ? ` <span class="community-row-history">· Previously added</span>`
+            : '';
         return `
             <div class="community-row">
                 <span class="muscle-tag" style="background:${dot}"></span>
                 <div class="community-row-text">
                     <span class="community-row-name">${name}</span>
-                    <span class="community-row-muscle">${muscleLabel}</span>
+                    <span class="community-row-muscle">${muscleLabel}${historyHint}</span>
                 </div>
                 ${action}
             </div>`;
@@ -4021,6 +4058,10 @@ async function importCommunityExercise(el) {
     exerciseLibrary.push({ ...record, custom: true });
     rebuildMatchOrder();
     markFrequencyDirty();
+
+    // v9.48: invalidate the "previously had" cache for this name so the
+    // row flips to "Added" immediately, not "Re-add" again.
+    _communityTombstonedNames.delete(entry.name);
 
     await renderCustomsList();
     // Re-render the community list so the row flips to "Added".

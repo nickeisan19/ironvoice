@@ -3414,3 +3414,24 @@ body.ios #mic-btn.listening .mic-eq { display: none; }
   padding: 6px 12px;
   flex-shrink: 0;
 }
+
+/* v9.48: "Re-add" variant — outlined gold instead of solid so it reads
+   as recognized-but-quieter than a brand-new "Add." Telegraphs "you've
+   had this before" without competing visually with truly new rows. */
+.community-row-add.community-row-readd {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+.community-row-add.community-row-readd:active {
+  background: rgba(255, 193, 7, 0.12);
+  color: var(--gold);
+  transform: scale(0.96);
+}
+
+/* v9.48: muted "· Previously added" suffix appended to the muscle line
+   so the user recognizes returns of their own contributions. */
+.community-row-history {
+  color: var(--label-tertiary);
+  font-style: italic;
+}

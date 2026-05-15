@@ -1650,6 +1650,43 @@ isn't the intended signal.
 reason. The visual language is "the dumbbell's pip means new
 community exercises"; adding pips elsewhere dilutes that.
 
+**Browse community has three row states (v9.48).** Each
+`.community-row` in the browse sheet branches on local-library
+state:
+
+1. **Added** — name is in `exerciseLibrary` (built-in OR active
+   custom). Trailing `.community-row-added` muted chip; no
+   tappable affordance.
+2. **Re-add** (Previously added) — name is NOT in
+   `exerciseLibrary` but exists as a tombstoned record
+   (`deleted: true`) in `customExercises`. Trailing
+   `.community-row-add.community-row-readd` outlined-gold
+   button; the muscle line gets a `· Previously added`
+   italic suffix (`.community-row-history`) so the user
+   recognizes returns of their own contributions / imports.
+3. **Add** — name is in neither. Solid-gold
+   `.community-row-add` button.
+
+Detection lives in `renderCommunityResults` ([app.js](app.js))
+via a module-level `_communityTombstonedNames` Set, populated
+by `loadTombstonedCustomNames()` when `browseCommunity()`
+opens the sheet. The set is invalidated inline inside
+`importCommunityExercise` after a successful re-add so the
+same row flips to "Added" without a refetch.
+
+**Built-in-wins precedence** is enforced by checking `have`
+*before* `previouslyHad`: a name that's now a built-in
+(promoted from community since the user's tombstone) always
+renders Added, never Re-add.
+
+The tombstoned set is only loaded inside `browseCommunity` —
+it's not maintained elsewhere because the only path to *enter*
+a tombstoned state (deleteCustomExercise) is unreachable while
+the community sheet is open (the editor lives in the hub; the
+hub closes when community opens via the v9.47 stack pattern).
+Don't try to keep this cache live across other surfaces unless
+that invariant changes.
+
 **Submission auto-rejection + submitter feedback (v9.44).** The
 v9.42 submit flow was append-and-forget — every submission hit
 `community/queue.json` regardless of redundancy, and the
