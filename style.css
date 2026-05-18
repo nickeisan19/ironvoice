@@ -440,7 +440,8 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   align-items: center;
   gap: 10px 12px;
 }
-.row-input-stepper > span {
+.row-input-stepper > span,
+.row-input-stepper > label {
   grid-column: 1;
   grid-row: 1;
   flex: 0 0 auto;
@@ -477,7 +478,6 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   background: var(--gold);
   color: #1a1300;
   border: none;
-  color: white;
   border-radius: var(--radius-md);
   padding: 0 6px;
   min-width: 44px;
@@ -488,6 +488,16 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s var(--ease), transform 0.1s var(--ease);
+  /* v9.49 — the entire button rectangle (and the 8px gap to each side)
+     is the tap target, not just the numeric label. The expander absorbs
+     the inter-button gap so a finger landing slightly off-center still
+     registers a bump. */
+  position: relative;
+}
+.qa-step::before {
+  content: "";
+  position: absolute;
+  inset: -2px -4px;
 }
 .qa-step-fine {
   font-size: 0.88rem;
@@ -1387,6 +1397,130 @@ button.card-button:focus-visible {
   color: var(--label);
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* v9.49 — Activity card. Month calendar with a small dumbbell glyph on
+   every day the user logged a work set. Prev/next navigates month-to-
+   month. Left-edge color band drives the accountability signal based on
+   CURRENT state (trained-today vs N-day gap), not the displayed month —
+   the band is about now, the grid is about whichever month is in view.
+   State class names match .hero-load. */
+.activity-card {
+  position: relative;
+  padding-left: 22px;   /* leave room for the band on the left edge */
+}
+.activity-card::before {
+  content: "";
+  position: absolute;
+  top: 12px; bottom: 12px; left: 8px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--label-tertiary);  /* neutral default */
+  transition: background 0.3s var(--ease);
+}
+.activity-card.recovery::before { background: var(--green);  }
+.activity-card.steady::before   { background: var(--blue);   }
+.activity-card.high::before     { background: var(--orange); }
+.activity-card.over::before     {
+  background: var(--red);
+  animation: pulse-band 1.8s var(--ease) infinite;
+}
+@keyframes pulse-band {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+/* Header row: prev <  Month  > next. Centered title between two icon-btn-sm
+   buttons. Replaces the standard .rec-header layout for this card so the
+   navigation chrome reads at a glance. */
+.activity-header-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.activity-header-row h3 {
+  text-align: center;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.activity-header-row .icon-btn-sm[disabled] {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.activity-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.activity-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.activity-row.activity-header {
+  margin-bottom: 2px;
+}
+.activity-col-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--label-tertiary);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.activity-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  background: var(--surface-3);
+  border: 0.5px solid var(--hairline);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: var(--label-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.activity-cell.is-empty {
+  /* Padding cells before day 1 / after last day — keep grid shape, render
+     nothing. Border off so the empty corners aren't visually noisy. */
+  background: transparent;
+  border-color: transparent;
+}
+.activity-cell.is-trained {
+  background: rgba(255, 193, 7, 0.18);
+  border-color: rgba(255, 193, 7, 0.55);
+  color: var(--label);
+}
+.activity-cell.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--gold);
+  color: var(--gold);
+}
+.activity-cell-num {
+  display: block;
+}
+.activity-cell-mark {
+  width: 14px;
+  height: 14px;
+  color: var(--gold);
+  display: block;
+}
+.activity-cell.is-future {
+  opacity: 0.45;
+}
+.activity-summary {
+  font-size: 0.78rem;
+  color: var(--label-secondary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Recommended next card — exercise rows + CTA. */
@@ -2820,6 +2954,18 @@ button.card-button:focus-visible {
   font-feature-settings: "tnum";
   line-height: 1;
 }
+
+/* v9.49 — Trained-day marker. The same dumbbell SVG the Home Activity
+   card uses lands here on days with ≥1 work set. Sits below the date
+   number, inherits the cell's color so it flips to dark on the active
+   (gold) cell and stays gold otherwise. */
+.week-day .activity-cell-mark {
+  width: 14px;
+  height: 14px;
+  color: var(--gold);
+  margin-top: 1px;
+}
+.week-day.active .activity-cell-mark { color: #1a1300; }
 
 /* Session header row in day detail (v9.33). Matches the rollup card
    above: outer card holds a head row (checkmark + start time + optional

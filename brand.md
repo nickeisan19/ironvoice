@@ -154,6 +154,31 @@ Home, help, plate calculator, sync/download icons in the header strip.
 - Active/pressed: `#e6ad00` dark / `#1a1a1a` light
 - Controlled via `--icon-btn-bg`, `--icon-btn-color`, `--icon-btn-bg-active` tokens
 
+### Trained-Day Marker (`.activity-cell-mark`)
+A 14×14 inline-SVG dumbbell that lands on every day the user logged a
+work set. Single source: `ACTIVITY_DUMBBELL_SVG` constant in [app.js](app.js).
+- Default color → `--gold`
+- On gold-filled backgrounds (selected History week-strip day) → `#1a1300`
+- Path matches the Exercises hub header icon — same line-art language,
+  shorter outer plates / taller inner plates / horizontal bar
+- Used by the Home Activity card cells AND the History week-strip cells —
+  same glyph across both surfaces so the trained-day signal reads as
+  one visual vocabulary
+
+### Activity Card State Band (`.activity-card::before`)
+4px-wide colored stripe along the left edge of the Home Activity card.
+Drives the accountability signal based on current state, not the
+displayed month.
+- Default → `--label-tertiary` (neutral)
+- `.recovery` → `--green` (trained today)
+- `.steady` → `--blue` (1–2 day gap)
+- `.high` → `--orange` (3–4 day gap)
+- `.over` → `--red` + `pulse-band` animation (5+ day gap)
+
+Reuses the same state class names as `.hero-load`. Blue here is a
+semantic state signal (the same exception that `.hero-load.steady`
+already carves out) — NOT a return of blue to interactive chrome.
+
 ### Voice Listening Status (`#status.listening`)
 - Dot and text → `--gold` (mic-brand color signals "I'm listening")
 
@@ -211,3 +236,4 @@ Home, help, plate calculator, sync/download icons in the header strip.
 | v9.38   | Full Iron Velocity implementation: dark bg `#121212`, light bg `#faf7f2` (warm cream), `--heading-color` token, gold headings dark mode, active tab → gold, week-strip → gold, sheet Done → gold, mic FAB → gold-grad, session card → gold tint + all labels gold. |
 | v9.39   | Tab bar pin fix: moved `overflow-x: hidden` from `html` to `body` only. Setting overflow on `<html>` makes it the scroll container and breaks `position: fixed`. |
 | v9.40   | Gold takes over all interactive elements. `--label` → pure white dark / pure black light. Light hairlines → pure `rgba(0,0,0,...)` base. `.primary-btn`, `.rec-cta`, `.row-action`, `.section-add`, `.snackbar-action` all → gold. Session header checkmark circle → gold. History Rest cell → `--label`. PR segmented tabs active → gold. Voice listening dot → gold. All focus rings → gold. Blue retained only for steady training-load state and SW update banner background. |
+| v9.49   | Trained-day dumbbell glyph (`.activity-cell-mark`) — 14×14 gold SVG, used by Home Activity card cells AND History week-strip cells from the shared `ACTIVITY_DUMBBELL_SVG` constant. Activity card state band (`.activity-card::before`) reuses the `.hero-load` state classes (`.recovery` / `.steady` / `.high` / `.over`) for an accountability accent. `.qa-step` regression fix: removed `color: white` override; gold stepper buttons now show `#1a1300` dark text per the "Text on gold: always `#1a1300`" rule. |

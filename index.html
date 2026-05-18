@@ -186,7 +186,11 @@
                 </div>
                 <div class="quick-add-prev" id="quick-add-prev"></div>
                 <div class="grouped-list" style="margin-top:14px">
-                    <label class="row-input row-input-stepper"><span>Weight (lb)</span>
+                    <!-- v9.49 — wrapper is <div>, not <label>, so a tap on
+                         a stepper button's padding can't bubble to a parent
+                         label and re-focus the input. The visible text label
+                         is an explicit <label for="..."> for a11y. -->
+                    <div class="row-input row-input-stepper"><label for="quick-add-w">Weight (lb)</label>
                         <div class="qa-input-stepper">
                             <input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
                         </div>
@@ -196,8 +200,8 @@
                             <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
                         </div>
-                    </label>
-                    <label class="row-input row-input-stepper"><span>Reps</span>
+                    </div>
+                    <div class="row-input row-input-stepper"><label for="quick-add-r">Reps</label>
                         <div class="qa-input-stepper">
                             <input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
                         </div>
@@ -205,7 +209,7 @@
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
                             <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
                         </div>
-                    </label>
+                    </div>
                     <button type="button" class="row-toggle" id="quick-add-warmup-row" data-action="toggleQuickAddWarmup" aria-pressed="false">
                         <span class="row-toggle-label">Warmup</span>
                         <span class="row-toggle-sub">Excluded from volume and PRs</span>
@@ -643,6 +647,27 @@
                 <button type="button" class="rec-cta" id="recommended-cta" data-action="startRecommendedWorkout" style="display:none">Start this workout</button>
             </section>
 
+            <!-- v9.49 — Accountability card. Month calendar with a small
+                 dumbbell glyph on every day the user logged a work set.
+                 Prev/next navigates month-to-month; next is disabled on
+                 the current month. Left-edge color band stays driven by
+                 CURRENT state (trained today / N-day gap) regardless of
+                 which month is being viewed. Hidden until first work set. -->
+            <section class="rec-card card activity-card" id="activity-card" style="display:none">
+                <div class="rec-header activity-header-row">
+                    <button class="icon-btn-sm" id="activity-prev" data-action="activityPrevMonth" aria-label="Previous month">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <h3 id="activity-month-label">Activity</h3>
+                    <button class="icon-btn-sm" id="activity-next" data-action="activityNextMonth" aria-label="Next month">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+                <div class="rec-headline" id="activity-headline">—</div>
+                <div class="activity-grid" id="activity-grid"></div>
+                <div class="activity-summary" id="activity-summary"></div>
+            </section>
+
             <!-- First-launch empty hint. Hidden once any data exists. -->
             <div id="home-empty" class="home-empty" style="display:none">
                 <div class="home-empty-icon" aria-hidden="true">
@@ -712,6 +737,18 @@
                  the target. Cleared on endWorkoutSession. -->
             <div id="suggested-queue" class="suggested-queue" style="display:none"></div>
 
+            <!-- v9.49 — Focus summary for the active session. Same bar layout
+                 as the Home Focus card, scoped to sets logged in this workout
+                 so the user gets a quick "what have I trained today" read.
+                 Hidden when no session is active or no work sets logged yet. -->
+            <section class="rec-card card" id="workout-focus-card" style="display:none">
+                <div class="rec-header">
+                    <h3>Focus</h3>
+                    <span class="rec-meta-text">This workout</span>
+                </div>
+                <div class="focus-list" id="workout-focus-list"></div>
+            </section>
+
             <!-- Quick-add: search, weight, reps. Same logic as the old home
                  manual-entry block, just now scoped to the Workout screen.
                  v9.30 — progressive disclosure: the detail block (prev hint,
@@ -726,7 +763,7 @@
                 <div class="manual-entry-detail">
                     <div id="manual-prev" class="manual-prev" aria-live="polite"></div>
                     <div class="grouped-list" style="margin-top:14px">
-                        <label class="row-input row-input-stepper"><span>Weight (lb)</span>
+                        <div class="row-input row-input-stepper"><label for="manual-w">Weight (lb)</label>
                             <div class="qa-input-stepper">
                                 <input type="number" id="manual-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
                             </div>
@@ -736,8 +773,8 @@
                                 <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-input="manual-w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
                                 <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-w" data-step="5" aria-label="Weight plus 5">+5</button>
                             </div>
-                        </label>
-                        <label class="row-input row-input-stepper"><span>Reps</span>
+                        </div>
+                        <div class="row-input row-input-stepper"><label for="manual-r">Reps</label>
                             <div class="qa-input-stepper">
                                 <input type="number" id="manual-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
                             </div>
@@ -745,7 +782,7 @@
                                 <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-r" data-step="-1" aria-label="Reps minus 1">−</button>
                                 <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-input="manual-r" data-step="1" aria-label="Reps plus 1">+</button>
                             </div>
-                        </label>
+                        </div>
                     </div>
                     <button class="add-btn manual-add-btn" data-action="handleManualEntry">Add</button>
                 </div>
@@ -928,11 +965,33 @@
             </div>
             <div id="history-week-label" class="history-week-label">This week</div>
             <div id="history-week-rollup" class="history-rollup" style="display:none"></div>
+            <!-- v9.49 — Per-week Focus summary. Same bar layout as the Home
+                 Focus card, scoped to all work sets in the visible week so
+                 the user can see at a glance what muscles got hit. Hidden
+                 on empty weeks. -->
+            <section class="rec-card card" id="history-week-focus-card" style="display:none">
+                <div class="rec-header">
+                    <h3>Focus</h3>
+                    <span class="rec-meta-text" id="history-week-focus-meta">This week</span>
+                </div>
+                <div class="focus-list" id="history-week-focus-list"></div>
+            </section>
             <div id="history-week-strip" class="history-week-strip"></div>
 
             <div id="history-day-detail" class="history-day-detail">
                 <div id="history-day-empty" class="empty-state">Pick a day above.</div>
                 <div id="history-day-rollup" class="history-rollup" style="display:none"></div>
+                <!-- v9.49 — Per-day Focus summary. Same bar layout as the
+                     Home / Workout / Week Focus cards, scoped to the
+                     selected day so the user can see exactly what they
+                     trained that day. Hidden on empty days. -->
+                <section class="rec-card card" id="history-day-focus-card" style="display:none">
+                    <div class="rec-header">
+                        <h3>Focus</h3>
+                        <span class="rec-meta-text">This day</span>
+                    </div>
+                    <div class="focus-list" id="history-day-focus-list"></div>
+                </section>
                 <div id="history-session-headers"></div>
                 <div id="history-day-groups"></div>
             </div>

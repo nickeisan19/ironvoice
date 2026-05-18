@@ -644,6 +644,16 @@ const WHATS_NEW = {
             'Exercises you’ve had before show a Previously added hint and a Re-add button when they pop up in Browse community — easier to recognize your own contributions.',
         ],
     },
+    '9.49': {
+        items: [
+            'New Activity card on Home — month calendar with a dumbbell on every day you trained. Browse month-to-month with the chevrons.',
+            'A color band on the Activity card stays green when you’ve trained today and escalates to red the longer it’s been since your last lift.',
+            'History tab now shows the same dumbbell on days you trained.',
+            'New Focus summary on the Workout screen — see which muscles you’ve hit so far in the current session.',
+            'History tab has Focus summaries for the visible week and the selected day.',
+            'Stepper buttons (−5, −2.5, +2.5, +5) are now fully tappable across the whole button, not just the number — and the text reads dark on gold to match the brand.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
@@ -1200,6 +1210,7 @@ async function saveAndSyncUI(entry) {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         await renderStrain();
         await renderTemplateProgress();
         // v6: keep the live session card in sync if a session is active.
@@ -1907,6 +1918,7 @@ async function renderAll() {
     await renderHistory();
     await renderFocus();
     await renderRecommendedNext();
+    await renderActivityCard();
     await renderStrain();
     await refreshLatestStats();
     // v9.1: Home card row replaced. New trio drives the at-a-glance "Today"
@@ -2292,6 +2304,7 @@ async function undoLastDelete() {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         await renderStrain();
         await refreshLatestStats();
         await renderSuggestedQueue();
@@ -2480,6 +2493,8 @@ function initActionDispatcher() {
         // Exercises hub (admin-only), Approve / Reject per-row inside.
         openReviewQueue, closeReviewQueue,
         approveSubmission, rejectSubmission,
+        // v9.49: Home Activity card — month navigation.
+        activityPrevMonth, activityNextMonth,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -2941,6 +2956,211 @@ async function renderFocus() {
     });
 }
 
+// v9.49 — Render the same six-row muscle bar list as the Home Focus card
+// against an arbitrary set list. Returns true when at least one work set
+// contributed, so callers can hide the wrapping card on empty scopes
+// (no active session, an untouched week). Warmups are excluded for the
+// same reason renderFocus() / computeMuscleCoverage() excludes them —
+// the bars answer "what did I train" and a 95×8 warmup of bench isn't
+// really training the chest.
+function renderMuscleFocusFromSets(listEl, sets) {
+    if (!listEl) return false;
+    listEl.innerHTML = '';
+    const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    for (const s of sets || []) {
+        if (s.warmup || s.deleted) continue;
+        counts[muscleOf(s.exercise)]++;
+    }
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    if (!total) return false;
+    const sorted = [...MUSCLES].sort((a, b) => counts[b] - counts[a]);
+    const max = counts[sorted[0]] || 1;
+    sorted.forEach(m => {
+        const v = counts[m];
+        const pct = max ? (v / max) * 100 : 0;
+        const row = document.createElement('div');
+        row.className = 'focus-row';
+        row.innerHTML = `
+            <span class="focus-name"><span class="muscle-tag" style="background:${muscleColor[m]}"></span>${titleCase(m)}</span>
+            <div class="focus-track"><div class="focus-fill" style="width:${pct.toFixed(1)}%;background:${muscleColor[m]}"></div></div>
+            <span class="focus-count">${v}</span>
+        `;
+        listEl.appendChild(row);
+    });
+    return true;
+}
+
+// v9.49 — Workout-screen Focus card. Renders the muscle bar summary for
+// just the active session's sets so the user can see at a glance what
+// they've trained so far this workout. Hidden when no session is active
+// or no work sets are logged yet. Called from refreshSessionCard.
+async function renderWorkoutFocus() {
+    const card = $('workout-focus-card');
+    const list = $('workout-focus-list');
+    if (!card || !list) return;
+    if (!activeSession) { card.style.display = 'none'; list.innerHTML = ''; return; }
+    const sets = (await performDB('workouts', 'getAll'))
+        .filter(w => w.sessionId === activeSession.id && !w.deleted);
+    const ok = renderMuscleFocusFromSets(list, sets);
+    card.style.display = ok ? '' : 'none';
+}
+
+// v9.49 — Activity card. Month calendar with a small dumbbell icon on
+// every day the user logged a work set. _activityMonthOffset tracks
+// the displayed month relative to today (0 = current month, -1 = last
+// month, -2 = two months back, ...). Next is disabled at offset 0 —
+// no future-month browsing. State band stays driven by CURRENT
+// accountability state regardless of which month is on screen.
+let _activityMonthOffset = 0;
+
+const ACTIVITY_DUMBBELL_SVG =
+    '<svg class="activity-cell-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/></svg>';
+
+async function renderActivityCard() {
+    const card = $('activity-card');
+    const grid = $('activity-grid');
+    const headline = $('activity-headline');
+    const summary = $('activity-summary');
+    const label = $('activity-month-label');
+    const nextBtn = $('activity-next');
+    if (!card || !grid) return;
+
+    const allWork = await getActiveWorkSets();
+    if (!allWork.length) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = '';
+
+    // 1) Per-day work-set count map.
+    const countByDate = new Map();
+    for (const w of allWork) {
+        countByDate.set(w.date, (countByDate.get(w.date) || 0) + 1);
+    }
+
+    // 2) Compute the displayed month from _activityMonthOffset.
+    const today = new Date();
+    const todayStr = todayISO();
+    const todayMidnight = new Date(today).setHours(0, 0, 0, 0);
+    const viewYear = today.getFullYear();
+    const viewMonth = today.getMonth() + _activityMonthOffset;   // can underflow; Date constructor normalizes
+    const monthStart = new Date(viewYear, viewMonth, 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const nextMonthStart = new Date(monthStart);
+    nextMonthStart.setMonth(monthStart.getMonth() + 1);
+    const daysInMonth = Math.round((nextMonthStart - monthStart) / 86400000);
+
+    // 3) Month label ("May 2026") and prev/next button state. Next is
+    //    disabled when looking at the current month — there's no point
+    //    advancing into the future.
+    const monthName = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    if (label) label.textContent = monthName;
+    if (nextBtn) {
+        if (_activityMonthOffset >= 0) nextBtn.setAttribute('disabled', '');
+        else nextBtn.removeAttribute('disabled');
+    }
+
+    // 4) Build the calendar grid. Mon-anchored weeks (matches the rest
+    //    of the app). First row is padded with empty cells before day 1;
+    //    last row is padded after the last day so the grid stays a clean
+    //    7-column shape. Trailing weeks past the month's last day are
+    //    not emitted at all (no blank tail row).
+    const firstDow = (monthStart.getDay() + 6) % 7;   // 0=Mon..6=Sun
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) cells.push(null);
+    for (let day = 1; day <= daysInMonth; day++) {
+        const cellDate = new Date(monthStart);
+        cellDate.setDate(day);
+        const iso = isoForLocalDate(cellDate);
+        const cellMidnight = cellDate.setHours(0, 0, 0, 0);
+        cells.push({
+            day,
+            iso,
+            trained: (countByDate.get(iso) || 0) > 0,
+            isFuture: cellMidnight > todayMidnight,
+            isToday: iso === todayStr,
+        });
+    }
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    // 5) Render: weekday header + N data rows.
+    const dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    let html = '<div class="activity-row activity-header">';
+    for (const n of dayNames) html += `<span class="activity-col-label">${n}</span>`;
+    html += '</div>';
+    for (let r = 0; r < cells.length / 7; r++) {
+        html += '<div class="activity-row">';
+        for (let c = 0; c < 7; c++) {
+            const cell = cells[r * 7 + c];
+            if (!cell) {
+                html += '<span class="activity-cell is-empty" aria-hidden="true"></span>';
+                continue;
+            }
+            const cls = [
+                'activity-cell',
+                cell.trained  ? 'is-trained' : '',
+                cell.isFuture ? 'is-future'  : '',
+                cell.isToday  ? 'is-today'   : '',
+            ].filter(Boolean).join(' ');
+            const aria = `${cell.iso}: ${cell.trained ? 'trained' : 'no workout'}`;
+            html += `<span class="${cls}" aria-label="${aria}">` +
+                    `<span class="activity-cell-num">${cell.day}</span>` +
+                    (cell.trained ? ACTIVITY_DUMBBELL_SVG : '') +
+                    `</span>`;
+        }
+        html += '</div>';
+    }
+    grid.innerHTML = html;
+
+    // 6) State band + headline. Always reflects CURRENT accountability —
+    //    same logic as renderHeaderSubtitle. Decoupled from the displayed
+    //    month so the band tells you "what's going on now" regardless
+    //    of whether you're browsing March or May.
+    card.classList.remove('recovery', 'steady', 'high', 'over');
+    let state, headlineText;
+    if (countByDate.has(todayStr)) {
+        state = 'recovery';
+        headlineText = 'Trained today';
+    } else {
+        const lastDate = allWork.map(w => w.date).sort().pop();
+        const gap = dayDiff(lastDate, todayStr);
+        if (gap <= 2)      { state = 'steady'; headlineText = 'On track'; }
+        else if (gap <= 4) { state = 'high';   headlineText = `${gap} days since last lift`; }
+        else               { state = 'over';   headlineText = `${gap} days since last lift`; }
+    }
+    card.classList.add(state);
+    if (headline) headline.textContent = headlineText;
+
+    // 7) Summary footer: trained-day count for the displayed month.
+    //    For the current month, "days elapsed" caps at today so a
+    //    fresh month early in the calendar doesn't show "2 of 31" when
+    //    only the first two days have actually passed.
+    const monthStartIso = isoForLocalDate(monthStart);
+    const lastIsoInMonth = isoForLocalDate(new Date(nextMonthStart.getTime() - 86400000));
+    let trainedDays = 0;
+    for (const iso of countByDate.keys()) {
+        if (iso >= monthStartIso && iso <= lastIsoInMonth) trainedDays++;
+    }
+    const isCurrentMonth = (_activityMonthOffset === 0);
+    const denom = isCurrentMonth ? today.getDate() : daysInMonth;
+    if (summary) {
+        summary.textContent = `${trainedDays} of ${denom} days trained${isCurrentMonth ? ' this month' : ''}`;
+    }
+}
+
+function activityPrevMonth() {
+    _activityMonthOffset--;
+    renderActivityCard();
+}
+
+function activityNextMonth() {
+    if (_activityMonthOffset >= 0) return;   // no future-month browsing
+    _activityMonthOffset++;
+    renderActivityCard();
+}
+
 // ----------------------------------------------------------------------------
 // Recommended next card — an ad-hoc workout picked to target the user's
 // trailing muscles, sized to their median session length.
@@ -3137,6 +3357,7 @@ async function deleteEntry(id, silent = false) {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         await renderStrain();
         await refreshLatestStats();
         await refreshSessionCard();   // v8: keep workout dashboard in sync if a session set was removed
@@ -4743,6 +4964,7 @@ async function updateEntry(id, weight, reps, { warmup } = {}) {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         await renderStrain();
         await refreshLatestStats();
         await refreshSessionCard();
@@ -4956,6 +5178,7 @@ async function applyExerciseSwap(targetName) {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         showSnackbar(`Swapped to ${titleCase(targetName)}`, { duration: 3000 });
         haptic(15);
     } catch (err) {
@@ -4989,6 +5212,7 @@ async function warmupAllFromMenu() {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         await renderStrain();
         showSnackbar(targetState
             ? `${titleCase(name)} marked as warmup`
@@ -5042,6 +5266,7 @@ async function deleteExerciseFromMenu() {
         await renderHistory();
         await renderFocus();
         await renderRecommendedNext();
+        await renderActivityCard();
         await renderStrain();
         await refreshLatestStats();
         showSnackbar(`Deleted ${sets.length} ${titleCase(name)} set${sets.length === 1 ? '' : 's'}`, { duration: 4000 });
@@ -5500,6 +5725,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     // changed.
     await renderFocus();
     await renderRecommendedNext();
+    await renderActivityCard();
     // v8: auto-sync the completed workout. Fire-and-forget — the user shouldn't
     // wait for network to see "workout ended". Errors will retry on next trigger.
     autoSync('workout-end');
@@ -5645,6 +5871,7 @@ async function refreshSessionCard() {
         card.style.display = 'none';
         if (sessionSets) sessionSets.style.display = 'none';
         if (workoutIdle) workoutIdle.style.display = '';
+        await renderWorkoutFocus();   // hides the focus card too
         return;
     }
 
@@ -5673,6 +5900,10 @@ async function refreshSessionCard() {
     // v9.18: keep the suggested-queue chips in sync — counts derive from
     // setsInSession, so logging or deleting a set bumps the chip totals.
     await renderSuggestedQueue();
+
+    // v9.49: muscle bar summary for the active session — fan-out lives in
+    // refreshSessionCard so every set add/delete/edit keeps it honest.
+    await renderWorkoutFocus();
 }
 
 // v9.0: Render the Workout screen idle surface — recent templates and the
@@ -6072,6 +6303,10 @@ function showScreen(name) {
         renderWeekCard();
         renderHomePrimaryAction();
         renderHeaderSubtitle();
+        // v9.49: re-pull the activity card. Its state class (trained-today
+        // vs N-day gap) rolls forward at local midnight, so navigating
+        // back to Home the day after must re-evaluate.
+        renderActivityCard();
     }
     if (name === 'workout') { renderWorkoutScreen(); updateWorkoutClock(); }
     if (name === 'profile') renderProfileScreen();
@@ -6240,19 +6475,31 @@ async function renderHistoryScreen() {
     // stage anymore.)
     const allWorkouts = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
 
+    // v9.49 — trained-day marker. Same dumbbell glyph as the Home Activity
+    // card so the "did I train this day" signal reads identically across
+    // both surfaces. Work sets only (no warmups) — a warmup-only day isn't
+    // really a training day for the accountability story.
+    const trainedDates = new Set();
+    for (const w of allWorkouts) {
+        if (!w.warmup) trainedDates.add(w.date);
+    }
+
     // Render strip
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     stripEl.innerHTML = days.map((d, i) => {
         const iso = isoForLocalDate(d);
+        const trained = trainedDates.has(iso);
         const classes = [
             'week-day',
             iso === todayISOStr ? 'today' : '',
             iso === historySelectedDate ? 'active' : '',
+            trained ? 'is-trained' : '',
         ].filter(Boolean).join(' ');
         return `
             <button class="${classes}" data-date="${iso}">
                 <span class="week-day-name">${dayNames[i]}</span>
                 <span class="week-day-num">${d.getDate()}</span>
+                ${trained ? ACTIVITY_DUMBBELL_SVG : ''}
             </button>`;
     }).join('');
 
@@ -6275,6 +6522,18 @@ async function renderHistoryScreen() {
         weekDateSet.has(isoForLocalDate(new Date(s.startedAt)))
     );
     renderRollupTotals('history-week-rollup', weekSessions, allWorkouts);
+
+    // v9.49 — per-week muscle bar summary. Aggregates work sets across the
+    // seven visible days (independent of which day is currently selected)
+    // so flipping between days doesn't change the bars. Hidden on weeks
+    // with no work sets logged.
+    const focusCard = $('history-week-focus-card');
+    const focusList = $('history-week-focus-list');
+    if (focusCard && focusList) {
+        const weekWorkouts = allWorkouts.filter(w => weekDateSet.has(w.date));
+        const ok = renderMuscleFocusFromSets(focusList, weekWorkouts);
+        focusCard.style.display = ok ? '' : 'none';
+    }
 
     // Render the selected day's detail
     await renderHistoryDayDetail(historySelectedDate, allWorkouts, allSessions);
@@ -6352,17 +6611,29 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
     const headers = $('history-session-headers');
     const groups = $('history-day-groups');
     const dayRollup = $('history-day-rollup');
+    const dayFocusCard = $('history-day-focus-card');
+    const dayFocusList = $('history-day-focus-list');
     const dayWorkouts = allWorkouts.filter(w => w.date === date);
 
     if (!dayWorkouts.length) {
         headers.innerHTML = '';
         groups.innerHTML = '';
         if (dayRollup) { dayRollup.style.display = 'none'; dayRollup.innerHTML = ''; }
+        if (dayFocusCard) { dayFocusCard.style.display = 'none'; }
+        if (dayFocusList) { dayFocusList.innerHTML = ''; }
         empty.style.display = '';
         empty.textContent = 'No sets on this day.';
         return;
     }
     empty.style.display = 'none';
+
+    // v9.49 — per-day muscle bar summary. Scoped to the selected day's work
+    // sets so the user sees exactly what they trained that day. Hidden when
+    // only warmups (or zero work sets) were logged.
+    if (dayFocusCard && dayFocusList) {
+        const ok = renderMuscleFocusFromSets(dayFocusList, dayWorkouts);
+        dayFocusCard.style.display = ok ? '' : 'none';
+    }
 
     // v9.2 — History day detail mirrors the active-workout pill layout:
     // for each session of the day we render one or more session-set-group

@@ -1874,6 +1874,165 @@ clear. Sorted oldest-first so first-in-first-reviewed.
   appearance is the approval signal, so writing it twice would
   just create drift.
 
+**Home Activity card — month calendar with dumbbell glyphs
+(v9.49).** A new card on Home below `#recommended-card` is the
+accountability signal the other surfaces don't carry. Strength
+comes from showing up; the card makes that visible.
+
+**Layout.** Header row is `prev-chevron · month label · next-
+chevron` in a 3-column grid (`.activity-header-row`). Grid is
+Monday-anchored, 7 columns × N rows for the displayed month, with
+empty padding cells before day 1 and after the last day so the
+shape stays clean (`.activity-cell.is-empty`). Trailing weeks past
+the last day are not emitted — no blank tail row. Each in-month
+cell shows the date number; cells with ≥1 work set also render a
+14×14 gold dumbbell SVG (the same path used by the Exercises hub
+icon, exposed via the module-level `ACTIVITY_DUMBBELL_SVG`
+constant). Today's cell gets a 1.5px inset gold ring; days past
+today in the current month fade to opacity 0.45 (`is-future`).
+
+**Navigation.** `_activityMonthOffset` (module-level) tracks the
+displayed month relative to today (0 = current, -N = N months
+back). `activityPrevMonth` decrements unbounded; `activityNextMonth`
+clamps at 0 — no future-month browsing, and the next button gets
+a `[disabled]` attribute at offset 0 which the CSS dims to
+opacity 0.3 + `pointer-events: none`. Both functions are wired
+through the action dispatcher.
+
+**State band.** The left-edge color band reuses the `.hero-load`
+state class names (`.recovery` / `.steady` / `.high` / `.over`)
+on the card's `::before` pseudo. The band is driven by **current**
+accountability state — `countByDate.has(todayStr)` → `.recovery`
+green "Trained today"; otherwise `dayDiff(lastDate, todayStr)`
+classifies 1–2 days → `.steady` "On track", 3–4 days → `.high`
+"N days since last lift", 5+ days → `.over` red + pulsing via
+new `pulse-band` keyframes. **The band reflects now, the grid
+reflects whichever month is on screen** — viewing April with a
+green "Trained today" band is correct, because the band is about
+your current state regardless of the historical month being
+browsed. Don't try to make the band track the displayed month's
+state — that would invert the signal at exactly the moment the
+user is looking back to celebrate or reflect.
+
+**Summary footer.** "X of N days trained {this month}". For the
+current month, N = today's date (days elapsed, not days in month)
+so a fresh month doesn't show "2 of 31" on the 2nd. For past
+months, N = days in month (full denominator).
+
+**Shading metric is work-set count, not volume.** A day with one
+work set is "trained"; volume-based shading would surface heavy
+days but miss "I showed up." Warmups don't count — same rule as
+`getActiveWorkSets`. Same rule applies to the History week-strip
+dumbbell marker below.
+
+**Render fan-out.** `renderActivityCard()` is called from the
+same fan-out points as `renderFocus()` + `renderRecommendedNext()`
+(`renderAll`, `saveAndSyncUI`, `deleteEntry`, `undoLastDelete`,
+`updateEntry`, session-end, etc.). Plus an entry in
+`showScreen('home')` so the time-sensitive gap state re-evaluates
+across a day rollover when the user navigates back to Home.
+`_activityMonthOffset` is preserved across re-renders — a user
+browsing April who logs a set today stays on April with the band
+flipping to green.
+
+**Don't:**
+- Don't reintroduce a future-cell heatmap shading. The v9.49
+  spec was "boxes show dates with dumbbells on trained days" —
+  shading by intensity was the prior 28-day-heatmap design and
+  was retired when the user asked for the calendar form.
+- Don't add a 28-day rolling window option. The month calendar
+  is the contract — month boundaries match how users actually
+  think about lifting cadence.
+- Don't tap-through to History on cell click. The cells are
+  read-only; the History tab already provides drill-down via
+  its own week strip. Adding navigation here would split the
+  gesture's meaning.
+- Don't show the card before the first work set is logged. The
+  hide-entirely empty state matches Focus and Recommended.
+
+**History week-strip dumbbell marker (v9.49).** Each `.week-day`
+cell on the History tab gets the same `ACTIVITY_DUMBBELL_SVG`
+beneath the date number on days with ≥1 work set. Pre-computed as
+a `Set` of trained dates from `allWorkouts` (filtered `!w.warmup`)
+inside `renderHistoryScreen` so the lookup is O(1) per cell. The
+glyph color is `--gold` by default; on the active (gold-filled)
+day it flips to `#1a1300` so it stays readable against the gold
+background (`.week-day.active .activity-cell-mark`).
+
+The marker is **shared with the Home Activity card by intent** —
+seeing the same dumbbell glyph across both surfaces makes the
+trained-day signal feel like a single visual vocabulary. Don't
+introduce a different glyph here; if the marker design changes,
+update both surfaces together via the shared constant.
+
+**Workout-screen Focus card (v9.49).** A new `.rec-card` sits
+between the suggested-queue strip and the manual-entry section
+on the Workout screen, scoped to work sets in the **active
+session**. Shares the `renderMuscleFocusFromSets(listEl, sets)`
+helper with the Home Focus card and the new History Focus cards
+below — single rendering function, three callers, identical
+visual contract. Hidden when no session is active or only
+warmups have been logged. Wired into `refreshSessionCard` so
+every set save/delete/edit re-evaluates.
+
+**History Focus cards — week and day (v9.49).** Two more
+`.rec-card`s on the History tab, both driven by
+`renderMuscleFocusFromSets`:
+
+- **`#history-week-focus-card`** sits between the week rollup
+  chips and the week strip. Aggregates work sets across all 7
+  visible days. Flipping between days doesn't change it — it's
+  week-scoped, not day-scoped (the per-day card below covers
+  that). Re-renders on prev/next week navigation inside
+  `renderHistoryScreen`.
+- **`#history-day-focus-card`** sits between the day rollup and
+  the session headers in the day-detail. Scoped to the selected
+  day's work sets. Re-renders on every day-strip selection
+  change. Hides on empty days (no work sets) so warmup-only
+  days don't show a blank bar grid.
+
+Don't merge these into one card on History. The "this week" vs
+"this day" question is genuinely different and both answers are
+useful at different moments — the week card surfaces the rough
+balance of the week, the day card answers "what did I do that
+day" without scrolling through pills. Three Focus cards across
+the app feels like a lot until you realize they're all the same
+renderer; the consistency *is* the design.
+
+**Stepper button hit-target fix + brand-aligned text color
+(v9.49).** Quick-add and manual-entry ± stepper buttons (`-5`,
+`-2.5`, `+2.5`, `+5`, `-`, `+`) were nested inside
+`<label class="row-input row-input-stepper">` wrappers. On iOS,
+taps on the button's padding could bubble to the parent label
+and re-focus the number input via the label's default click-
+forwarding behavior — so the user perceived the button as "only
+the number is clickable."
+
+Three coordinated fixes:
+
+1. **Markup change.** `<label class="row-input row-input-stepper">`
+   → `<div class="row-input row-input-stepper">` in all four
+   stepper rows (quick-add overlay weight + reps, manual-entry
+   weight + reps). The visible text label moved into a real
+   `<label for="...">` targeting the input directly, preserving
+   a11y association without the click-forwarding side effect.
+2. **CSS selector update.**
+   `.row-input-stepper > span` → `.row-input-stepper > span,
+   .row-input-stepper > label` so the in-grid label styling
+   continues to apply.
+3. **Hit-zone expander.** `.qa-step::before { inset: -2px -4px }`
+   absorbs the 8px inter-button gap so a finger landing slightly
+   off-center between buttons still registers on the closer one.
+
+Bonus brand-alignment fix: the `.qa-step` rule had `color: white`
+overriding `color: #1a1300` (a regression). The white declaration
+was removed so the gold buttons now show dark text per
+[brand.md](brand.md) "Text on gold: always `#1a1300`."
+
+Don't put buttons back inside the outer `<label>` — the label-
+forwarding bug is what drove the fix. Don't re-add `color: white`
+to `.qa-step` — gold-on-gold-text-style is the brand contract.
+
 ---
 
 ## Conventions Nick follows
