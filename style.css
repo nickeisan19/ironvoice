@@ -208,13 +208,6 @@ body::before {
 
 html, body {
   margin: 0; padding: 0;
-  /* v10.1: the document no longer scrolls — <main> is the scroll container
-     (see the body rule below). Both need an explicit height so body's
-     height:100% has something to resolve against. NOTE: overflow:hidden is
-     set on body ONLY, never <html> — overflow on <html> turns it into the
-     scroll container, which on iOS mis-references the bottom edge for
-     position:fixed chrome (the tab bar floated up off the screen bottom). */
-  height: 100%;
   background: var(--bg);
   color: var(--label);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
@@ -232,21 +225,19 @@ html, body {
 }
 
 body {
-  /* v10.1 — <main> is the scroll container, not the document. On iOS, a
-     document-level scroll repaints position:fixed + backdrop-filter chrome
-     (the tab bar, the scrolled header) laggily during momentum scroll: the
-     bar visibly tracked the scroll then snapped back. Every prior fix
-     (translate3d layer promotion, will-change, isolation across v9.4/v9.47)
-     was treating the symptom. Making body a non-scrolling flex column and
-     scrolling an inner <main> instead pins the fixed tab bar rock-solid,
-     because the fixed chrome is no longer part of a document-scroll repaint.
-     The bottom clearance for the fixed tab bar now lives on <main>, not here.
-     overflow:hidden goes here (body), not <html> — see the html,body note —
-     so the document doesn't scroll but position:fixed bars stay pinned to the
-     viewport bottom. */
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  /* overflow-x must be on body only, not html. Setting any non-visible
+     overflow on <html> makes it the scroll container, causing position:fixed
+     elements (tab bar, mic FAB) to scroll with the page instead of staying
+     pinned to the viewport. The document is the scroll container; the fixed
+     tab bar / cmdbar / bottom sheets pin to the viewport bottom. (v10.1
+     tried an inner-scroll <main> container to kill the tab-bar jitter, but
+     on iOS that shrank the viewport every position:fixed bottom:0 element
+     referenced, so they all floated up off the screen. Reverted — the jitter
+     is solved instead by removing the tab bar's backdrop-filter, the real
+     cause, see .tab-bar below.) */
+  overflow-x: hidden;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  min-height: 100vh;
   background:
     radial-gradient(1200px 600px at 50% -200px, rgba(255, 193, 7, 0.06), transparent 60%),
     var(--bg);
@@ -936,11 +927,7 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; touch-
    ========================================================================== */
 
 header {
-  /* v10.1: was position:sticky on the document scroller. Now that <main> is
-     the scroll container, the header is a non-shrinking flex child pinned at
-     the top of the (non-scrolling) body — it stays put without sticky. The
-     .scrolled bg/border toggle below is now driven by <main>'s scroll. */
-  position: relative; z-index: 100; flex: 0 0 auto;
+  position: sticky; top: 0; z-index: 100;
   padding: env(safe-area-inset-top) 20px 0;
   background: transparent;
   transition: background 0.3s var(--ease);
@@ -1132,17 +1119,6 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
    ========================================================================== */
 
 main {
-  /* v10.1: the single scroll container. flex:1 + min-height:0 lets it take
-     the space below the header and shrink enough to actually scroll its
-     overflow (min-height:0 is required — a flex item's default min-height of
-     auto would refuse to shrink below content height and break the scroll).
-     -webkit-overflow-scrolling:touch keeps iOS momentum; overscroll-behavior
-     stops the inner scroll from chaining to the (locked) document. */
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
   padding: 0 22px;
   /* Bottom clearance for the fixed tab bar (~64px) + the raised mic (~32px
      extra) + the home indicator safe area on modern iPhones. Without this
@@ -2494,9 +2470,15 @@ button.activity-cell.is-trained:active { transform: scale(0.94); }
      home-indicator safe area. align-items:start + this padding mirrors the
      prototype's 88px bar so the raised mic sits in the same place. */
   padding: 8px 0 env(safe-area-inset-bottom);
-  background: var(--frosted-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
+  /* v10.3: OPAQUE, no backdrop-filter. backdrop-filter on a position:fixed
+     element is the root cause of the "tab bar tracks momentum scroll then
+     snaps back" jitter on iOS — the compositor re-samples the blur every
+     scroll frame and lags. The v9.4/v9.47 translate3d/will-change/isolation
+     layer-promotion below was an attempt to keep the frosted look and force a
+     stable layer; it never fully held. A solid surface-2 fill (opaque in both
+     themes; the hairline still separates it from content) removes the cause
+     outright — the bar is now a static layer with nothing to re-sample. */
+  background: var(--surface-2);
   border-top: 1px solid var(--hairline-strong);
   display: grid;
   grid-template-columns: repeat(5, 1fr);

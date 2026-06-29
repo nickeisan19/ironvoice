@@ -837,9 +837,6 @@ function initOnlineHandler() {
 
 function initScroll() {
     const header = $('app-header');
-    // v10.1: <main> is the scroll container now (not the document), so the
-    // scrolled-header toggle reads main.scrollTop and listens on <main>.
-    const scroller = document.querySelector('main');
     let ticking = false;
     // v9.47: hysteresis so the class doesn't flip on every rAF tick when
     // the user hovers right at the boundary (8px). Was contributing to
@@ -847,10 +844,10 @@ function initScroll() {
     // backdrop-filter add/remove kept re-rasterizing the header's layer
     // adjacent to the tab bar's.
     let scrolled = false;
-    scroller.addEventListener('scroll', () => {
+    window.addEventListener('scroll', () => {
         if (!ticking) {
             requestAnimationFrame(() => {
-                const y = scroller.scrollTop;
+                const y = window.scrollY;
                 if (!scrolled && y > 12) {
                     scrolled = true;
                     header.classList.add('scrolled');
@@ -7102,9 +7099,7 @@ function showScreen(name) {
     if (name === 'workout') { renderWorkoutScreen(); updateWorkoutClock(); }
     if (name === 'profile') renderProfileScreen();
     // Scroll to top so the new screen always starts at the top.
-    // v10.1: <main> is the scroll container, not the document window.
-    const scroller = document.querySelector('main');
-    if (scroller) scroller.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 // Convenience: PR card tap routes to the PRs screen.
