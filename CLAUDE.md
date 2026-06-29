@@ -103,8 +103,8 @@ at a screenshot from someone's phone) exactly which build is running.
 **Single source of truth: `version.js`.** Two constants:
 
 ```js
-self.APP_VERSION    = '9.21';       // MAJOR.MINOR
-self.APP_BUILD_DATE = '2026-05-13'; // local YYYY-MM-DD
+self.APP_VERSION    = '10.0';       // MAJOR.MINOR
+self.APP_BUILD_DATE = '2026-06-29'; // local YYYY-MM-DD
 ```
 
 **Format is `MAJOR.MINOR`** — two components, no patch. Bumping rules:
@@ -239,6 +239,68 @@ The full spec lives in `brand.md`. Key rules Claude must follow:
 
 These have been discussed in past sessions and have a definitive answer.
 If a request would change one of these, push back and ask explicitly.
+
+> **⚠️ v10.0 — Design Handoff Redesign (2026-06-29). READ THIS FIRST.**
+> v10.0 implemented the full `design_handoff_ironvoice_features/` redesign.
+> It **supersedes many of the older settled decisions below** — where an
+> older note conflicts with this list, this list wins. The major changes:
+>
+> - **Tab bar is Home · History · Records · Profile** with a raised gold mic
+>   FAB in the *center grid cell* of the 5-column nav (it lives inside the
+>   `.tab-bar` so it never drifts; 58px, dark glyph, outer `0 0 0 5px var(--bg)`
+>   cutout ring + glow). Home is a tab again; the Workout tab is retired —
+>   workouts start from the Home CTA / mic / voice and the **Active Workout is
+>   a full-screen view** (`body.workout-view`) with a minimize chevron
+>   (`→ home`, keeps the session alive; `showScreen('home')` calls
+>   `renderHome()` so the resume strip shows).
+> - **Token palette is the prototype's** (`--bg:#0E0F11`, surfaces
+>   `#16181B/#1A1D20/#1F2327/#2A2F34`, `--label:#F4F5F6`). Sheet shell:
+>   12px top padding, 28px radius, 38px grabber, **2px backdrop blur**, and a
+>   circular ✕ close (`.sheet-close-x`) on single-close sheets. Screen gutter
+>   is **22px**.
+> - **10-muscle taxonomy** (`MUSCLES` = chest, back, quads, hamstrings, glutes,
+>   calves, shoulders, biceps, triceps, core). `legs`/`arms` kept as legacy
+>   aliases (`muscleColor` has all 12; `canonMuscle()` maps legacy → granular;
+>   `zeroMuscleCounts()` / `LOWER_MUSCLES`). The built-in `exerciseLibrary` was
+>   re-tagged granularly, so historical logged sets re-categorize automatically.
+>   Custom-exercise + community pickers offer the 10 as pills.
+> - **Community is direct-write, no review.** The v9.42–v9.48 review queue /
+>   admin / auto-rejection are **removed**. Worker actions: `getCommunity`,
+>   `addCommunityExercise`, `editCommunityExercise` (etag-conditional writes to
+>   `community/exercises.json`; any authed user can add/edit). Profile →
+>   Community tab is a name + 10 muscle pills + "Add exercise" + an editable
+>   catalog list (edit sheet). `community/queue.json` + `decisions.json` are
+>   orphaned (delete via R2 if desired). **Worker must be `npx wrangler deploy`d.**
+> - **Home:** wordmark, resume strip, 2-column **Weekly load | Lifetime load**
+>   card (no ring/trio), Start CTA, **Suggested for today** (sized to the user's
+>   median sets-per-session via `computeMedianSetsPerSession` + median sec/set;
+>   never below one exercise per target muscle), and an **Activity calendar**
+>   (`#activity-card`, bordered, no state band) — tapping a trained day opens it
+>   in History (`openHistoryDate`). The old today/week tiles + Focus card are gone.
+> - **Templates:** 4 are seeded once (`DEFAULT_TEMPLATES`, flag
+>   `ironSeededDefaultTemplates`), shown with a muscle `sub` in the Training tab
+>   + Start sheet. The builder is the card model (name + selected-exercise cards
+>   w/ last-set + max + remove, "+ Add exercise" reuses the picker via
+>   `_exPickerForTemplate`). **Starting a template/recommendation pre-loads its
+>   exercises** as ready-to-log "+ Log first set" cards (the suggested-queue chip
+>   strip is retired; planned cards render in `renderSessionSets`).
+> - **Active Workout:** per-exercise **collapse** (chevron in the split header →
+>   "top-set · N sets" summary), a fixed bottom bar with **"+ Add exercise" next
+>   to the mic** (the say-or-type command field is gone), and a single-row
+>   **RESTING** pill.
+> - **Quick-add / set entry:** flanking-stepper layout (`−5 −2.5 [val] +2.5 +5`),
+>   dot + name + "Last … · max … 1RM" header, bottom Cancel / Add set.
+> - **PRs:** the exercise sheet is the PR-detail design (gold-1RM / Sessions /
+>   Volume trio + vertical **bar chart** with a gold "Now" bar + delta + recent
+>   sets w/ year + Share PR card). Share card is a **full-screen** overlay
+>   (Save image + Share). A new PR shows a **small auto-dismissing 🏆 snackbar**
+>   (with a Share action) instead of the celebration sheet; `speak(text,
+>   {visual:false})` suppresses the top voice-response card for it.
+> - **Profile:** Voice controls under the **Training** tab; muscle pickers are
+>   pills; the custom Spoken-voice **bottom sheet** replaces the native
+>   `<select>`; Tools section dropped from Data.
+> - **Misc:** global `[hidden]{display:none !important}` (so W/PR tags respect
+>   state); set-action W/PR tags only show when real.
 
 **Single-user / shared-token auth model.** Yes it's crude. No it's not getting
 replaced with OAuth, magic links, Google SSO, or per-user accounts. The

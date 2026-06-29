@@ -50,29 +50,29 @@ const exerciseLibrary = [
     { name: "power clean",            muscle: "back", synonyms: ["clean", "power cleans"] },
     { name: "snatch",                 muscle: "back", synonyms: ["power snatch", "snatches"] },
 
-    // LEGS
-    { name: "back squat",             muscle: "legs", synonyms: ["squat", "squats", "barbell squat", "high bar squat", "low bar squat"] },
-    { name: "front squat",            muscle: "legs", synonyms: ["front squats"] },
-    { name: "goblet squat",           muscle: "legs", synonyms: ["goblet"] },
-    { name: "box squat",              muscle: "legs", synonyms: ["box squats"] },
-    { name: "hack squat",             muscle: "legs", synonyms: ["machine hack squat"] },
-    { name: "smith machine squat",    muscle: "legs", synonyms: ["smith squat"] },
-    { name: "sumo squat",             muscle: "legs", synonyms: ["sumo squats"] },
-    { name: "bulgarian split squat",  muscle: "legs", synonyms: ["bss", "bulgarians", "split squat", "rear foot elevated split squat", "rfess"] },
-    { name: "leg press",              muscle: "legs", synonyms: ["legpress", "45 leg press"] },
-    { name: "leg extension",          muscle: "legs", synonyms: ["quad extension", "leg ext"] },
-    { name: "leg curl",               muscle: "legs", synonyms: ["hamstring curl", "lying leg curl", "seated leg curl"] },
-    { name: "lunges",                 muscle: "legs", synonyms: ["lunge", "walking lunge", "reverse lunge", "stationary lunge"] },
-    { name: "step up",                muscle: "legs", synonyms: ["step ups", "stepup"] },
-    { name: "hip thrust",             muscle: "legs", synonyms: ["hip thrusts", "barbell hip thrust"] },
-    { name: "glute bridge",           muscle: "legs", synonyms: ["bridge", "glute bridges"] },
-    { name: "calf raise",             muscle: "legs", synonyms: ["calves", "standing calf raise", "seated calf raise", "calf"] },
-    { name: "nordic curl",            muscle: "legs", synonyms: ["nordic", "nordic ham curl", "natural glute ham raise"] },
-    { name: "glute kickback",         muscle: "legs", synonyms: ["cable kickback", "donkey kick"] },
-    { name: "hip abduction",          muscle: "legs", synonyms: ["abductor", "abductor machine", "hip abductor"] },
-    { name: "hip adduction",          muscle: "legs", synonyms: ["adductor", "adductor machine", "hip adductor"] },
-    { name: "single leg rdl",         muscle: "legs", synonyms: ["single leg deadlift", "single leg romanian deadlift"] },
-    { name: "thruster",               muscle: "legs", synonyms: ["thrusters"] },
+    // LEGS — split into quads / hamstrings / glutes / calves (v9.51)
+    { name: "back squat",             muscle: "quads", synonyms: ["squat", "squats", "barbell squat", "high bar squat", "low bar squat"] },
+    { name: "front squat",            muscle: "quads", synonyms: ["front squats"] },
+    { name: "goblet squat",           muscle: "quads", synonyms: ["goblet"] },
+    { name: "box squat",              muscle: "quads", synonyms: ["box squats"] },
+    { name: "hack squat",             muscle: "quads", synonyms: ["machine hack squat"] },
+    { name: "smith machine squat",    muscle: "quads", synonyms: ["smith squat"] },
+    { name: "sumo squat",             muscle: "quads", synonyms: ["sumo squats"] },
+    { name: "bulgarian split squat",  muscle: "quads", synonyms: ["bss", "bulgarians", "split squat", "rear foot elevated split squat", "rfess"] },
+    { name: "leg press",              muscle: "quads", synonyms: ["legpress", "45 leg press"] },
+    { name: "leg extension",          muscle: "quads", synonyms: ["quad extension", "leg ext"] },
+    { name: "leg curl",               muscle: "hamstrings", synonyms: ["hamstring curl", "lying leg curl", "seated leg curl"] },
+    { name: "lunges",                 muscle: "quads", synonyms: ["lunge", "walking lunge", "reverse lunge", "stationary lunge"] },
+    { name: "step up",                muscle: "quads", synonyms: ["step ups", "stepup"] },
+    { name: "hip thrust",             muscle: "glutes", synonyms: ["hip thrusts", "barbell hip thrust"] },
+    { name: "glute bridge",           muscle: "glutes", synonyms: ["bridge", "glute bridges"] },
+    { name: "calf raise",             muscle: "calves", synonyms: ["calves", "standing calf raise", "seated calf raise", "calf"] },
+    { name: "nordic curl",            muscle: "hamstrings", synonyms: ["nordic", "nordic ham curl", "natural glute ham raise"] },
+    { name: "glute kickback",         muscle: "glutes", synonyms: ["cable kickback", "donkey kick"] },
+    { name: "hip abduction",          muscle: "glutes", synonyms: ["abductor", "abductor machine", "hip abductor"] },
+    { name: "hip adduction",          muscle: "quads", synonyms: ["adductor", "adductor machine", "hip adductor"] },
+    { name: "single leg rdl",         muscle: "hamstrings", synonyms: ["single leg deadlift", "single leg romanian deadlift"] },
+    { name: "thruster",               muscle: "quads", synonyms: ["thrusters"] },
 
     // SHOULDERS
     { name: "overhead press",         muscle: "shoulders", synonyms: ["ohp", "military press", "shoulder press", "standing press", "barbell overhead press"] },
@@ -87,26 +87,26 @@ const exerciseLibrary = [
     { name: "upright row",            muscle: "shoulders", synonyms: ["upright rows"] },
     { name: "push press",             muscle: "shoulders", synonyms: ["push presses"] },
 
-    // ARMS
-    { name: "dip",                    muscle: "arms", synonyms: ["dips", "tricep dips", "tricep dip", "chest dip", "parallel bar dip", "bench dip"] },
-    { name: "bicep curl",             muscle: "arms", synonyms: ["barbell curl", "bb curl", "curl", "curls", "biceps curl"] },
-    { name: "dumbbell curl",          muscle: "arms", synonyms: ["db curl", "dumbbell biceps curl"] },
-    { name: "hammer curl",            muscle: "arms", synonyms: ["hammer curls", "hammers"] },
-    { name: "preacher curl",          muscle: "arms", synonyms: ["preacher", "preachers"] },
-    { name: "concentration curl",     muscle: "arms", synonyms: ["concentration"] },
-    { name: "cable curl",             muscle: "arms", synonyms: ["rope curl", "cable bicep curl"] },
-    { name: "incline dumbbell curl",  muscle: "arms", synonyms: ["incline curl", "incline db curl"] },
-    { name: "spider curl",            muscle: "arms", synonyms: ["spider"] },
-    { name: "ez bar curl",            muscle: "arms", synonyms: ["ez curl"] },
-    { name: "reverse curl",           muscle: "arms", synonyms: ["reverse grip curl"] },
-    { name: "zottman curl",           muscle: "arms", synonyms: ["zottman"] },
-    { name: "tricep pushdown",        muscle: "arms", synonyms: ["pushdown", "rope pushdown", "cable pushdown", "tricep pressdown"] },
-    { name: "skull crusher",          muscle: "arms", synonyms: ["skullcrusher", "lying tricep extension", "lying triceps extension", "french press"] },
-    { name: "tricep extension",       muscle: "arms", synonyms: ["overhead tricep extension", "overhead extension", "triceps extension"] },
-    { name: "close grip bench press", muscle: "arms", synonyms: ["close grip bench", "cgbp"] },
-    { name: "tricep kickback",        muscle: "arms", synonyms: ["tricep kickbacks", "dumbbell kickback"] },
-    { name: "jm press",               muscle: "arms", synonyms: ["jm"] },
-    { name: "wrist curl",             muscle: "arms", synonyms: ["forearm curl", "wrist curls"] },
+    // ARMS — split into biceps / triceps (v9.51)
+    { name: "dip",                    muscle: "triceps", synonyms: ["dips", "tricep dips", "tricep dip", "chest dip", "parallel bar dip", "bench dip"] },
+    { name: "bicep curl",             muscle: "biceps", synonyms: ["barbell curl", "bb curl", "curl", "curls", "biceps curl"] },
+    { name: "dumbbell curl",          muscle: "biceps", synonyms: ["db curl", "dumbbell biceps curl"] },
+    { name: "hammer curl",            muscle: "biceps", synonyms: ["hammer curls", "hammers"] },
+    { name: "preacher curl",          muscle: "biceps", synonyms: ["preacher", "preachers"] },
+    { name: "concentration curl",     muscle: "biceps", synonyms: ["concentration"] },
+    { name: "cable curl",             muscle: "biceps", synonyms: ["rope curl", "cable bicep curl"] },
+    { name: "incline dumbbell curl",  muscle: "biceps", synonyms: ["incline curl", "incline db curl"] },
+    { name: "spider curl",            muscle: "biceps", synonyms: ["spider"] },
+    { name: "ez bar curl",            muscle: "biceps", synonyms: ["ez curl"] },
+    { name: "reverse curl",           muscle: "biceps", synonyms: ["reverse grip curl"] },
+    { name: "zottman curl",           muscle: "biceps", synonyms: ["zottman"] },
+    { name: "tricep pushdown",        muscle: "triceps", synonyms: ["pushdown", "rope pushdown", "cable pushdown", "tricep pressdown"] },
+    { name: "skull crusher",          muscle: "triceps", synonyms: ["skullcrusher", "lying tricep extension", "lying triceps extension", "french press"] },
+    { name: "tricep extension",       muscle: "triceps", synonyms: ["overhead tricep extension", "overhead extension", "triceps extension"] },
+    { name: "close grip bench press", muscle: "triceps", synonyms: ["close grip bench", "cgbp"] },
+    { name: "tricep kickback",        muscle: "triceps", synonyms: ["tricep kickbacks", "dumbbell kickback"] },
+    { name: "jm press",               muscle: "triceps", synonyms: ["jm"] },
+    { name: "wrist curl",             muscle: "biceps", synonyms: ["forearm curl", "wrist curls"] },
 
     // CORE
     { name: "plank",                  muscle: "core", synonyms: ["planks", "front plank"] },
@@ -133,15 +133,32 @@ const exerciseLibrary = [
 const muscleColor = {
     chest: 'var(--m-chest)',
     back: 'var(--m-back)',
-    legs: 'var(--m-legs)',
+    quads: 'var(--m-quads)',
+    hamstrings: 'var(--m-hamstrings)',
+    glutes: 'var(--m-glutes)',
+    calves: 'var(--m-calves)',
     shoulders: 'var(--m-shoulders)',
-    arms: 'var(--m-arms)',
+    biceps: 'var(--m-biceps)',
+    triceps: 'var(--m-triceps)',
     core: 'var(--m-core)',
+    // Legacy 6-muscle values kept so pre-v9.51 custom/community exercises and
+    // any un-migrated data still render a color.
+    legs: 'var(--m-legs)',
+    arms: 'var(--m-arms)',
 };
 
-const MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
+// v9.51 — expanded to the 10-muscle taxonomy (legs split into quads/
+// hamstrings/glutes/calves; arms into biceps/triceps). Drives Focus cards,
+// the recommender, the PR muscle filter, and the community muscle pills.
+const MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'core'];
 
-const muscleOf = name => exerciseLibrary.find(e => e.name === name)?.muscle ?? 'arms';
+// Map the retired 6-muscle values onto a granular bucket so legacy data still
+// counts toward coverage/trend/focus instead of dropping out (NaN).
+const LEGACY_MUSCLE_MAP = { legs: 'quads', arms: 'biceps' };
+const canonMuscle = m => (MUSCLES.includes(m) ? m : (LEGACY_MUSCLE_MAP[m] || 'core'));
+const zeroMuscleCounts = () => Object.fromEntries(MUSCLES.map(m => [m, 0]));
+
+const muscleOf = name => exerciseLibrary.find(e => e.name === name)?.muscle ?? 'core';
 
 // Sort longest-first so "incline press" wins over "incline".
 // Mutated (not reassigned) by rebuildMatchOrder() when custom exercises load.
@@ -161,7 +178,67 @@ const DB_VERSION = 6;
 // ----- state -----
 let db;
 let selectedExercise = "";
-let userProfile = JSON.parse(localStorage.getItem('ironUser') || 'null');
+
+// ---------------------------------------------------------------------------
+// Persisted preferences (v9.50)
+//
+// Account + settings live in a single `iv_prefs` JSON object instead of the
+// scattered `iron*` keys they used to occupy. A one-time migration folds the
+// legacy keys in and then deletes them, so there's exactly one source of
+// truth (no mirror to drift). All reads/writes go through `_prefs` +
+// persistPrefs(); every access is try/catch-guarded for private-mode /
+// disabled-storage browsers.
+//
+//   firstName, lastName, email   ← ironUser {first,last,email}
+//   accessKey                    ← ironToken
+//   voiceName                    ← ironVoiceURI
+//   voiceRate                    ← ironVoiceRate
+//   theme                        ← ironTheme
+//   restDefault                  ← ironRest
+//   voiceWorkoutMode             ← ironWorkoutMode
+// ---------------------------------------------------------------------------
+const PREFS_KEY = 'iv_prefs';
+function _readPrefs() {
+    try { return JSON.parse(localStorage.getItem(PREFS_KEY) || 'null'); }
+    catch (_) { return null; }
+}
+function _migrateLegacyPrefs() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('ironUser') || 'null'); } catch (_) {}
+    const p = {
+        firstName: user?.first || '',
+        lastName: user?.last || '',
+        email: user?.email || '',
+        accessKey: localStorage.getItem('ironToken') || '',
+        voiceName: localStorage.getItem('ironVoiceURI') || '',
+        voiceRate: parseFloat(localStorage.getItem('ironVoiceRate') || '1.05'),
+        theme: localStorage.getItem('ironTheme') || 'dark',
+        restDefault: parseInt(localStorage.getItem('ironRest') || '90', 10),
+        voiceWorkoutMode: localStorage.getItem('ironWorkoutMode') === 'on',
+    };
+    try {
+        localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+        // True migration — drop the legacy keys once iv_prefs is written.
+        ['ironUser', 'ironToken', 'ironVoiceURI', 'ironVoiceRate', 'ironTheme', 'ironRest', 'ironWorkoutMode']
+            .forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
+    return p;
+}
+let _prefs = _readPrefs() || _migrateLegacyPrefs();
+function persistPrefs() {
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(_prefs)); } catch (_) {}
+}
+// Keep the working `userProfile` object and `_prefs` identity fields in sync.
+function syncProfileToPrefs() {
+    _prefs.firstName = userProfile?.first || '';
+    _prefs.lastName = userProfile?.last || '';
+    _prefs.email = userProfile?.email || '';
+    persistPrefs();
+}
+
+let userProfile = _prefs.firstName
+    ? { first: _prefs.firstName, last: _prefs.lastName || '', email: _prefs.email || '' }
+    : null;
 let recognition = null;
 let isListening = false;
 
@@ -178,14 +255,14 @@ const API_URL = 'https://ironvoice-api.nickeisan19.workers.dev';
 
 let activeTemplate = null;
 let editingTemplate = null;
-let restDuration = parseInt(localStorage.getItem('ironRest') || '90', 10);
+let restDuration = Number.isFinite(_prefs.restDefault) ? _prefs.restDefault : 90;
 let restTimerHandle = null;
 let restCompleteTimeout = null;
-let theme = localStorage.getItem('ironTheme') || 'dark';
-let workoutMode = localStorage.getItem('ironWorkoutMode') === 'on';
+let theme = _prefs.theme || 'dark';
+let workoutMode = !!_prefs.voiceWorkoutMode;
 let serverSyncedAt = parseInt(localStorage.getItem('ironServerSyncedAt') || '0', 10);
 let editingCustomExercise = null;
-let voiceURI = localStorage.getItem('ironVoiceURI') || '';
+let voiceURI = _prefs.voiceName || '';
 // v6: workout sessions
 let activeSession = null;        // current in-progress session, or null
 let _sessionTickerTimer = null;  // setInterval handle for live time updates
@@ -233,7 +310,7 @@ let prTab = 'weight';            // 'weight' | 'weight-reps'
 // v6: history screen state
 let historyWeekOffset = 0;       // 0 = current week, -1 = last week, etc.
 let historySelectedDate = null;  // ISO date string of currently selected day
-let voiceRate = parseFloat(localStorage.getItem('ironVoiceRate') || '1.05');
+let voiceRate = Number.isFinite(_prefs.voiceRate) ? _prefs.voiceRate : 1.05;
 let lastSyncMeta = JSON.parse(localStorage.getItem('ironSyncMeta') || 'null');
 let pendingSWUpdate = null;
 let lastSyncFailed = false;
@@ -369,7 +446,7 @@ function setSegmentedActive(container, match) {
         if (b.getAttribute('role') === 'tab') b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 }
-const getToken = () => localStorage.getItem('ironToken') || '';
+const getToken = () => _prefs.accessKey || '';
 const epley = (w, r) => w * (1 + r / 30);
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
@@ -420,7 +497,8 @@ window.addEventListener('load', () => {
 function applyTheme(next) {
     theme = next;
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem('ironTheme', theme);
+    _prefs.theme = theme;
+    persistPrefs();
     updateThemeColor();
 }
 
@@ -441,7 +519,7 @@ function updateThemeColor() {
     const isLight = theme === 'light' ||
         (theme === 'auto' && window.matchMedia?.('(prefers-color-scheme: light)').matches);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = isLight ? '#f2f2f7' : '#000000';
+    if (meta) meta.content = isLight ? '#faf7f2' : '#0E0F11';
 }
 
 // Track system theme changes so the meta tag stays in sync while in auto mode.
@@ -561,6 +639,16 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '10.0': {
+        items: [
+            'A full redesign — Home, History, Records, Profile, with a raised mic in the center of the tab bar.',
+            'Templates: 4 ready-made workouts, plus a rebuilt builder. Starting one pre-loads every exercise, ready to log.',
+            '10 muscle groups — legs split into quads / hamstrings / glutes / calves, arms into biceps / triceps. Your history re-categorizes automatically.',
+            'Community: add and edit exercises straight into the shared catalog — no review needed.',
+            'Home: weekly + lifetime load, a workout calendar (tap a trained day to open it), and a "Suggested for today" sized to your typical workout.',
+            'PRs: tap any record for its progression chart and share card; new PRs now pop a quick toast instead of a full-screen takeover.',
+        ],
+    },
     '9.32': {
         items: [
             'PREV column under every set — see last time at a glance.',
@@ -654,6 +742,22 @@ const WHATS_NEW = {
             'Stepper buttons (−5, −2.5, +2.5, +5) are now fully tappable across the whole button, not just the number — and the text reads dark on gold to match the brand.',
         ],
     },
+    '9.50': {
+        items: [
+            'IronVoice now learns the time of day you usually train and gives you a gentle once-a-day nudge when you’ve skipped today and it’s past your normal start time.',
+            'Finished workouts are auto-named Upper Body, Lower Body, or Full Body based on what you trained — the name shows in your History.',
+            'History editing: every exercise in a day now has a trash button to remove the whole exercise at once (per-set edits still work by tapping a set).',
+        ],
+    },
+    '9.51': {
+        items: [
+            'Big visual refresh across the whole app — a deeper obsidian palette, cleaner cards, and a new tab bar: Home · History · Records · Profile with the mic in the middle.',
+            'New Home: a weekly-load ring, a Streak / Today / Last trio, a Start button, and a "Suggested for today" workout.',
+            'Workouts are now a focused full-screen view with a say-or-type command bar at the bottom — type "bench 225 for 5" and hit enter, or tap the mic.',
+            'History, Records, and Profile each got a cleaner header; Records gained a search box and Profile shows your avatar at the top.',
+            'New tap-to-speak voice sheet, a full exercise picker for adding lifts mid-workout, a muscle filter on Records, a swipe-free History editor, and Profile is now organized into Account / Preferences / Training / Data / Community tabs.',
+        ],
+    },
 };
 
 function maybeShowWhatsNew() {
@@ -733,7 +837,8 @@ function initSegmented() {
         if (!btn) return;
         setSegmentedActive($('rest-segment'), b => b === btn);
         restDuration = parseInt(btn.dataset.val, 10);
-        localStorage.setItem('ironRest', String(restDuration));
+        _prefs.restDefault = restDuration;
+        persistPrefs();
         haptic(8);
     });
 
@@ -762,6 +867,21 @@ function initSegmented() {
         editingCustomExercise.muscle = btn.dataset.val;
         haptic(8);
     });
+
+    // v9.51: Community tab muscle pills (add form + edit sheet).
+    $('community-add-muscle')?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn) return;
+        setSegmentedActive($('community-add-muscle'), b => b === btn);
+        _communityAddMuscle = btn.dataset.val;
+        haptic(8);
+    });
+    $('community-edit-muscle')?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn) return;
+        setSegmentedActive($('community-edit-muscle'), b => b === btn);
+        haptic(8);
+    });
 }
 
 // ============================================================================
@@ -785,6 +905,7 @@ function initDB() {
     request.onsuccess = async e => {
         db = e.target.result;
         await migrateData();
+        await seedDefaultTemplates();             // v9.51: predefined templates
         await loadCustomExercisesIntoLibrary();   // item 13
         await garbageCollectTombstones();         // item 8
         await backfillHistoricalSessions();       // v6: estimate sessions from old timestamps
@@ -804,6 +925,11 @@ function initDB() {
         // launch. Sits ahead of the start-prompt so a returning user
         // sees the changelog before being asked about a new session.
         setTimeout(() => maybeShowWhatsNew(), 600);
+        // v9.50: workout reminder — learns your usual training time and
+        // nudges once/day when you've skipped today. Evaluated ~500ms after
+        // open (per the handoff); runs ahead of the legacy launch prompt,
+        // which it suppresses when it fires.
+        setTimeout(() => maybeWorkoutReminder(), 500);
         // v8: launch prompt — ask if the user wants to start a workout.
         // Delayed so the home screen renders first and the prompt feels
         // like a follow-up question, not an intercept on app launch.
@@ -1476,6 +1602,18 @@ function initSpeech() {
                 for (let i = e.resultIndex; i < e.results.length; i++) {
                     if (!e.results[i].isFinal) continue;
                     const alts = e.results[i];
+                    // v9.50 — when the Voice sheet is open, surface the
+                    // transcript for review instead of auto-logging; the user
+                    // taps Log (or Enter) to commit. Hands-free workout-mode
+                    // (sheet closed) keeps auto-logging.
+                    if (_voiceSheetOpen) {
+                        const t = alts[0]?.transcript || '';
+                        const vsInput = $('vs-input');
+                        if (vsInput) vsInput.value = t;
+                        const status = $('vs-status');
+                        if (status) status.textContent = 'HEARD';
+                        continue;
+                    }
                     let intent = null;
                     for (let alt = 0; alt < alts.length && !intent; alt++) {
                         intent = parseIntent(alts[alt].transcript.toLowerCase());
@@ -1538,7 +1676,8 @@ function initSpeech() {
 
 function setWorkoutMode(on) {
     workoutMode = !!on;
-    localStorage.setItem('ironWorkoutMode', workoutMode ? 'on' : 'off');
+    _prefs.voiceWorkoutMode = workoutMode;
+    persistPrefs();
     // continuous stays true regardless of mode
 }
 
@@ -1753,7 +1892,7 @@ async function executeIntent(intent) {
     if (!workoutMode && isListening) endSession('Ready');
 }
 
-function speak(text) {
+function speak(text, { visual = true } = {}) {
     // v9.17/v9.19: every spoken response also surfaces visually so voice
     // works on muted phones (the common case at a gym). On iOS the
     // hardware ringer switch silences speechSynthesis entirely, which
@@ -1761,8 +1900,9 @@ function speak(text) {
     // answer was being spoken into the void. v9.19 upgraded the visual
     // from a small bottom snackbar to a prominent top-of-screen card
     // that stays for 10s, readable from arm's-length when the phone is
-    // on the bench.
-    showVoiceResponse(text);
+    // on the bench. v9.51: callers can opt out (visual:false) when another
+    // surface already shows the message — e.g. the PR snackbar.
+    if (visual) showVoiceResponse(text);
 
     if (!('speechSynthesis' in window)) return;
 
@@ -1824,65 +1964,89 @@ function speak(text) {
 // fallback to system default if the saved voice isn't available later.
 // ============================================================================
 
+function getVoiceList() {
+    return window.speechSynthesis?.getVoices() ?? [];
+}
+
+function currentVoiceName() {
+    if (!voiceURI) return 'System default';
+    const v = getVoiceList().find(x => x.voiceURI === voiceURI);
+    return v ? v.name : 'System default';
+}
+
+function updateVoiceNameLabel() {
+    const lbl = $('voice-name-label');
+    if (lbl) lbl.textContent = currentVoiceName();
+}
+
+function voiceRowHtml(uri, name, sub, selected) {
+    const check = selected
+        ? `<svg class="vp-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
+        : '';
+    return `<button type="button" class="vp-row" data-uri="${escapeHtml(uri)}">`
+        + `<span class="vp-row-text"><span class="vp-row-name">${escapeHtml(name)}</span>`
+        + (sub ? `<span class="vp-row-sub">${escapeHtml(sub)}</span>` : '')
+        + `</span>${check}</button>`;
+}
+
+// Build the custom voice-picker sheet list and keep the Profile row's trailing
+// name label fresh. Replaces the old native <select> (v9.50). Persisted by
+// voiceURI; a saved voice that's no longer available falls back to default.
 function populateVoicePicker() {
-    const select = $('voice-picker');
-    if (!select) return;
-    const voices = window.speechSynthesis?.getVoices() ?? [];
+    const voices = getVoiceList();
 
-    if (!voices.length) {
-        select.innerHTML = `<option value="">System default (loading…)</option>`;
-        return;
+    // Stored voice no longer present — clear it so future syncs don't reference it.
+    if (voiceURI && voices.length && !voices.some(v => v.voiceURI === voiceURI)) {
+        voiceURI = '';
+        _prefs.voiceName = '';
+        persistPrefs();
     }
+    updateVoiceNameLabel();
 
-    // Group by lang code; English variants float to the top.
-    const groups = {};
-    for (const v of voices) {
-        const lang = v.lang || 'unknown';
-        (groups[lang] ||= []).push(v);
-    }
-    const langs = Object.keys(groups).sort((a, b) => {
-        const aEn = a.startsWith('en'), bEn = b.startsWith('en');
-        if (aEn && !bEn) return -1;
-        if (!aEn && bEn) return 1;
-        return a.localeCompare(b);
+    const list = $('voice-picker-list');
+    if (!list) return;
+
+    // System default first; English variants float up next, then alphabetical.
+    const sorted = voices.slice().sort((a, b) => {
+        const aEn = (a.lang || '').startsWith('en'), bEn = (b.lang || '').startsWith('en');
+        if (aEn !== bEn) return aEn ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '');
     });
 
-    let html = `<option value="">System default</option>`;
-    for (const lang of langs) {
-        const escLang = escapeHtml(lang);
-        html += `<optgroup label="${escLang}">`;
-        groups[lang]
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .forEach(v => {
-                const flags = [];
-                if (v.localService) flags.push('local');
-                if (v.default) flags.push('default');
-                const flagSuffix = flags.length ? ` (${flags.join(', ')})` : '';
-                html += `<option value="${escapeHtml(v.voiceURI)}">${escapeHtml(v.name)}${escapeHtml(flagSuffix)}</option>`;
-            });
-        html += `</optgroup>`;
+    const rows = [voiceRowHtml('', 'System default', '', voiceURI === '')];
+    if (!voices.length) {
+        rows.push(`<div class="vp-row" style="cursor:default"><span class="vp-row-text"><span class="vp-row-sub">Loading device voices…</span></span></div>`);
+    } else {
+        for (const v of sorted) {
+            const sub = [v.lang, v.localService ? 'local' : '', v.default ? 'default' : '']
+                .filter(Boolean).join(' · ');
+            rows.push(voiceRowHtml(v.voiceURI, v.name, sub, v.voiceURI === voiceURI));
+        }
     }
-    select.innerHTML = html;
-    // Restore selection (or fall through to "" / System default if missing).
-    select.value = voiceURI;
-    if (select.value !== voiceURI) {
-        // Stored voice no longer present — clear it so future syncs don't keep referencing.
-        voiceURI = '';
-        localStorage.removeItem('ironVoiceURI');
-    }
+    list.innerHTML = rows.join('');
+}
+
+function openVoicePicker() {
+    populateVoicePicker();
+    $('voice-picker-overlay')?.classList.add('active');
+}
+function closeVoicePicker() {
+    $('voice-picker-overlay')?.classList.remove('active');
 }
 
 function setVoice(uri) {
     voiceURI = uri || '';
-    if (voiceURI) localStorage.setItem('ironVoiceURI', voiceURI);
-    else localStorage.removeItem('ironVoiceURI');
+    _prefs.voiceName = voiceURI;
+    persistPrefs();
+    updateVoiceNameLabel();
 }
 
 function setVoiceRate(rate) {
     const r = parseFloat(rate);
     if (!Number.isFinite(r)) return;
     voiceRate = Math.min(2, Math.max(0.5, r));
-    localStorage.setItem('ironVoiceRate', String(voiceRate));
+    _prefs.voiceRate = voiceRate;
+    persistPrefs();
     const lbl = $('voice-rate-label');
     if (lbl) lbl.textContent = `${voiceRate.toFixed(2)}×`;
     // Screen readers should hear "1.05 times speed" instead of
@@ -1903,9 +2067,14 @@ function initVoicePicker() {
     populateVoicePicker();
     speechSynthesis.addEventListener?.('voiceschanged', populateVoicePicker);
 
-    $('voice-picker')?.addEventListener('change', e => {
-        setVoice(e.target.value);
+    // Delegated selection on the custom voice-picker sheet rows.
+    $('voice-picker-list')?.addEventListener('click', e => {
+        const row = e.target.closest('.vp-row[data-uri]');
+        if (!row) return;
+        setVoice(row.dataset.uri);
+        populateVoicePicker();   // move the checkmark
         haptic(6);
+        closeVoicePicker();
     });
     $('voice-rate')?.addEventListener('input', e => setVoiceRate(e.target.value));
 }
@@ -1965,12 +2134,17 @@ async function updateUI(entry, isNewPR) {
             card.classList.add('pr-flash');
         }
         setStatus('New PR!', 'synced');
-        speak("New personal record!");
+        speak("New personal record!", { visual: false });   // snackbar is the visual
         haptic([30, 50, 30, 50, 60]);
-        // v9.0: PRs deserve a moment. Auto-present the celebration sheet
-        // with the same canvas the share flow already produces. Defer
-        // briefly so the snackbar/PR-flash on the card register first.
-        setTimeout(() => presentPRCelebration(entry), 600);
+        // v9.51: a small auto-dismissing PR toast (replaces the full-screen
+        // celebration sheet that the user had to dismiss). Tap Share to open
+        // the PR card; otherwise it disappears on its own. The share card is
+        // still reachable any time from the Records screen.
+        showSnackbar(`🏆 New PR · ${titleCase(entry.exercise)} ${entry.weight} × ${entry.reps}`, {
+            actionLabel: 'Share',
+            onAction: () => { hideSnackbar(); currentExerciseSheet = { exercise: entry.exercise, sets: [] }; sharePR(); },
+            duration: 6000,
+        });
     }
 }
 
@@ -2082,25 +2256,425 @@ async function renderWeekCard() {
     }
 }
 
-// v9.1: Primary action pill. Two states: idle ("Start workout") and active
-// ("Resume workout · Nm"). Both navigate to the Workout screen — the user
-// can then start a session, pick a template, or see the active card.
-async function renderHomePrimaryAction() {
-    const titleEl = $('hpa-title');
-    const subEl = $('hpa-sub');
-    const iconEl = $('hpa-icon');
-    if (!titleEl) return;
+// v9.50 redesign — the Home launchpad renderer. Populates the Weekly-load
+// ring + volume + delta, the STREAK/TODAY/LAST trio, the resume strip (when a
+// session is active), and the "Suggested for today" card. Wired to the same
+// fan-out as before via renderHomePrimaryAction() (kept as a delegating shim
+// so every existing call site keeps Home fresh on data changes).
+//
+// All numbers are real (the prototype's were demo placeholders): weekly load
+// = trailing-7-day work-set tonnage; the ring fills toward your best recent
+// week; the trio reads live streak / today's sets / last training weekday.
+const _localISO = (dt) => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+const _capWord = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-    if (activeSession) {
-        const m = Math.max(0, Math.floor((Date.now() - activeSession.startedAt) / 60000));
-        titleEl.textContent = 'Resume workout';
-        if (subEl) subEl.textContent = `In progress · ${m}m`;
-        if (iconEl) iconEl.classList.add('hpa-icon-active');
+async function renderHome() {
+    if (!$('load-value')) return;   // not on the Home DOM
+    const work = await getActiveWorkSets();
+    const todayStr = todayISO();
+
+    // --- Weekly load (trailing 7d tonnage) + WoW delta -------------------
+    const cutoff7 = isoForOffset(6);
+    const cutoff14 = isoForOffset(13);
+    const volOf = (sets) => sets.reduce((s, w) => s + w.weight * w.reps, 0);
+    const vol7 = volOf(work.filter(w => w.date >= cutoff7));
+    const volPrev = volOf(work.filter(w => w.date >= cutoff14 && w.date < cutoff7));
+    $('load-value').innerHTML =
+        `${vol7.toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
+    const deltaEl = $('load-delta');
+    if (volPrev > 0) {
+        const pct = Math.round(((vol7 - volPrev) / volPrev) * 100);
+        deltaEl.className = 'load-delta ' + (pct >= 0 ? 'up' : 'down');
+        deltaEl.textContent = `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs last week`;
     } else {
-        titleEl.textContent = 'Start workout';
-        if (subEl) subEl.textContent = 'Track time, sets, and volume';
-        if (iconEl) iconEl.classList.remove('hpa-icon-active');
+        deltaEl.className = 'load-delta';
+        deltaEl.textContent = '';
     }
+
+    // --- Lifetime load: all-time work-set tonnage -----------------------
+    const lifetimeEl = $('lifetime-value');
+    if (lifetimeEl) {
+        lifetimeEl.innerHTML =
+            `${volOf(work).toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
+    }
+
+    // --- Resume strip vs idle (Start CTA + Suggested) -------------------
+    const resume = $('home-resume');
+    const idle = $('home-idle');
+    if (activeSession) {
+        const sessionSets = (await getActiveWorkouts()).filter(w => w.sessionId === activeSession.id);
+        const workCount = sessionSets.filter(w => !w.warmup).length;
+        const m = Math.max(0, Math.floor((Date.now() - activeSession.startedAt) / 60000));
+        const name = sessionDisplayName(activeSession, sessionSets);
+        if (resume) {
+            resume.style.display = '';
+            $('home-resume-sub').textContent =
+                `${name} · ${m}m · ${workCount} ${workCount === 1 ? 'set' : 'sets'}`;
+        }
+        if (idle) idle.style.display = 'none';
+        return;   // suggested card is part of the idle block
+    }
+    if (resume) resume.style.display = 'none';
+    if (idle) idle.style.display = '';
+
+    // --- Suggested for today --------------------------------------------
+    const card = $('suggested-card');
+    const empty = $('suggested-empty');
+    const rec = await generateRecommendedWorkout();
+    if (rec && rec.targets.length) {
+        const caps = rec.targets.map(_capWord);
+        const title = caps.length > 1 ? `${caps[0]} & ${caps[1]}` : `${caps[0]} day`;
+        $('suggested-title').textContent = title;
+        $('suggested-time').textContent = `~${rec.estimatedMinutes} min`;
+        $('suggested-rationale').textContent =
+            `Targets the ${rec.targets.join(' & ')} you've trained least lately.`;
+        $('suggested-tags').innerHTML = rec.targets.map(m =>
+            `<span class="suggested-tag"><span class="suggested-tag-dot" style="background:${muscleColor[m] || '#888'}"></span>${escapeHtml(_capWord(m))}</span>`
+        ).join('');
+        $('suggested-cta-label').textContent = `Start ${title}`;
+        if (card) card.style.display = '';
+        if (empty) empty.style.display = 'none';
+    } else if (work.length) {
+        if (card) card.style.display = 'none';
+        if (empty) empty.style.display = '';
+    } else {
+        if (card) card.style.display = 'none';
+        if (empty) empty.style.display = 'none';
+    }
+}
+
+// Kept as the fan-out entry point so every existing caller refreshes the
+// whole Home launchpad (it folds in the old primary-action + tiles).
+async function renderHomePrimaryAction() {
+    return renderHome();
+}
+
+// v9.50 — Start workout sheet (Empty workout + templates), opened from the
+// Home Start CTA. "Empty" starts a blank session; a template row activates
+// that template (its per-exercise targets prefill logging) and starts.
+async function openStartSheet() {
+    const list = $('start-sheet-templates');
+    const templates = await getActiveTemplates();
+    if (list) {
+        list.innerHTML = templates.map(t => {
+            const n = (t.exercises || []).length;
+            const sub = t.sub || `${n} exercise${n === 1 ? '' : 's'}`;
+            return `<button type="button" class="start-tpl-row" data-action="startTemplateWorkout" data-id="${t.id}">
+                <span class="start-tpl-text">
+                    <span class="start-tpl-name">${escapeHtml(t.name)}</span>
+                    <span class="start-tpl-sub">${escapeHtml(sub)}</span>
+                </span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--label-tertiary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>`;
+        }).join('');
+    }
+    const label = $('start-sheet-tpl-label');
+    if (label) label.style.display = templates.length ? '' : 'none';
+    $('start-sheet-overlay')?.classList.add('active');
+    haptic(8);
+}
+function closeStartSheet() {
+    $('start-sheet-overlay')?.classList.remove('active');
+}
+async function startEmptyWorkout() {
+    closeStartSheet();
+    activeTemplate = null;
+    await enterWorkout();
+}
+async function startTemplateWorkout(el) {
+    const id = Number(el?.dataset.id);
+    const t = (await getActiveTemplates()).find(x => x.id === id);
+    closeStartSheet();
+    if (t) {
+        activeTemplate = t;
+        // v9.51: pre-load every template exercise as a ready-to-log planned
+        // card so the user can document the workout quickly (prefilled).
+        writeSuggestedQueue((t.exercises || []).map(e => ({
+            name: e.name,
+            muscle: muscleOf(e.name),
+            sets: e.sets || e.targetSets || 3,
+        })));
+    }
+    showScreen('workout');
+    if (!activeSession) await startWorkoutSession();
+    await refreshSessionCard();
+}
+
+// ============================================================================
+// v9.50 — Voice sheet, Exercise picker, Records muscle filter, History edit.
+// ============================================================================
+
+// --- Voice sheet -------------------------------------------------------------
+// Reuses the existing recognition engine. In workout (continuous) mode the
+// mic keeps its hands-free auto-log behavior; otherwise the mic opens this
+// sheet, recognition results fill the transcript for review, and Log commits
+// through the same parse pipeline.
+let _voiceSheetOpen = false;
+function micTap() {
+    if (workoutMode) { toggleListening(); return; }
+    if (_voiceSheetOpen) { closeVoiceSheet(); return; }
+    openVoiceSheet();
+}
+function openVoiceSheet() {
+    _voiceSheetOpen = true;
+    const input = $('vs-input');
+    if (input) input.value = '';
+    const status = $('vs-status');
+    if (status) status.textContent = recognition ? 'LISTENING…' : 'TYPE YOUR SET';
+    $('voice-overlay')?.classList.add('active');
+    if (recognition && !isListening) toggleListening();
+    haptic(12);
+}
+function closeVoiceSheet() {
+    _voiceSheetOpen = false;
+    $('voice-overlay')?.classList.remove('active');
+    if (isListening) toggleListening();
+}
+async function logVoiceSheet() {
+    const input = $('vs-input');
+    const text = (input?.value || '').trim();
+    if (!text) { closeVoiceSheet(); return; }
+    const intent = parseIntent(text.toLowerCase());
+    closeVoiceSheet();
+    if (intent) await executeIntent(intent);
+    else showVoiceResponse('Didn’t catch that — try "bench 225 for 5".');
+}
+
+// --- Exercise picker ---------------------------------------------------------
+function openExPicker() {
+    const input = $('ex-picker-input');
+    if (input) input.value = '';
+    renderExPicker('');
+    $('ex-picker-overlay')?.classList.add('active');
+    setTimeout(() => $('ex-picker-input')?.focus(), 350);
+}
+function closeExPicker() { $('ex-picker-overlay')?.classList.remove('active'); _exPickerForTemplate = false; }
+async function filterExPicker(el) { await renderExPicker(el?.value || ''); }
+async function renderExPicker(query) {
+    const list = $('ex-picker-list');
+    if (!list) return;
+    const q = (query || '').trim().toLowerCase();
+    const cat = await buildExerciseCatalog();
+    const rows = cat
+        .filter(c => !q || c.name.toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    if (!rows.length) {
+        list.innerHTML = `<div class="ex-picker-empty">No exercises match${q ? ` “${escapeHtml(query)}”` : ''}.</div>`;
+        return;
+    }
+    list.innerHTML = rows.map(c =>
+        `<button type="button" class="ex-picker-row" data-action="pickExercise" data-exercise="${escapeHtml(c.name)}">
+            <span class="muscle-tag" style="background:${escapeHtml(muscleColor[c.muscle] || '#888')}"></span>
+            <span class="ex-picker-name">${escapeHtml(titleCase(c.name))}</span>
+            <span class="ex-picker-plus" aria-hidden="true">+</span>
+        </button>`).join('');
+}
+async function pickExercise(el) {
+    const name = el?.dataset.exercise;
+    if (!name) return;
+    const forTpl = _exPickerForTemplate;
+    closeExPicker();   // resets _exPickerForTemplate
+    // v9.51: when adding to a template, route the pick into the builder
+    // (which stays open underneath) instead of starting a workout set.
+    if (forTpl) {
+        if (editingTemplate && !editingTemplate.exercises.some(e => e.name === name)) {
+            editingTemplate.exercises.push({ name });
+            await renderTemplateEditor();
+        }
+        haptic(8);
+        return;
+    }
+    if (!activeSession) { showScreen('workout'); await startWorkoutSession(); }
+    await openQuickAdd({ dataset: { exercise: name } });
+}
+
+// --- Records muscle filter ---------------------------------------------------
+let _prMuscleFilter = [];
+async function openRecordsFilter() {
+    const list = $('pf-list');
+    const tiles = await computePRTiles();
+    const counts = {};
+    tiles.forEach(t => { counts[t.muscle] = (counts[t.muscle] || 0) + 1; });
+    if (list) {
+        list.innerHTML = MUSCLES.map(m => {
+            const on = _prMuscleFilter.includes(m);
+            return `<button type="button" class="pf-row${on ? ' is-on' : ''}" data-action="toggleRecordsMuscle" data-muscle="${m}">
+                <span class="pf-check"><svg viewBox="0 0 24 24" fill="none" stroke="var(--acc-ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span class="pf-dot" style="background:${muscleColor[m] || '#888'}"></span>
+                <span class="pf-label">${_capWord(m)}</span>
+                <span class="pf-count tnum">${counts[m] || 0}</span>
+            </button>`;
+        }).join('');
+    }
+    $('pr-filter-overlay')?.classList.add('active');
+}
+function closeRecordsFilter() { $('pr-filter-overlay')?.classList.remove('active'); }
+function toggleRecordsMuscle(el) {
+    const m = el?.dataset.muscle;
+    if (!m) return;
+    _prMuscleFilter = _prMuscleFilter.includes(m)
+        ? _prMuscleFilter.filter(x => x !== m)
+        : _prMuscleFilter.concat(m);
+    el.classList.toggle('is-on');
+    updateRecordsFilterButton();
+    renderPRsScreen();
+}
+function clearRecordsFilter() {
+    _prMuscleFilter = [];
+    updateRecordsFilterButton();
+    openRecordsFilter();
+    renderPRsScreen();
+}
+function updateRecordsFilterButton() {
+    const btn = $('pr-filter-btn');
+    if (!btn) return;
+    btn.classList.toggle('has-filter', _prMuscleFilter.length > 0);
+    const count = $('pr-filter-count');
+    if (count) {
+        count.textContent = String(_prMuscleFilter.length);
+        count.style.display = _prMuscleFilter.length ? '' : 'none';
+    }
+}
+
+// --- History exercise edit sheet ---------------------------------------------
+let _histEdit = null;
+async function openHistEdit(el) {
+    const name = el?.dataset.exercise, date = el?.dataset.date, sessionKey = el?.dataset.sessionKey;
+    if (!name || !date) return;
+    const all = await performDB('workouts', 'getAll');
+    const sets = all.filter(w =>
+        !w.deleted && w.exercise === name && w.date === date &&
+        (sessionKey === 'untagged' ? !w.sessionId : w.sessionId === Number(sessionKey)))
+        .sort((a, b) => a.id - b.id);
+    _histEdit = {
+        name, date, sessionKey,
+        sessionId: sessionKey === 'untagged' ? null : Number(sessionKey),
+        sets: sets.map(s => ({ id: s.id, weight: s.weight, reps: s.reps, warmup: !!s.warmup })),
+        removed: [],
+    };
+    $('he-title').textContent = titleCase(name);
+    renderHistEditList();
+    $('hist-edit-overlay')?.classList.add('active');
+}
+function closeHistEdit() {
+    _histEdit = null;
+    $('hist-edit-overlay')?.classList.remove('active');
+}
+function renderHistEditList() {
+    const list = $('he-list');
+    if (!list || !_histEdit) return;
+    list.innerHTML = _histEdit.sets.map((s, i) => `
+        <div class="he-row">
+            <div class="he-stepper">
+                <button type="button" data-action="histEditStep" data-i="${i}" data-f="w" data-d="-5" aria-label="Less weight">&minus;</button>
+                <span class="he-stepper-val w tnum">${escapeHtml(String(s.weight))}</span>
+                <button type="button" data-action="histEditStep" data-i="${i}" data-f="w" data-d="5" aria-label="More weight">+</button>
+            </div>
+            <span class="he-unit">lb</span><span class="he-x">×</span>
+            <div class="he-stepper">
+                <button type="button" data-action="histEditStep" data-i="${i}" data-f="r" data-d="-1" aria-label="Fewer reps">&minus;</button>
+                <span class="he-stepper-val r tnum">${escapeHtml(String(s.reps))}</span>
+                <button type="button" data-action="histEditStep" data-i="${i}" data-f="r" data-d="1" aria-label="More reps">+</button>
+            </div>
+            <span class="he-spacer"></span>
+            <button type="button" class="he-remove" data-action="histEditRemove" data-i="${i}" aria-label="Remove set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        </div>`).join('');
+}
+function histEditStep(el) {
+    if (!_histEdit) return;
+    const i = Number(el.dataset.i), f = el.dataset.f, d = parseFloat(el.dataset.d);
+    const s = _histEdit.sets[i];
+    if (!s) return;
+    if (f === 'w') s.weight = Math.max(0, Math.round((s.weight + d) * 10) / 10);
+    else s.reps = Math.max(1, s.reps + d);
+    renderHistEditList();
+    haptic(8);
+}
+function histEditRemove(el) {
+    if (!_histEdit) return;
+    const i = Number(el.dataset.i);
+    const s = _histEdit.sets[i];
+    if (!s) return;
+    if (s.id) _histEdit.removed.push(s.id);
+    _histEdit.sets.splice(i, 1);
+    renderHistEditList();
+    haptic(10);
+}
+function histEditAddSet() {
+    if (!_histEdit) return;
+    const last = _histEdit.sets[_histEdit.sets.length - 1];
+    _histEdit.sets.push({ id: null, weight: last ? last.weight : 45, reps: last ? last.reps : 5, warmup: false });
+    renderHistEditList();
+    haptic(8);
+}
+async function saveHistEdit() {
+    if (!_histEdit) { closeHistEdit(); return; }
+    const { name, date, sessionId, sets, removed } = _histEdit;
+    const now = Date.now();
+    try {
+        // Updates to existing sets.
+        for (const s of sets) {
+            if (s.id == null) continue;
+            const entry = await performDB('workouts', 'get', s.id);
+            if (!entry) continue;
+            entry.weight = s.weight;
+            entry.reps = s.reps;
+            entry.oneRM = epley(s.weight, s.reps);
+            entry.modifiedAt = now;
+            await performDB('workouts', 'put', entry);
+        }
+        // New sets — stamped onto the historical day + session, not today.
+        let seq = 0;
+        for (const s of sets) {
+            if (s.id != null) continue;
+            const entry = {
+                id: now + (++seq),
+                exercise: name,
+                weight: s.weight,
+                reps: s.reps,
+                oneRM: epley(s.weight, s.reps),
+                date,
+                modifiedAt: now,
+                warmup: false,
+            };
+            if (sessionId) entry.sessionId = sessionId;
+            await performDB('workouts', 'put', entry);
+        }
+        // Removals.
+        for (const id of removed) {
+            const entry = await performDB('workouts', 'get', id);
+            if (!entry) continue;
+            entry.deleted = true;
+            entry.modifiedAt = now;
+            await performDB('workouts', 'put', entry);
+        }
+        markUnsynced();
+        markFrequencyDirty();
+        await recomputePR(name);
+        const wasEmptied = sets.length === 0;
+        closeHistEdit();
+        await renderHistory();
+        await renderFocus();
+        await renderRecommendedNext();
+        await renderActivityCard();
+        await renderStrain();
+        await refreshLatestStats();
+        showSnackbar(wasEmptied ? 'Exercise removed' : 'Exercise updated', { duration: 3000 });
+        haptic(15);
+    } catch (err) {
+        console.error('History edit save failed:', err);
+    }
+}
+async function histEditDeleteExercise() {
+    if (!_histEdit) return;
+    const { name, date, sessionKey } = _histEdit;
+    closeHistEdit();
+    await deleteHistoryExercise({ dataset: { exercise: name, date, sessionKey } });
 }
 
 // v9.1: Header subtitle is no longer the static "Ready to lift" — it now
@@ -2425,8 +2999,9 @@ function initActionDispatcher() {
         deleteTemplate, dismissTimer, exportHealthCSV,
         exportJSON, handleManualEntry, logoutFromSettings, nativeShare,
         newCustomExercise, newTemplate, openPlate, openSettings,
+        addExerciseToTemplate, removeTemplateExercise,
         restoreFromNAS, saveCustomExercise, saveProfile, saveTemplate,
-        sharePR, syncToNAS, testConnection, testVoice, toggleListening,
+        sharePR, savePRImage, syncToNAS, testConnection, testVoice, toggleListening,
         wipeFromSettings,
         // help / install hint additions land here too
         openHelp, closeHelp, dismissInstallHint, dismissVoiceTip,
@@ -2489,14 +3064,29 @@ function initActionDispatcher() {
         // two CTAs route to the existing custom editor + community sheet.
         openExercises, closeExercises,
         newCustomExerciseFromHub, browseCommunityFromHub,
-        // v9.46: Admin review queue — Review submissions row in the
-        // Exercises hub (admin-only), Approve / Reject per-row inside.
-        openReviewQueue, closeReviewQueue,
-        approveSubmission, rejectSubmission,
+        // v9.51: Community tab (Profile) — add/edit straight into the shared
+        // catalog (no review).
+        submitCommunity, editCommunity, closeCommunityEdit, saveCommunityEdit,
         // v9.49: Home Activity card — month navigation.
-        activityPrevMonth, activityNextMonth,
+        activityPrevMonth, activityNextMonth, openHistoryDate,
+        // v9.50: workout reminder sheet — start (→ Workout) or dismiss.
+        startReminderWorkout, dismissWorkoutReminder,
+        // v9.50: History editing — delete a whole exercise from a day.
+        deleteHistoryExercise,
+        // v9.50: Start workout sheet (filterRecords / filterExPicker are INPUT_ACTIONS).
+        openStartSheet, closeStartSheet, startEmptyWorkout, startTemplateWorkout,
+        // v9.50: Voice sheet, Exercise picker, Records filter, History edit.
+        micTap, openVoiceSheet, closeVoiceSheet, logVoiceSheet,
+        openExPicker, closeExPicker, pickExercise,
+        openRecordsFilter, closeRecordsFilter, toggleRecordsMuscle, clearRecordsFilter,
+        openHistEdit, closeHistEdit, histEditStep, histEditRemove, histEditAddSet,
+        saveHistEdit, histEditDeleteExercise,
+        // v9.50: Profile tab-pills.
+        selectProfilePanel,
+        // v9.50: custom Spoken-voice picker sheet (replaces native select).
+        openVoicePicker, closeVoicePicker,
     };
-    const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity };
+    const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
     // in a number input so a single tap lets the user type the replacement
     // instead of having to long-press to select. Applied via
@@ -2543,6 +3133,39 @@ function initActionDispatcher() {
     // v6: history-screen prev/next week buttons.
     $('history-prev')?.addEventListener('click', () => { historyWeekOffset--; historySelectedDate = null; renderHistoryScreen(); });
     $('history-next')?.addEventListener('click', () => { historyWeekOffset++; historySelectedDate = null; renderHistoryScreen(); });
+
+    // v9.50: tapping the reminder sheet's backdrop (not the panel) dismisses
+    // it. Direct-target check avoids the modal's own non-button taps closing.
+    $('workout-reminder-overlay')?.addEventListener('click', e => {
+        if (e.target.id === 'workout-reminder-overlay') dismissWorkoutReminder();
+    });
+
+    // v9.50: Active Workout command bar — Enter submits the typed line
+    // through the voice intent pipeline.
+    $('cmd-input')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); submitCommand(); }
+    });
+
+    // v9.50: Start sheet backdrop tap dismisses.
+    $('start-sheet-overlay')?.addEventListener('click', e => {
+        if (e.target.id === 'start-sheet-overlay') closeStartSheet();
+    });
+    // v9.50: backdrop-tap dismissal for the other new sheets.
+    [
+        ['voice-overlay', closeVoiceSheet],
+        ['ex-picker-overlay', closeExPicker],
+        ['pr-filter-overlay', closeRecordsFilter],
+        ['hist-edit-overlay', closeHistEdit],
+        ['voice-picker-overlay', closeVoicePicker],
+        ['community-edit-overlay', closeCommunityEdit],
+        ['share-overlay', closeShare],
+    ].forEach(([id, fn]) => {
+        $(id)?.addEventListener('click', e => { if (e.target.id === id) fn(); });
+    });
+    // v9.50: Voice sheet — Enter in the transcript commits like Log.
+    $('vs-input')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); logVoiceSheet(); }
+    });
 }
 
 // ============================================================================
@@ -2575,9 +3198,9 @@ async function computeMuscleCoverage(days = 14) {
     // really training the muscle. Excluding warmups keeps the Focus card and
     // the recommender's trailing-muscle scoring honest.
     const all = await getActiveWorkSets();
-    const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    const counts = zeroMuscleCounts();
     all.filter(w => w.date >= cutoff).forEach(w => {
-        counts[muscleOf(w.exercise)]++;
+        counts[canonMuscle(muscleOf(w.exercise))]++;
     });
     return counts;
 }
@@ -2608,14 +3231,14 @@ async function computeWeekdayMuscleProfile(weekday, lookbackDays) {
     const sessions = (await performDB('sessions', 'getAll'))
         .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff
                   && new Date(s.startedAt).getDay() === weekday);
-    const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    const counts = zeroMuscleCounts();
     if (!sessions.length) return { counts, sessions: 0 };
     const sessionIds = new Set(sessions.map(s => s.id));
     // v9.26 — work sets only; weekday-lock is a routine-detection signal,
     // not a "did you walk into the gym" signal.
     const all = await getActiveWorkSets();
     for (const w of all) {
-        if (sessionIds.has(w.sessionId)) counts[muscleOf(w.exercise)]++;
+        if (sessionIds.has(w.sessionId)) counts[canonMuscle(muscleOf(w.exercise))]++;
     }
     return { counts, sessions: sessions.length };
 }
@@ -2631,12 +3254,12 @@ async function computeMuscleTrend(lookbackDays) {
     const half = Math.max(1, Math.floor(lookbackDays / 2));
     const recentCutoff = isoForOffset(half - 1);                 // last `half` days
     const olderCutoff  = isoForOffset(lookbackDays - 1);         // window start
-    const recent = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
-    const older  = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    const recent = zeroMuscleCounts();
+    const older  = zeroMuscleCounts();
     for (const w of all) {
         const vol = (w.weight || 0) * (w.reps || 0);
-        if (w.date >= recentCutoff) recent[muscleOf(w.exercise)] += vol;
-        else if (w.date >= olderCutoff) older[muscleOf(w.exercise)] += vol;
+        if (w.date >= recentCutoff) recent[canonMuscle(muscleOf(w.exercise))] += vol;
+        else if (w.date >= olderCutoff) older[canonMuscle(muscleOf(w.exercise))] += vol;
     }
     const trend = {};
     for (const m of MUSCLES) {
@@ -2737,6 +3360,30 @@ async function computeMedianSecPerSet(weeks = 4) {
     return totalSets ? Math.max(60, Math.min(300, totalSec / totalSets)) : 150;
 }
 
+// Median work-set count per real session — "the number of sets they typically
+// do." Floored to 8 so a sparse / short test history doesn't collapse the
+// recommendation into a one-exercise, two-minute workout. The recommender
+// sizes itself to this, and wall-clock time follows from secPerSet.
+async function computeMedianSetsPerSession(weeks = 4) {
+    const cutoff = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000;
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => s.endedAt && !s.estimated && s.startedAt >= cutoff
+                  && (!activeSession || s.id !== activeSession.id));
+    if (!sessions.length) return 12;
+    const sessionIds = new Set(sessions.map(s => s.id));
+    const work = await getActiveWorkSets();
+    const counts = new Map();
+    for (const w of work) {
+        if (!sessionIds.has(w.sessionId)) continue;
+        counts.set(w.sessionId, (counts.get(w.sessionId) || 0) + 1);
+    }
+    if (!counts.size) return 12;
+    const vals = [...counts.values()].sort((a, b) => a - b);
+    const mid = Math.floor(vals.length / 2);
+    const m = vals.length % 2 ? vals[mid] : Math.round((vals[mid - 1] + vals[mid]) / 2);
+    return Math.max(8, m);
+}
+
 // Build the candidate catalog: built-in exerciseLibrary + user's custom
 // exercises (non-tombstoned), de-duped by name. Custom takes precedence so
 // the user's own canonical naming wins.
@@ -2831,9 +3478,12 @@ async function generateRecommendedWorkout() {
     // that exercise (capped 2..6 inside the helper). Trim/expand to fit the
     // total-time budget ±25%. Total-time basis means rest is folded in, so
     // the duration headline matches wall clock.
-    const targetMinutes = await computeMedianSessionMinutes(4);
+    // Size the workout to the user's TYPICAL total-set count; wall-clock time
+    // then follows from their median seconds-per-set. (Both numbers come from
+    // real sessions, so the recommendation has ~the same sets AND ~the same
+    // total time as a normal workout for this user.)
+    const targetTotalSets = await computeMedianSetsPerSession(4);
     const secPerSet = await computeMedianSecPerSet(4);
-    const targetSeconds = targetMinutes * 60;
 
     let exercises = [];
     for (const p of picks) {
@@ -2842,10 +3492,10 @@ async function generateRecommendedWorkout() {
     }
 
     const totalSets = () => exercises.reduce((s, e) => s + e.sets, 0);
+    // Trim toward the typical set count — but never below one exercise per
+    // target muscle (so "Back & Biceps" always recommends both).
     let guard = 0;
-    while (totalSets() * secPerSet > targetSeconds * 1.25 && exercises.length > 1 && guard++ < 20) {
-        // Shrink: drop a set from the highest-set exercise; if all already
-        // at the 2-set floor, drop the trailing exercise instead.
+    while (totalSets() > targetTotalSets && exercises.length > targets.length && guard++ < 40) {
         let maxIdx = 0;
         for (let i = 1; i < exercises.length; i++) {
             if (exercises[i].sets > exercises[maxIdx].sets) maxIdx = i;
@@ -2853,17 +3503,25 @@ async function generateRecommendedWorkout() {
         if (exercises[maxIdx].sets > 2) exercises[maxIdx].sets -= 1;
         else exercises.pop();
     }
-    if (totalSets() * secPerSet < targetSeconds * 0.75 && exercises.length < 4) {
+    // Expand toward the typical set count: pull more familiar exercises from
+    // the target pools (3 sets each), then top up sets on existing picks (cap 6).
+    guard = 0;
+    while (totalSets() < targetTotalSets && guard++ < 40) {
         const used = new Set(exercises.map(e => e.name));
+        let added = false;
         for (const m of targets) {
             const extra = catalog
                 .filter(c => c.muscle === m && !used.has(c.name))
                 .sort((a, b) => (freq[b.name] || 0) - (freq[a.name] || 0))[0];
-            if (extra) {
-                const sets = await medianSetsForExercise(extra.name, lookbackDays);
-                exercises.push({ name: extra.name, muscle: extra.muscle, sets });
-                break;
+            if (extra) { exercises.push({ name: extra.name, muscle: extra.muscle, sets: 3 }); added = true; break; }
+        }
+        if (!added) {
+            let minIdx = -1;
+            for (let i = 0; i < exercises.length; i++) {
+                if (exercises[i].sets < 6 && (minIdx < 0 || exercises[i].sets < exercises[minIdx].sets)) minIdx = i;
             }
+            if (minIdx < 0) break;   // every pick already capped at 6
+            exercises[minIdx].sets += 1;
         }
     }
 
@@ -2963,27 +3621,33 @@ async function renderFocus() {
 // same reason renderFocus() / computeMuscleCoverage() excludes them —
 // the bars answer "what did I train" and a 95×8 warmup of bench isn't
 // really training the chest.
-function renderMuscleFocusFromSets(listEl, sets) {
+// opts.metric: 'sets' (default — Home/Workout Focus) or 'volume' (History
+// day detail, per the design). opts.onlyTrained: drop zero-value muscles
+// (History shows only the muscles trained that day, not all ten).
+function renderMuscleFocusFromSets(listEl, sets, opts = {}) {
     if (!listEl) return false;
+    const useVolume = opts.metric === 'volume';
     listEl.innerHTML = '';
-    const counts = { chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0 };
+    const counts = zeroMuscleCounts();
     for (const s of sets || []) {
         if (s.warmup || s.deleted) continue;
-        counts[muscleOf(s.exercise)]++;
+        counts[canonMuscle(muscleOf(s.exercise))] += useVolume ? (s.weight || 0) * (s.reps || 0) : 1;
     }
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     if (!total) return false;
-    const sorted = [...MUSCLES].sort((a, b) => counts[b] - counts[a]);
-    const max = counts[sorted[0]] || 1;
-    sorted.forEach(m => {
+    let order = [...MUSCLES].sort((a, b) => counts[b] - counts[a]);
+    if (opts.onlyTrained) order = order.filter(m => counts[m] > 0);
+    const max = counts[order[0]] || 1;
+    order.forEach(m => {
         const v = counts[m];
         const pct = max ? (v / max) * 100 : 0;
+        const valStr = useVolume ? Math.round(v).toLocaleString() : String(v);
         const row = document.createElement('div');
         row.className = 'focus-row';
         row.innerHTML = `
             <span class="focus-name"><span class="muscle-tag" style="background:${muscleColor[m]}"></span>${titleCase(m)}</span>
             <div class="focus-track"><div class="focus-fill" style="width:${pct.toFixed(1)}%;background:${muscleColor[m]}"></div></div>
-            <span class="focus-count">${v}</span>
+            <span class="focus-count">${valStr}</span>
         `;
         listEl.appendChild(row);
     });
@@ -3104,11 +3768,17 @@ async function renderActivityCard() {
                 cell.isFuture ? 'is-future'  : '',
                 cell.isToday  ? 'is-today'   : '',
             ].filter(Boolean).join(' ');
-            const aria = `${cell.iso}: ${cell.trained ? 'trained' : 'no workout'}`;
-            html += `<span class="${cls}" aria-label="${aria}">` +
-                    `<span class="activity-cell-num">${cell.day}</span>` +
-                    (cell.trained ? ACTIVITY_DUMBBELL_SVG : '') +
-                    `</span>`;
+            if (cell.trained) {
+                // v9.51 — trained days open that day in the History tab.
+                html += `<button type="button" class="${cls}" data-action="openHistoryDate" data-date="${cell.iso}" aria-label="${cell.iso}: trained — open in History">` +
+                        `<span class="activity-cell-num">${cell.day}</span>` +
+                        ACTIVITY_DUMBBELL_SVG +
+                        `</button>`;
+            } else {
+                html += `<span class="${cls}" aria-label="${cell.iso}: no workout">` +
+                        `<span class="activity-cell-num">${cell.day}</span>` +
+                        `</span>`;
+            }
         }
         html += '</div>';
     }
@@ -3237,36 +3907,12 @@ function clearSuggestedQueue() {
 }
 
 async function renderSuggestedQueue() {
+    // v9.51: planned exercises now render as ready-to-log cards inside the set
+    // list (renderSessionSets), so the separate chip strip is retired to avoid
+    // showing each planned exercise twice. The queue itself still drives those
+    // cards; the strip stays hidden.
     const el = $('suggested-queue');
-    if (!el) return;
-    const queue = readSuggestedQueue();
-    if (!activeSession || !queue?.length) {
-        el.style.display = 'none';
-        el.innerHTML = '';
-        return;
-    }
-    // Recompute per-exercise set counts from the active session so chips
-    // reflect reality even after edits/deletes/voice logs.
-    const sessionSets = (await performDB('workouts', 'getAll'))
-        .filter(w => w.sessionId === activeSession.id && !w.deleted);
-    const counts = {};
-    sessionSets.forEach(w => { counts[w.exercise] = (counts[w.exercise] || 0) + 1; });
-
-    el.style.display = '';
-    el.innerHTML = `
-        <div class="suggested-queue-label">Suggested</div>
-        <div class="suggested-queue-chips">
-            ${queue.map(q => {
-                const done = counts[q.name] || 0;
-                const complete = done >= q.sets;
-                return `<button type="button" class="suggested-chip${complete ? ' done' : ''}" data-action="openQuickAdd" data-exercise="${escapeHtml(q.name)}" aria-label="Log ${escapeHtml(titleCase(q.name))}, ${done} of ${q.sets} sets logged">
-                    <span class="suggested-chip-dot" style="background:${muscleColor[q.muscle] || '#888'}"></span>
-                    <span class="suggested-chip-name">${escapeHtml(titleCase(q.name))}</span>
-                    <span class="suggested-chip-count">${done}/${q.sets}</span>
-                </button>`;
-            }).join('')}
-        </div>
-    `;
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
 }
 
 // CTA handler — wired into ACTIONS as startRecommendedWorkout. Stashes the
@@ -3282,7 +3928,7 @@ async function startRecommendedWorkout() {
     })));
     showScreen('workout');
     if (!activeSession) await startWorkoutSession();
-    await renderSuggestedQueue();
+    await refreshSessionCard();   // render the planned exercise cards
     haptic(15);
 }
 
@@ -3294,6 +3940,10 @@ async function renderStrain() {
     const card = $('strain-card');
     const text = $('strain-text');
     const sub = $('strain-sub');
+    // v9.50 — the Hero Load card was replaced by the redesigned Home load
+    // ring; this element no longer exists. Guard so the fan-out callers
+    // that still invoke renderStrain() are safe no-ops.
+    if (!card || !text || !sub) return;
     card.classList.remove('recovery', 'steady', 'high', 'over');
 
     // v9.26 — strain is a tonnage signal; warmups don't load the body the
@@ -3464,7 +4114,7 @@ function saveProfile() {
     const email = $('user-email').value.trim();
     if (!first) { $('first-name').focus(); return; }
     userProfile = { first, last, email };
-    localStorage.setItem('ironUser', JSON.stringify(userProfile));
+    syncProfileToPrefs();
     $('user-display').textContent = `Hi, ${first}`;
     $('profile-overlay').classList.remove('active');
     haptic(15);
@@ -3489,6 +4139,15 @@ function renderProfileScreen() {
     if ($('settings-last')) $('settings-last').value = userProfile?.last || '';
     $('settings-email').value = userProfile?.email || '';
     $('settings-token').value = getToken();
+    // v9.50 — identity block (avatar initial + full name + email).
+    const first = userProfile?.first || '';
+    const last = userProfile?.last || '';
+    const avatar = $('profile-avatar');
+    if (avatar) avatar.textContent = (first[0] || last[0] || '?');
+    const nameEl = $('profile-id-name');
+    if (nameEl) nameEl.textContent = [first, last].filter(Boolean).join(' ') || 'Your profile';
+    const emailEl = $('profile-id-email');
+    if (emailEl) emailEl.textContent = userProfile?.email || 'Add your email to sync';
     setSegmentedActive($('rest-segment'), b => parseInt(b.dataset.val, 10) === restDuration);
     setSegmentedActive($('theme-segment'), b => b.dataset.val === theme);
     setSegmentedActive($('workout-mode-segment'), b => b.dataset.val === (workoutMode ? 'on' : 'off'));
@@ -3504,6 +4163,29 @@ function renderProfileScreen() {
     renderCustomsList();
     renderSyncMeta();
     renderVersionFooter();   // re-render version string in case of bump
+    selectProfilePanel(_profilePanel);   // v9.50 — apply the active tab-pill
+}
+
+// v9.50 — Profile tab-pills (Account / Preferences / Training / Data /
+// Community). Each .settings-section carries data-ppanel; only the active
+// panel's sections show. Accepts a clicked element or a panel string.
+let _profilePanel = 'account';
+function selectProfilePanel(arg) {
+    const panel = (arg && arg.dataset && arg.dataset.panel)
+        ? arg.dataset.panel
+        : (typeof arg === 'string' ? arg : 'account');
+    _profilePanel = panel;
+    document.querySelectorAll('#profile-pills .profile-pill').forEach(b =>
+        b.classList.toggle('active', b.dataset.panel === panel));
+    document.querySelectorAll('.profile-screen-body [data-ppanel]').forEach(s => {
+        s.style.display = s.dataset.ppanel === panel ? '' : 'none';
+    });
+    // v9.51: the Community tab loads the shared catalog list lazily, and the
+    // add-form's muscle pill defaults to the current selection.
+    if (panel === 'community') {
+        setSegmentedActive($('community-add-muscle'), b => b.dataset.val === _communityAddMuscle);
+        renderCommunityTabList();
+    }
 }
 
 function saveProfileFromScreen() {
@@ -3515,12 +4197,12 @@ function saveProfileFromScreen() {
         userProfile.first = first || userProfile.first;
         userProfile.last = last;     // v9.1: last name editable from Profile (was capture-only at signup)
         userProfile.email = email;
-        localStorage.setItem('ironUser', JSON.stringify(userProfile));
+        syncProfileToPrefs();
         $('user-display').textContent = `Hi, ${userProfile.first}`;
     }
     const token = $('settings-token').value.trim();
-    if (token) localStorage.setItem('ironToken', token);
-    else localStorage.removeItem('ironToken');
+    _prefs.accessKey = token;
+    persistPrefs();
 }
 
 // Compatibility shims — internal callers (e.g. the welcome flow) used to
@@ -3554,7 +4236,8 @@ async function testConnection() {
         if (res.ok) {
             $('ping-state').textContent = 'OK';
             $('ping-state').className = 'row-trailing success';
-            localStorage.setItem('ironToken', token);
+            _prefs.accessKey = token;
+            persistPrefs();
         } else if (res.status === 401) {
             $('ping-state').textContent = 'Bad token';
             $('ping-state').className = 'row-trailing error';
@@ -3577,8 +4260,14 @@ async function logoutFromSettings() {
         danger: true,
     });
     if (!ok) return;
-    localStorage.removeItem('ironUser');
-    localStorage.removeItem('ironToken');
+    // Clear identity + access key but keep device preferences (theme, voice,
+    // rest) — matches the prior behavior of dropping only ironUser + ironToken.
+    userProfile = null;
+    _prefs.firstName = '';
+    _prefs.lastName = '';
+    _prefs.email = '';
+    _prefs.accessKey = '';
+    persistPrefs();
     location.reload();
 }
 
@@ -3675,6 +4364,43 @@ async function renderTemplateChips() {
     container.appendChild(addChip);
 }
 
+// v9.51 — Predefined templates from the design handoff. Exercise names are
+// the production canonical (lowercase) forms so muscle tags / PR matching /
+// the recommender all resolve correctly (e.g. the design's "Barbell row" →
+// "bent over row", "Pull-up" → "pull up", "Barbell curl" → "bicep curl").
+const DEFAULT_TEMPLATES = [
+    { name: 'Push Day', sub: 'Chest · Shoulders · Triceps', exercises: ['bench press', 'incline dumbbell press', 'overhead press', 'lateral raise', 'tricep pushdown'] },
+    { name: 'Pull Day', sub: 'Back · Biceps · Core', exercises: ['bent over row', 'lat pulldown', 'pull up', 'romanian deadlift', 'bicep curl', 'hanging leg raise'] },
+    { name: 'Lower Body w/ Core', sub: 'Legs · Core', exercises: ['back squat', 'romanian deadlift', 'leg press', 'leg curl', 'calf raise', 'plank'] },
+    { name: 'Full Body A', sub: 'Imported', exercises: ['back squat', 'bench press', 'bent over row', 'overhead press'] },
+];
+
+// Seed the predefined templates ONCE per install (flag-guarded so deleting
+// them doesn't re-add). Any default whose name already exists is skipped, so
+// a user who already made a "Push Day" isn't duplicated.
+async function seedDefaultTemplates() {
+    try {
+        if (localStorage.getItem('ironSeededDefaultTemplates')) return;
+        const existing = await performDB('templates', 'getAll');
+        const have = new Set(existing.filter(t => !t.deleted).map(t => (t.name || '').toLowerCase()));
+        let i = 0;
+        for (const def of DEFAULT_TEMPLATES) {
+            if (have.has(def.name.toLowerCase())) continue;
+            await performDB('templates', 'put', {
+                id: Date.now() + (i++),
+                name: def.name,
+                sub: def.sub,
+                exercises: def.exercises.map(name => ({ name })),
+                modifiedAt: Date.now(),
+                deleted: false,
+            });
+        }
+        localStorage.setItem('ironSeededDefaultTemplates', '1');
+    } catch {
+        // Non-fatal — templates just won't be pre-seeded this launch.
+    }
+}
+
 async function renderTemplatesList() {
     const list = $('templates-list');
     list.innerHTML = "";
@@ -3683,7 +4409,8 @@ async function renderTemplatesList() {
     templates.forEach(t => {
         const row = document.createElement('div');
         row.className = 'tpl-row';
-        row.innerHTML = `<div class="tpl-meta"><span class="tpl-name">${escapeHtml(t.name)}</span><span class="tpl-count">${t.exercises.length} exercise${t.exercises.length === 1 ? '' : 's'}</span></div><span class="chev">›</span>`;
+        const sub = t.sub || `${t.exercises.length} exercise${t.exercises.length === 1 ? '' : 's'}`;
+        row.innerHTML = `<div class="tpl-meta"><span class="tpl-name">${escapeHtml(t.name)}</span><span class="tpl-count">${escapeHtml(sub)}</span></div><span class="chev">›</span>`;
         row.onclick = () => editTemplate(t);
         list.appendChild(row);
     });
@@ -3691,6 +4418,7 @@ async function renderTemplatesList() {
 
 function newTemplate() {
     editingTemplate = { id: Date.now(), name: '', exercises: [] };
+    if ($('tpl-title')) $('tpl-title').textContent = 'New template';
     $('tpl-name').value = '';
     $('tpl-delete-wrap').style.display = 'none';
     renderTemplateEditor();
@@ -3700,82 +4428,64 @@ function newTemplate() {
 
 function editTemplate(t) {
     editingTemplate = JSON.parse(JSON.stringify(t));
+    if ($('tpl-title')) $('tpl-title').textContent = 'Edit template';
     $('tpl-name').value = t.name;
     $('tpl-delete-wrap').style.display = '';
     renderTemplateEditor();
     $('tpl-overlay').classList.add('active');
 }
 
-function renderTemplateEditor() {
-    const grid = $('tpl-exercises');
-    const targets = $('tpl-targets');
-    grid.innerHTML = "";
-    targets.innerHTML = "";
+// v9.51 — design's card model: each selected exercise is a row showing the
+// muscle dot, name, last-set line, optional "max NNN lb", and a remove ✕.
+async function renderTemplateEditor() {
+    const list = $('tpl-exercises-list');
+    if (!list || !editingTemplate) return;
+    const exs = editingTemplate.exercises || [];
+    if (!exs.length) {
+        list.innerHTML = `<div class="tpl-empty">No exercises yet. Add a few below.</div>`;
+        return;
+    }
+    // History + PRs once, then per-exercise last-set + max.
+    const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup);
+    const prs = await performDB('prs', 'getAll');
+    const prMap = Object.fromEntries(prs.map(p => [p.exercise, p]));
+    list.innerHTML = exs.map((ex, idx) => {
+        const name = ex.name;
+        const color = muscleColor[muscleOf(name)] || '#888';
+        const sets = all.filter(w => w.exercise === name).sort((a, b) => b.id - a.id);
+        const lastStr = sets.length ? `Last set ${sets[0].weight} × ${sets[0].reps}` : 'No history yet';
+        const pr = prMap[name];
+        const maxStr = pr && pr.max1RM ? `max ${Math.round(pr.max1RM)} lb` : '';
+        return `<div class="tpl-ex-card">
+            <span class="tpl-ex-dot" style="background:${color}"></span>
+            <span class="tpl-ex-text"><span class="tpl-ex-name">${escapeHtml(titleCase(name))}</span><span class="tpl-ex-sub">${escapeHtml(lastStr)}</span></span>
+            ${maxStr ? `<span class="tpl-ex-max">${escapeHtml(maxStr)}</span>` : ''}
+            <button type="button" class="tpl-ex-remove" data-action="removeTemplateExercise" data-idx="${idx}" aria-label="Remove ${escapeHtml(titleCase(name))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        </div>`;
+    }).join('');
+}
 
-    MUSCLES.forEach(m => {
-        const exForGroup = exerciseLibrary.filter(ex => ex.muscle === m);
-        if (!exForGroup.length) return;
-        const group = document.createElement('div');
-        group.className = 'ex-group';
-        const label = document.createElement('div');
-        label.className = 'ex-group-label';
-        label.innerHTML = `<span class="leg-dot" style="background:${muscleColor[m]}"></span>${titleCase(m)}`;
-        group.appendChild(label);
-        const chipRow = document.createElement('div');
-        chipRow.className = 'chip-grid';
-        exForGroup.forEach(ex => {
-            const isSelected = editingTemplate.exercises.some(e => e.name === ex.name);
-            const chip = document.createElement('button');
-            chip.className = 'chip' + (isSelected ? ' selected' : '');
-            chip.textContent = titleCase(ex.name);
-            chip.onclick = () => {
-                const idx = editingTemplate.exercises.findIndex(e => e.name === ex.name);
-                if (idx >= 0) editingTemplate.exercises.splice(idx, 1);
-                else editingTemplate.exercises.push({ name: ex.name });
-                renderTemplateEditor();
-                haptic(6);
-            };
-            chipRow.appendChild(chip);
-        });
-        group.appendChild(chipRow);
-        grid.appendChild(group);
-    });
+function removeTemplateExercise(el) {
+    if (!editingTemplate) return;
+    const idx = Number(el?.dataset.idx);
+    if (!Number.isInteger(idx)) return;
+    editingTemplate.exercises.splice(idx, 1);
+    renderTemplateEditor();
+    haptic(6);
+}
 
-    if (!editingTemplate.exercises.length) return;
-
-    const header = document.createElement('div');
-    header.className = 'section-label';
-    header.style.padding = '20px 4px 8px';
-    header.textContent = 'Targets (optional)';
-    targets.appendChild(header);
-
-    editingTemplate.exercises.forEach((target, idx) => {
-        const row = document.createElement('div');
-        row.className = 'target-row';
-        row.innerHTML = `
-            <div class="target-name">${titleCase(target.name)}</div>
-            <div class="target-inputs">
-                <label><span>Weight</span><input type="number" inputmode="decimal" placeholder="—" value="${target.targetWeight ?? ''}" data-field="targetWeight" data-idx="${idx}"></label>
-                <label><span>Reps</span><input type="number" inputmode="numeric" placeholder="—" value="${target.targetReps ?? ''}" data-field="targetReps" data-idx="${idx}"></label>
-                <label><span>Sets</span><input type="number" inputmode="numeric" placeholder="—" value="${target.sets ?? ''}" data-field="sets" data-idx="${idx}"></label>
-            </div>`;
-        targets.appendChild(row);
-    });
-
-    targets.querySelectorAll('input[data-field]').forEach(input => {
-        input.addEventListener('input', e => {
-            const idx = parseInt(e.target.dataset.idx, 10);
-            const field = e.target.dataset.field;
-            const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
-            if (val === undefined) delete editingTemplate.exercises[idx][field];
-            else editingTemplate.exercises[idx][field] = val;
-        });
-    });
+// "+ Add exercise" reuses the exercise picker; _exPickerForTemplate routes the
+// pick back into the template instead of starting a workout set.
+let _exPickerForTemplate = false;
+function addExerciseToTemplate() {
+    _exPickerForTemplate = true;
+    openExPicker();
 }
 
 function cancelTemplate() {
     $('tpl-overlay').classList.remove('active');
     editingTemplate = null;
+    _exPickerForTemplate = false;
     haptic(8);
 }
 
@@ -3866,12 +4576,12 @@ function renderSubmissionChip(status) {
 }
 
 function newCustomExercise() {
-    editingCustomExercise = { name: '', muscle: 'arms', synonyms: [], modifiedAt: Date.now() };
+    editingCustomExercise = { name: '', muscle: 'chest', synonyms: [], modifiedAt: Date.now() };
     $('custom-name').value = '';
     $('custom-name').disabled = false;
     $('custom-delete-wrap').style.display = 'none';
     $('custom-submit-wrap').style.display = 'none';   // v9.42: submit gated on save
-    setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === 'arms');
+    setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === 'chest');
     $('custom-overlay').classList.add('active');
     setTimeout(() => $('custom-name').focus(), 350);
 }
@@ -3983,16 +4693,6 @@ const COMMUNITY_CACHE_KEY = 'ironCommunityCatalog';
 const COMMUNITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;   // refresh after a day
 const COMMUNITY_SEEN_KEY = 'ironCommunitySeenUpdatedAt';
 
-// v9.46: Admin identity (cosmetic — controls whether the Review row
-// surfaces on the client). The worker's ADMIN_EMAIL is the real gate;
-// changing this constant just shows/hides UI.
-const ADMIN_EMAIL = 'nickeisan19@gmail.com';
-
-function isCurrentUserAdmin() {
-    const actual = (userProfile?.email || '').trim().toLowerCase();
-    return !!actual && actual === ADMIN_EMAIL.toLowerCase();
-}
-
 function readCommunityCache() {
     try {
         const raw = localStorage.getItem(COMMUNITY_CACHE_KEY);
@@ -4080,6 +4780,114 @@ async function ensureCommunityCatalog({ force = false } = {}) {
     return result;
 }
 
+// ============================================================================
+// v9.51 — Community tab (Profile): add/edit exercises straight into the shared
+// catalog (no review). Submit form + catalog list + edit sheet.
+// ============================================================================
+let _communityAddMuscle = 'chest';
+let _communityEdit = null;   // { originalName } while the edit sheet is open
+
+// Shared POST helper for the community write actions. Returns the parsed
+// reply, { error } on HTTP error, or null on network failure.
+async function postCommunityWrite(action, payload) {
+    const token = getToken();
+    if (!token) return { error: 'Add your access key in Profile first.' };
+    if (!userProfile?.email) return { error: 'Add your email in Profile first.' };
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ action, user: { email: userProfile.email }, ...payload }),
+        });
+        const reply = await res.json().catch(() => ({}));
+        if (!res.ok) return { error: reply.error || 'Server error.' };
+        return reply;
+    } catch {
+        return null;
+    }
+}
+
+async function renderCommunityTabList() {
+    const list = $('community-list-tab');
+    const label = $('community-list-label');
+    if (!list) return;
+    const catalog = await ensureCommunityCatalog();
+    const items = (catalog?.exercises || [])
+        .filter(e => e && e.name)
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
+    if (label) label.style.display = items.length ? '' : 'none';
+    list.style.display = items.length ? '' : 'none';
+    list.innerHTML = items.map(e => `
+        <button type="button" class="community-list-row" data-action="editCommunity" data-name="${escapeHtml(e.name)}">
+            <span class="community-list-dot" style="background:${muscleColor[e.muscle] || '#888'}"></span>
+            <span class="community-list-name">${escapeHtml(titleCase(e.name))}</span>
+            <span class="community-list-muscle">${escapeHtml(titleCase(e.muscle || ''))}</span>
+            <svg class="community-list-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>`).join('');
+}
+
+async function submitCommunity() {
+    const nameRaw = ($('community-add-name')?.value || '').trim();
+    if (nameRaw.length < 2) { await infoSheet({ title: 'Name too short', body: 'Give the exercise a name first.' }); return; }
+    const name = nameRaw.toLowerCase();
+    const btn = $('community-add-btn');
+    btn?.classList.add('is-busy');
+    const res = await postCommunityWrite('addCommunityExercise', {
+        exercise: { name, muscle: _communityAddMuscle, synonyms: [name] },
+    });
+    btn?.classList.remove('is-busy');
+    if (!res) { showSnackbar("Couldn't reach the community catalog"); return; }
+    if (res.error) { await infoSheet({ title: 'Could not add', body: res.error }); return; }
+    if (res.added === false && res.alreadyInCatalog) {
+        await infoSheet({ title: 'Already in the community', body: `“${titleCase(name)}” is already in the catalog.` });
+        return;
+    }
+    if ($('community-add-name')) $('community-add-name').value = '';
+    showSnackbar(`“${titleCase(name)}” added to the community`);
+    haptic(15);
+    await ensureCommunityCatalog({ force: true });
+    await renderCommunityTabList();
+}
+
+function editCommunity(el) {
+    const name = el?.dataset.name;
+    if (!name) return;
+    const item = (readCommunityCache()?.exercises || []).find(e => e && e.name === name);
+    if (!item) return;
+    _communityEdit = { originalName: item.name };
+    if ($('community-edit-name')) $('community-edit-name').value = titleCase(item.name);
+    setSegmentedActive($('community-edit-muscle'), b => b.dataset.val === item.muscle);
+    $('community-edit-overlay')?.classList.add('active');
+}
+
+function closeCommunityEdit() {
+    _communityEdit = null;
+    $('community-edit-overlay')?.classList.remove('active');
+}
+
+async function saveCommunityEdit() {
+    if (!_communityEdit) return;
+    const nameRaw = ($('community-edit-name')?.value || '').trim();
+    if (nameRaw.length < 2) { await infoSheet({ title: 'Name too short', body: 'Give the exercise a name.' }); return; }
+    const name = nameRaw.toLowerCase();
+    const muscle = $('community-edit-muscle')?.querySelector('button.active')?.dataset.val || 'chest';
+    const btn = $('community-edit-overlay')?.querySelector('.community-save-btn');
+    btn?.classList.add('is-busy');
+    const res = await postCommunityWrite('editCommunityExercise', {
+        originalName: _communityEdit.originalName,
+        exercise: { name, muscle, synonyms: [name] },
+    });
+    btn?.classList.remove('is-busy');
+    if (!res) { showSnackbar("Couldn't reach the community catalog"); return; }
+    if (res.error) { await infoSheet({ title: 'Could not save', body: res.error }); return; }
+    closeCommunityEdit();
+    showSnackbar('Community exercise updated');
+    haptic(8);
+    await ensureCommunityCatalog({ force: true });
+    await renderCommunityTabList();
+}
+
 let _communityCatalogInMemory = null;
 
 // v9.48: names of customs the user previously had but has since
@@ -4115,11 +4923,6 @@ let _returnToExercisesHub = false;
 async function openExercises() {
     _returnToExercisesHub = false;   // fresh entry — clear any stale flag
     $('exercises-overlay').classList.add('active');
-    // v9.46: surface the admin Review submissions row only for Nick.
-    // Server is the actual gate; this just controls visibility.
-    const adminRow = $('exercises-admin-row');
-    if (adminRow) adminRow.hidden = !isCurrentUserAdmin();
-    if (isCurrentUserAdmin()) refreshReviewQueueCount();
     await renderCustomsList();
     // Kick off a refresh in the background. The badge clears when the
     // user actually opens this sheet, so even a still-pending fetch
@@ -4465,221 +5268,32 @@ async function submitCurrentCustom() {
         });
         return;
     }
-    // v9.44: client-side pre-flight — never POST a submission the user
-    // doesn't need to make.
-    const localReject = validateSubmissionLocally(name);
-    if (localReject) {
-        await infoSheet(localReject);
-        return;
-    }
+    // v9.51 — no review: the custom goes straight into the shared catalog.
     const ok = await confirmSheet({
-        title: `Submit "${titleCase(name)}"?`,
-        body: 'Send this custom exercise to the community pool for review. Approved entries will appear in Browse community.',
-        confirmLabel: 'Submit',
+        title: `Add "${titleCase(name)}" to the community?`,
+        body: 'It goes straight into the shared catalog — no review needed.',
+        confirmLabel: 'Add',
     });
     if (!ok) return;
 
-    try {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-            body: JSON.stringify({
-                action: 'submitExercise',
-                user: userProfile,
-                exercise: {
-                    name,
-                    muscle: editingCustomExercise.muscle,
-                    synonyms: Array.isArray(editingCustomExercise.synonyms) ? editingCustomExercise.synonyms : [],
-                },
-            }),
-        });
-        if (res.status === 400) {
-            const err = await res.json().catch(() => ({}));
-            await infoSheet({
-                title: "Can't submit",
-                body: err.error || 'The server rejected this exercise.',
-            });
-            return;
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const reply = await res.json();
-        if (reply.alreadyInCatalog) {
-            showSnackbar(`“${titleCase(name)}” is already in the community pool`);
-        } else if (reply.alreadyPendingFromOther) {
-            showSnackbar('Someone else is already proposing this');
-        } else if (reply.alreadyPending) {
-            showSnackbar('Already in the review queue');
-            addPendingSubmission(name);  // backfill chip if missing
-        } else if (reply.queued) {
-            showSnackbar('Submitted for review');
-            addPendingSubmission(name);
-        } else {
-            showSnackbar('Submitted for review');
-        }
-        haptic(15);
-        // Re-render the hub list so the chip appears immediately.
-        if ($('exercises-overlay')?.classList.contains('active')) {
-            renderCustomsList();
-        }
-    } catch (err) {
-        showSnackbar('Submit failed; try again later');
-    }
-}
-
-// ============================================================================
-// v9.46: Admin review queue (Nick-only)
-//
-// Opens from the "Review submissions · N pending" row inside the Exercises
-// hub. Lists pending entries with Approve/Reject buttons. Worker enforces
-// admin via ADMIN_EMAIL — client-side gates are cosmetic only.
-// ============================================================================
-
-let _reviewQueueInMemory = [];
-
-async function refreshReviewQueueCount() {
-    const countEl = $('review-queue-count');
-    if (!countEl) return;
-    if (!isCurrentUserAdmin() || !getToken() || !userProfile?.email) {
-        countEl.textContent = '—';
-        return;
-    }
-    try {
-        const submissions = await fetchReviewQueue();
-        _reviewQueueInMemory = submissions;
-        countEl.textContent = submissions.length === 0
-            ? 'None pending'
-            : `${submissions.length} pending`;
-    } catch {
-        countEl.textContent = '—';
-    }
-}
-
-async function fetchReviewQueue() {
-    const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-        body: JSON.stringify({ action: 'getReviewQueue', user: userProfile }),
+    const res = await postCommunityWrite('addCommunityExercise', {
+        exercise: {
+            name,
+            muscle: editingCustomExercise.muscle,
+            synonyms: Array.isArray(editingCustomExercise.synonyms) && editingCustomExercise.synonyms.length
+                ? editingCustomExercise.synonyms
+                : [name],
+        },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const reply = await res.json();
-    return Array.isArray(reply.submissions) ? reply.submissions : [];
-}
-
-async function openReviewQueue() {
-    // v9.47: same stack pattern as the other sub-sheets — close hub,
-    // flag the return so closing the review queue brings the hub back.
-    closeExercises();
-    _returnToExercisesHub = true;
-    $('review-queue-overlay').classList.add('active');
-    $('review-queue-list').innerHTML = `<div class="search-empty">Loading…</div>`;
-    try {
-        _reviewQueueInMemory = await fetchReviewQueue();
-        renderReviewQueue();
-    } catch {
-        $('review-queue-list').innerHTML = `<div class="search-empty">Couldn’t load — try again later.</div>`;
+    if (!res) { showSnackbar('Add failed; try again later'); return; }
+    if (res.error) { await infoSheet({ title: "Can't add", body: res.error }); return; }
+    if (res.added === false && res.alreadyInCatalog) {
+        showSnackbar(`“${titleCase(name)}” is already in the community`);
+    } else {
+        showSnackbar('Added to the community');
+        haptic(15);
     }
-}
-
-function closeReviewQueue() {
-    $('review-queue-overlay').classList.remove('active');
-    maybeReturnToExercisesHub();   // v9.47
-}
-
-function renderReviewQueue() {
-    const list = $('review-queue-list');
-    if (!list) return;
-    const subs = _reviewQueueInMemory || [];
-    if (!subs.length) {
-        list.innerHTML = `<div class="search-empty">No submissions to review.</div>`;
-        return;
-    }
-    // Sort oldest first — first in, first reviewed.
-    const sorted = subs.slice().sort((a, b) => (a.submittedAt || 0) - (b.submittedAt || 0));
-    list.innerHTML = sorted.map(s => {
-        const name = escapeHtml(titleCase(s.name));
-        const muscle = escapeHtml(titleCase(s.muscle || 'arms'));
-        const dot = escapeHtml(muscleColor[s.muscle] || '#888');
-        const age = relativeAge(s.submittedAt);
-        const nameAttr = escapeHtml(s.name);
-        return `
-            <div class="review-row">
-                <div class="review-row-top">
-                    <span class="muscle-tag" style="background:${dot}"></span>
-                    <div class="review-row-meta">
-                        <span class="review-row-name">${name}</span>
-                        <span class="review-row-sub">${muscle} · submitted ${age}</span>
-                    </div>
-                </div>
-                <div class="review-row-actions">
-                    <button class="review-row-approve" data-action="approveSubmission" data-name="${nameAttr}">Approve</button>
-                    <button class="review-row-reject" data-action="rejectSubmission" data-name="${nameAttr}">Reject</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function relativeAge(timestamp) {
-    const ms = Date.now() - (Number(timestamp) || 0);
-    if (ms < 60 * 1000) return 'just now';
-    const m = Math.round(ms / 60000);
-    if (m < 60) return `${m} min ago`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.round(h / 24);
-    if (d < 30) return `${d}d ago`;
-    return `${Math.round(d / 30)}mo ago`;
-}
-
-async function approveSubmission(el) {
-    const name = el?.dataset?.name;
-    if (!name) return;
-    await postDecision(name, 'approve');
-}
-
-async function rejectSubmission(el) {
-    const name = el?.dataset?.name;
-    if (!name) return;
-    await postDecision(name, 'reject');
-}
-
-async function postDecision(name, decision) {
-    try {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-            body: JSON.stringify({
-                action: 'decideExercise',
-                user: userProfile,
-                name,
-                decision,
-            }),
-        });
-        if (res.status === 403) {
-            await infoSheet({
-                title: 'Not authorized',
-                body: 'The server didn’t recognize you as the admin. Check that ADMIN_EMAIL matches the email in Profile.',
-            });
-            return;
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const reply = await res.json();
-        if (reply.missing) {
-            showSnackbar('Already handled — refreshing.');
-        } else {
-            showSnackbar(decision === 'approve' ? `Approved “${titleCase(name)}”` : `Rejected “${titleCase(name)}”`);
-            haptic(15);
-        }
-        // Pop the row from memory + re-render, then refresh the count.
-        _reviewQueueInMemory = _reviewQueueInMemory.filter(s => s.name !== name);
-        renderReviewQueue();
-        await refreshReviewQueueCount();
-        // Force a catalog refresh so submitter clients pick up the
-        // approval / rejection on their next visibility resume.
-        await ensureCommunityCatalog({ force: true });
-    } catch (err) {
-        showSnackbar('Action failed; try again');
-    }
+    await ensureCommunityCatalog({ force: true });
 }
 
 // ============================================================================
@@ -4785,7 +5399,7 @@ async function openQuickAdd(el) {
 
     const lib = exerciseLibrary.find(ex => ex.name === exercise);
     const muscle = lib?.muscle || muscleOf(exercise) || 'core';
-    $('quick-add-title').textContent = 'Add set';
+    if ($('quick-add-save')) $('quick-add-save').textContent = 'Add set';
     $('quick-add-name').textContent = titleCase(exercise);
     const tagEl = $('quick-add-muscle');
     if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
@@ -4813,19 +5427,12 @@ async function openQuickAdd(el) {
 
     $('quick-add-w').value = prev ? String(prev.weight) : '';
     $('quick-add-r').value = prev ? String(prev.reps) : '';
-    if (!prev) {
-        $('quick-add-prev').textContent = 'No previous sets — enter weight and reps.';
-    } else if (source === 'session') {
-        $('quick-add-prev').textContent = `Previous set: ${prev.weight} × ${prev.reps}`;
-    } else {
-        $('quick-add-prev').textContent = `Last set: ${prev.weight} × ${prev.reps}`;
-    }
-    const foot = $('quick-add-foot');
-    if (foot) {
-        foot.textContent = source === 'prior'
-            ? 'No sets logged in this workout yet. Pre-filled from your last performance.'
-            : 'Same exercise, new weight × reps. Pre-filled from the previous set.';
-    }
+    // Meta line: "Last 155 × 5 · max 181 lb 1RM" (design).
+    const pr = await getCurrentPR(exercise);
+    const maxPart = pr && pr.max1RM ? ` · max ${Math.round(pr.max1RM)} lb 1RM` : '';
+    $('quick-add-prev').textContent = prev
+        ? `Last ${prev.weight} × ${prev.reps}${maxPart}`
+        : (maxPart ? `No previous sets${maxPart}` : 'No previous sets yet');
 
     $('quick-add-overlay').classList.add('active');
     setTimeout(() => {
@@ -4922,7 +5529,7 @@ async function openEditSet(id) {
 
     const lib = exerciseLibrary.find(ex => ex.name === entry.exercise);
     const muscle = lib?.muscle || muscleOf(entry.exercise) || 'core';
-    $('quick-add-title').textContent = 'Edit set';
+    if ($('quick-add-save')) $('quick-add-save').textContent = 'Save';
     $('quick-add-name').textContent = titleCase(entry.exercise);
     const tagEl = $('quick-add-muscle');
     if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
@@ -4931,8 +5538,6 @@ async function openEditSet(id) {
     $('quick-add-r').value = String(entry.reps);
     $('quick-add-prev').textContent =
         `Logged ${new Date(entry.id).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-    const foot = $('quick-add-foot');
-    if (foot) foot.textContent = 'Edits update this set in place — its order and timestamp are preserved.';
 
     $('quick-add-overlay').classList.add('active');
     setTimeout(() => {
@@ -5276,6 +5881,54 @@ async function deleteExerciseFromMenu() {
     }
 }
 
+// v9.50 — Delete a whole exercise from a History day. Per-set edits/deletes
+// already flow through the set-action sheet (tap a pill); this is the bulk
+// path — remove every set of one exercise in one tap. It's the same shape as
+// the active-workout ⋮ "Delete all sets" (v9.26), now available in review
+// mode per the handoff's "allow history editing". Scoped to the tapped day +
+// session bucket so the same exercise in a different session isn't touched.
+async function deleteHistoryExercise(el) {
+    const name = el?.dataset.exercise;
+    const date = el?.dataset.date;
+    const sessionKey = el?.dataset.sessionKey;
+    if (!name || !date) return;
+    const all = await performDB('workouts', 'getAll');
+    const sets = all.filter(w =>
+        !w.deleted && w.exercise === name && w.date === date &&
+        (sessionKey === 'untagged' ? !w.sessionId : w.sessionId === Number(sessionKey)));
+    if (!sets.length) return;
+    const ok = await confirmSheet({
+        title: `Delete ${titleCase(name)}?`,
+        body: `All ${sets.length} set${sets.length === 1 ? '' : 's'} of ${titleCase(name)} will be removed from this day.`,
+        confirmLabel: 'Delete exercise',
+        cancelLabel: 'Keep',
+        danger: true,
+    });
+    if (!ok) return;
+    try {
+        const now = Date.now();
+        for (const set of sets) {
+            set.deleted = true;
+            set.modifiedAt = now;
+            await performDB('workouts', 'put', set);
+        }
+        markUnsynced();
+        markFrequencyDirty();
+        await recomputePR(name);
+        await renderHistory();
+        await renderFocus();
+        await renderRecommendedNext();
+        await renderActivityCard();
+        await renderStrain();
+        await refreshLatestStats();
+        await refreshSessionCard();
+        showSnackbar('Exercise deleted', { duration: 4000 });
+        haptic([20, 40, 20]);
+    } catch (err) {
+        console.error('History delete-exercise failed:', err);
+    }
+}
+
 function renderPlate() {
     const target = parseFloat($('plate-target').value);
     const bar = parseFloat($('plate-bar').value) || 45;
@@ -5321,28 +5974,43 @@ async function openExercise(exerciseName) {
     currentExerciseSheet = { exercise: exerciseName, sets: all };
 
     $('ex-title').textContent = titleCase(exerciseName);
+    const dot = $('ex-dot');
+    if (dot) dot.style.background = muscleColor[muscleOf(exerciseName)] || 'var(--label-tertiary)';
 
     // Stats — volume tally excludes warmups so the headline number on the
     // exercise sheet matches every other surface that uses work-set tonnage.
     const pr = await getCurrentPR(exerciseName);
+    const workSets = all.filter(w => !w.warmup);
     const sessions = new Set(all.map(w => w.date)).size;
-    const totalVolume = all.filter(w => !w.warmup).reduce((s, w) => s + w.weight * w.reps, 0);
+    const totalVolume = workSets.reduce((s, w) => s + w.weight * w.reps, 0);
 
     $('ex-stats').innerHTML = `
-        <div class="ex-stat"><div class="v">${pr ? Math.round(pr.max1RM) : '—'}</div><div class="l">1RM (lb)</div></div>
-        <div class="ex-stat"><div class="v">${sessions}</div><div class="l">Sessions</div></div>
-        <div class="ex-stat"><div class="v">${Math.round(totalVolume).toLocaleString()}</div><div class="l">Volume</div></div>
+        <div class="ex-stat is-1rm"><div class="v tnum">${pr ? Math.round(pr.max1RM) : '—'}</div><div class="l">1RM lb</div></div>
+        <div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>
+        <div class="ex-stat"><div class="v tnum">${Math.round(totalVolume).toLocaleString()}</div><div class="l">Volume</div></div>
     `;
 
     renderTrendChart(all);
 
-    // Recent sets
-    const recent = all.slice(-10).reverse();
-    $('ex-sets').innerHTML = recent.map(w => `
-        <div class="row-input" style="border-bottom:0.5px solid var(--hairline)">
-            <span style="flex:1">${formatDate(w.date)}</span>
-            <span style="font-variant-numeric:tabular-nums;font-weight:600">${w.warmup ? '<span class="warmup-tag">W</span>' : ''}${w.weight} × ${w.reps}</span>
-        </div>`).join('');
+    // Recent sets — newest first, with a PR tag on the best-1RM work set.
+    const bestOneRM = workSets.reduce((m, w) => Math.max(m, w.oneRM || 0), 0);
+    let prTagged = false;
+    const recent = all.slice(-12).reverse();
+    $('ex-sets').innerHTML = recent.map(w => {
+        const isPR = !w.warmup && !prTagged && bestOneRM > 0 && (w.oneRM || 0) >= bestOneRM - 0.01;
+        if (isPR) prTagged = true;
+        // Design shows the full date with year (e.g. "Mon, Jun 22, 2026"),
+        // keeping "Today"/"Yesterday" for the most recent.
+        const when = (w.date === todayISO()) ? 'Today'
+            : (w.date === isoForOffset(1)) ? 'Yesterday'
+            : new Date(w.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        return `<div class="ex-set-row">
+            <span class="ex-set-when">${escapeHtml(when)}</span>
+            ${w.warmup ? '<span class="warmup-tag">W</span>' : ''}
+            <span class="ex-set-val tnum">${w.weight} <small>× ${w.reps}</small></span>
+            ${isPR ? '<span class="ex-set-pr">PR</span>' : ''}
+        </div>`;
+    }).join('');
 
     $('ex-overlay').classList.add('active');
 }
@@ -5352,62 +6020,61 @@ function closeExercise() {
     currentExerciseSheet = null;
 }
 
+// Vertical bar chart of best work-set 1RM per session (prototype PR-detail).
 function renderTrendChart(sets) {
     const container = $('ex-trend');
-    const meta = $('ex-trend-meta');
+    const eyebrow = $('ex-trend-meta');
+    const deltaEl = $('ex-trend-delta');
+    if (!container) return;
 
-    // Best 1RM per session date in last 90 days
-    const cutoff = isoForOffset(89);
-    const recent = sets.filter(w => w.date >= cutoff);
+    // Best work-set 1RM per session date; most recent 16 sessions.
     const byDate = {};
-    recent.forEach(w => { byDate[w.date] = Math.max(byDate[w.date] || 0, w.oneRM); });
-    const points = Object.entries(byDate).sort((a, b) => a[0].localeCompare(b[0]));
+    sets.filter(w => !w.warmup).forEach(w => {
+        byDate[w.date] = Math.max(byDate[w.date] || 0, w.oneRM || 0);
+    });
+    const points = Object.entries(byDate)
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-16);
+
+    if (eyebrow) eyebrow.textContent = `Estimated 1RM · ${points.length} session${points.length === 1 ? '' : 's'}`;
 
     if (points.length < 2) {
-        container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--label-tertiary);font-size:0.88rem">Need 2+ sessions for a trend</div>`;
-        meta.textContent = `${points.length} session${points.length === 1 ? '' : 's'}`;
+        container.innerHTML = `<div class="ex-chart-empty">Need 2+ sessions for a trend</div>`;
+        if (deltaEl) { deltaEl.textContent = ''; deltaEl.className = 'ex-chart-delta'; }
         return;
     }
 
-    const W = 600, H = 100, P = 8;
-    const xs = points.map(p => new Date(p[0] + 'T00:00:00').getTime());
-    const ys = points.map(p => p[1]);
-    const xMin = xs[0], xMax = xs[xs.length - 1];
-    const yMin = Math.min(...ys) * 0.95;
-    const yMax = Math.max(...ys) * 1.05;
+    const vals = points.map(p => p[1]);
+    const maxV = Math.max(...vals);
+    const minV = Math.min(...vals);
+    const lastIdx = points.length - 1;
+    // Scale bar heights within the ~104px track (value row + label sit outside).
+    const TRACK = 104, FLOOR = 18;
+    const base = minV * 0.92;
+    const range = Math.max(1, maxV - base);
 
-    const xScale = x => P + ((x - xMin) / Math.max(1, xMax - xMin)) * (W - 2 * P);
-    const yScale = y => H - P - ((y - yMin) / Math.max(0.01, yMax - yMin)) * (H - 2 * P);
-
-    const lineD = points.map((p, i) => {
-        const x = xScale(xs[i]); const y = yScale(ys[i]);
-        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    const areaD = `${lineD} L${xScale(xs[xs.length - 1]).toFixed(1)},${H - P} L${xScale(xs[0]).toFixed(1)},${H - P} Z`;
-
-    const allTimeMaxIdx = ys.indexOf(Math.max(...ys));
-
-    const dots = points.map((p, i) => {
-        const x = xScale(xs[i]); const y = yScale(ys[i]);
-        return `<circle class="point ${i === allTimeMaxIdx ? 'pr' : ''}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === allTimeMaxIdx ? 4 : 2.5}"/>`;
+    container.innerHTML = points.map(([date, v], i) => {
+        const h = Math.round(FLOOR + ((v - base) / range) * (TRACK - FLOOR));
+        // The latest session is highlighted gold and labelled "Now" (design).
+        const isNow = i === lastIdx;
+        const lbl = isNow ? 'Now' : new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return `<div class="ex-bar${isNow ? ' is-max' : ''}">
+            <div class="ex-bar-top">
+                <span class="ex-bar-val tnum">${Math.round(v)}</span>
+                <div class="ex-bar-fill" style="height:${h}px"></div>
+            </div>
+            <span class="ex-bar-label">${escapeHtml(lbl)}</span>
+        </div>`;
     }).join('');
 
-    container.innerHTML = `
-        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-            <defs>
-                <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#0a84ff" stop-opacity="0.5"/>
-                    <stop offset="100%" stop-color="#0a84ff" stop-opacity="0"/>
-                </linearGradient>
-            </defs>
-            <path class="area" d="${areaD}"/>
-            <path class="line" d="${lineD}"/>
-            ${dots}
-        </svg>`;
-
-    const first = ys[0], last = ys[ys.length - 1];
-    const delta = ((last - first) / first) * 100;
-    meta.textContent = `${points.length} sessions · ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+    const first = vals[0], last = vals[vals.length - 1];
+    const delta = first > 0 ? ((last - first) / first) * 100 : 0;
+    if (deltaEl) {
+        const up = delta >= 0;
+        deltaEl.textContent = `${up ? '▲' : '▼'} ${up ? '+' : ''}${delta.toFixed(0)}%`;
+        deltaEl.className = `ex-chart-delta ${up ? 'up' : 'down'}`;
+    }
 }
 
 // ============================================================================
@@ -5606,6 +6273,17 @@ async function nativeShare() {
     await shareOrDownloadCanvas('pr-canvas', currentExerciseSheet.exercise);
 }
 
+// v9.51 — explicit "Save image" button on the share card (design has both
+// Save image + Share). Always downloads, never invokes the share sheet.
+function savePRImage() {
+    if (!currentExerciseSheet) return;
+    const c = $('pr-canvas');
+    if (!c) return;
+    const filename = `pr-${currentExerciseSheet.exercise.replace(/\s+/g, '-')}-${todayISO()}.png`;
+    c.toBlob(blob => { if (blob) triggerDownload(blob, filename); }, 'image/png');
+    haptic(12);
+}
+
 // ============================================================================
 // Workout sessions  (v6)
 //
@@ -5660,6 +6338,33 @@ async function startWorkoutSession({ silent = false } = {}) {
     return activeSession;
 }
 
+// v9.50 — Auto-name a workout from the muscles its working sets trained.
+// Lower-body groups (v9.51 — legs split into quads/hamstrings/glutes/calves;
+// 'legs' kept for legacy data). Everything else reads as upper. Warmups and
+// tombstones don't count toward the name.
+const LOWER_MUSCLES = new Set(['quads', 'hamstrings', 'glutes', 'calves', 'legs']);
+function deriveWorkoutName(sets) {
+    let hasLower = false, hasUpper = false, any = false;
+    for (const s of (sets || [])) {
+        if (s.warmup || s.deleted) continue;
+        any = true;
+        if (LOWER_MUSCLES.has(muscleOf(s.exercise))) hasLower = true;
+        else hasUpper = true;
+    }
+    if (!any) return 'Workout';
+    if (hasLower && hasUpper) return 'Full Body';
+    if (hasLower) return 'Lower Body';
+    return 'Upper Body';
+}
+
+// Display name for a session in History — the stored name if one was
+// derived at end time, otherwise derive on the fly so legacy / backfilled
+// sessions (which predate the stored name) still read correctly.
+function sessionDisplayName(session, setsInSession) {
+    if (session?.name) return session.name;
+    return deriveWorkoutName(setsInSession);
+}
+
 async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = {}) {
     if (!activeSession) return null;
     // v9.7 — Rest is workout-scoped: clear the rest pill the moment the
@@ -5695,6 +6400,10 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
         return null;
     }
 
+    // v9.50 — auto-name the workout from the muscles trained, unless the
+    // user explicitly named it (sessions carry no manual-name UI yet, so
+    // this always derives today; the guard keeps a future rename honest).
+    if (!session.name) session.name = deriveWorkoutName(setsInSession);
     await performDB('sessions', 'put', session);
     markUnsynced();   // v8
     activeSession = null;
@@ -5779,6 +6488,9 @@ async function confirmEndWorkout() {
     });
     if (!ok) return;
     await endWorkoutSession();
+    // v9.50 — the Active Workout view closes on End; land back on Home (which
+    // shows the post-workout state) rather than the now-idle workout screen.
+    if (currentScreen === 'workout') showScreen('home');
 }
 
 // --- live ticker for the session card ---
@@ -5860,31 +6572,33 @@ function renderSessionCardTime() {
 }
 
 async function refreshSessionCard() {
-    const card = $('session-card');
+    // v9.50 redesign — the green session-card was replaced by the Active
+    // Workout view's header (name) + ELAPSED/VOLUME/SETS totals row. The
+    // body.session-running class gates the .aw-active-only chrome (header,
+    // totals, rest pill, command bar) and the tab-bar/header hiding.
     const sessionSets = $('session-sets');
     const workoutIdle = $('workout-idle');
-    if (!card) return;
+    if (!sessionSets) return;
 
     if (!activeSession) {
-        // No session: hide the active-state pieces of the Workout screen and
-        // show the idle pieces (Start CTA, recent templates, last workout).
-        card.style.display = 'none';
-        if (sessionSets) sessionSets.style.display = 'none';
+        document.body.classList.remove('session-running');
+        sessionSets.style.display = 'none';
         if (workoutIdle) workoutIdle.style.display = '';
         await renderWorkoutFocus();   // hides the focus card too
         return;
     }
 
-    // Session active: flip the Workout screen into active mode.
-    card.style.display = '';
+    document.body.classList.add('session-running');
     if (workoutIdle) workoutIdle.style.display = 'none';
-
-    renderSessionCardTime();
 
     const setsInSession = (await performDB('workouts', 'getAll'))
         .filter(w => w.sessionId === activeSession.id && !w.deleted);
-    // v9.26 — session card stats read work sets only. The pill list (below)
-    // still shows warmups; the counts on the card are the load-bearing tally.
+    const nameEl = $('aw-name');
+    if (nameEl) nameEl.textContent = sessionDisplayName(activeSession, setsInSession);
+    renderSessionCardTime();
+
+    // v9.26 — totals read work sets only. The set list below still shows
+    // warmups; the totals are the load-bearing tally.
     const workSetsInSession = setsInSession.filter(w => !w.warmup);
     const totalVol = workSetsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
     $('session-card-sets').textContent = String(workSetsInSession.length);
@@ -5892,18 +6606,26 @@ async function refreshSessionCard() {
         ? `${(totalVol / 1000).toFixed(1)}k`
         : String(Math.round(totalVol));
 
-    // v8: render the in-session set list grouped by exercise (async since
-    // v9.26 — pulls prev-session data per exercise to populate the PREV
-    // hint under each pill).
-    if (sessionSets) await renderSessionSets(sessionSets, setsInSession);
+    await renderSessionSets(sessionSets, setsInSession);
+}
 
-    // v9.18: keep the suggested-queue chips in sync — counts derive from
-    // setsInSession, so logging or deleting a set bumps the chip totals.
-    await renderSuggestedQueue();
-
-    // v9.49: muscle bar summary for the active session — fan-out lives in
-    // refreshSessionCard so every set add/delete/edit keeps it honest.
-    await renderWorkoutFocus();
+// v9.50 — the Active Workout command bar. Mirrors the voice pipeline: parse
+// the typed line and run it through executeIntent (so "bench 225 for 5"
+// logs a set, "rest 90" starts rest, "end workout" ends, etc.). Submitted
+// on Enter; the gold mic button (data-action="toggleListening") handles voice.
+async function submitCommand() {
+    const input = $('cmd-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    const intent = parseIntent(text.toLowerCase());
+    if (!intent) {
+        showVoiceResponse('Didn’t catch that — try "bench 225 for 5".');
+        return;
+    }
+    input.value = '';
+    input.blur();
+    await executeIntent(intent);
 }
 
 // v9.0: Render the Workout screen idle surface — recent templates and the
@@ -6021,119 +6743,135 @@ function renderSetPill(s, prev, opts = {}) {
     </button>`;
 }
 
+// v9.51 — Active Workout set list. Rebuilt to match the design prototype
+// exactly: one bordered card per exercise, the header is a tap-to-add row
+// (muscle dot · name · "N sets" · gold +), each set is a tappable row
+// (index · weight × reps · PR/WARM tag · pencil → edit/delete sheet), and a
+// trailing "+ Add exercise" opens the catalog picker. Empty state matches the
+// prototype's dumbbell prompt.
 async function renderSessionSets(container, sets) {
-    if (!sets.length) {
-        container.style.display = 'none';
+    // v9.51 — "planned" exercises (from a template / recommendation) render as
+    // ready-to-log empty cards so a template workout pre-loads every lift.
+    const planned = readSuggestedQueue() || [];
+    if (!sets.length && !planned.length) {
+        container.style.display = '';
+        container.innerHTML = `
+            <div class="aw-empty">
+                <div class="aw-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
+                <div class="aw-empty-title">No exercises yet</div>
+                <div class="aw-empty-sub">Tap the mic to log by voice — “bench 225 for 5” — or add an exercise below.</div>
+                <button type="button" class="aw-empty-add" data-action="openExPicker"><span class="aw-empty-add-plus" aria-hidden="true">+</span>Add exercise</button>
+            </div>`;
         return;
     }
     container.style.display = '';
 
-    // Bucket sets by exercise. The order we iterate is set in the next
-    // block, so insertion order here doesn't matter.
-    const groups = new Map();   // exercise → [sets]
+    const groups = new Map();
     for (const set of sets) {
         if (!groups.has(set.exercise)) groups.set(set.exercise, []);
         groups.get(set.exercise).push(set);
     }
-
-    // v9.28 — rotation-aware ordering. Groups sorted by their most-recent
-    // set ASC: the exercise the user has been "waiting longest" to return
-    // to is on top; the just-logged exercise drops to the bottom. Matches
-    // the circuit/superset workflow where logging biceps should leave
-    // triceps (the next-up) at the top of the list, not bury it.
-    //
-    // Brand-new exercises follow the same rule — they don't get a pinning
-    // bonus. Their first set is the newest in the session, so they land
-    // at the bottom and the prior exercises (older last-sets) stay on top.
-    // v9.27 shipped a hybrid with a pinned tier; user feedback was that
-    // it surfaced the just-added exercise on top instead of leaving the
-    // earlier one there — reverted in v9.28. See CLAUDE.md
-    // "Rotation-aware set-group ordering" for the full rationale.
+    // Rotation-aware ordering (kept) — the exercise last touched drops to the
+    // bottom so the next-up in a circuit stays on top.
     const sortedGroups = [...groups.entries()]
-        .map(([exercise, exSets]) => ({
-            exercise,
-            exSets,
-            lastId: Math.max(...exSets.map(s => s.id)),
-        }))
+        .map(([exercise, exSets]) => ({ exercise, exSets, lastId: Math.max(...exSets.map(s => s.id)) }))
         .sort((a, b) => a.lastId - b.lastId);
 
-    // v9.26 — preload prev sets per unique exercise so per-pill rendering
-    // is synchronous below. One small getAll per exercise; if this ever
-    // proves measurable on huge datasets, swap to a single getAll + group.
-    const prevByExercise = new Map();
-    for (const { exercise } of sortedGroups) {
-        prevByExercise.set(exercise, await getPrevExerciseSets(exercise, activeSession?.id ?? null));
+    const prs = await performDB('prs', 'getAll');
+    const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
+
+    // Planned exercises not yet logged → last-set + max for their prefill cards.
+    const plannedPending = planned.filter(q => q && q.name && !groups.has(q.name));
+    let plannedInfo = {};
+    if (plannedPending.length) {
+        const prFull = Object.fromEntries(prs.map(p => [p.exercise, p]));
+        const hist = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup);
+        for (const q of plannedPending) {
+            const hs = hist.filter(w => w.exercise === q.name).sort((a, b) => b.id - a.id);
+            const pr = prFull[q.name];
+            plannedInfo[q.name] = {
+                last: hs.length ? `${hs[0].weight} × ${hs[0].reps}` : '',
+                max: pr && pr.max1RM ? Math.round(pr.max1RM) : 0,
+            };
+        }
     }
 
     let html = '';
     for (const { exercise, exSets } of sortedGroups) {
         const lib = exerciseLibrary.find(ex => ex.name === exercise);
-        const muscle = lib?.muscle || 'core';
+        const muscle = lib?.muscle || muscleOf(exercise) || 'core';
         const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
-        // Order within an exercise: chronological (oldest first) so reading
-        // left to right matches the order you actually did the sets in.
         const orderedSets = [...exSets].sort((a, b) => a.id - b.id);
-        const prevSets = prevByExercise.get(exercise) || [];
-
-        // v9.29 — walk in chronological order and number work sets 1..N;
-        // warmups display 'W' and don't consume a number. Per-index PREV
-        // matching is unchanged from v9.26.
-        let workIdx = 0;
-        const setPills = orderedSets.map((s, i) => {
-            const setLabel = s.warmup ? 'W' : String(++workIdx);
-            const prev = prevSets[i] || prevSets[prevSets.length - 1] || null;
-            return renderSetPill(s, prev, { setLabel });
-        }).join('');
-        // v9.29 — tiny column-header row inside each group. Labels the
-        // three pill columns so the layout reads as a table even when
-        // there's only one row.
-        const colHeader = `<div class="session-set-cols">
-            <span class="pill-col-set">SET</span>
-            <span class="pill-col-prev">PREV</span>
-            <span class="pill-col-main">LBS × REPS</span>
-        </div>`;
-
-        // v9.26 — per-exercise overflow ⋮ opens a sheet with Swap exercise,
-        // Mark all as warmup, Delete all sets. Sits between the title and
-        // the set-count chip so it's tap-target-clear at the right edge.
         const exTitle = escapeHtml(titleCase(exercise));
         const exName = escapeHtml(exercise);
-        const moreBtn =
-            `<button type="button" class="session-set-more" data-action="openExerciseMenu" data-exercise="${exName}" aria-label="More for ${exTitle}">` +
-                `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="6" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="18" r="1.7"/></svg>` +
-            `</button>`;
-        // v9.26 — collapse chevron at the start of the header. Tapping the
-        // chevron (or anywhere on the header except the ⋮ button) toggles
-        // _collapsedExercises membership and re-renders. The ⋮ button has
-        // its own data-action; the dispatcher resolves to closest, so
-        // tapping ⋮ doesn't bubble up to the collapse handler.
-        const isCollapsed = _collapsedExercises.has(exercise);
-        const collapseBtn =
-            `<button type="button" class="group-chevron" data-action="toggleExerciseCollapse" data-exercise="${exName}" aria-label="${isCollapsed ? 'Expand' : 'Collapse'} ${exTitle}" aria-expanded="${isCollapsed ? 'false' : 'true'}">` +
-                `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>` +
-            `</button>`;
-        // v9.2 — trailing "+ Add set" pill opens the quick-add sheet so the
-        // user can log another set of the same exercise without re-typing
-        // the name in the search box.
-        const addPill =
-            `<button type="button" class="session-set-pill session-set-add" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Add another set of ${exTitle}">` +
-                `<span class="session-set-add-icon" aria-hidden="true">+</span>` +
-                `<span class="session-set-add-label">Add set</span>` +
-            `</button>`;
-        // Set count includes warmups (matches what's visible as pills);
-        // the session-card's work-only count is the load-bearing number.
+        const count = orderedSets.length;
+
+        let workIdx = 0;
+        const rows = orderedSets.map(s => {
+            const isPR = prMap[s.exercise] === s.id && !s.warmup;
+            const label = s.warmup ? 'W' : String(++workIdx);
+            const tag = isPR ? '<span class="aw-tag aw-tag-pr">PR</span>'
+                : s.warmup ? '<span class="aw-tag aw-tag-warm">WARM</span>' : '';
+            return `<button type="button" class="aw-set-row" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${s.weight} pounds for ${s.reps} reps. Tap to edit or delete.">
+                <span class="aw-set-idx tnum">${label}</span>
+                <span class="aw-set-val tnum">${escapeHtml(String(s.weight))} <span class="aw-set-x">× ${escapeHtml(String(s.reps))}</span></span>
+                ${tag}
+                <svg class="aw-set-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>`;
+        }).join('');
+
+        // v9.51 — per-exercise collapse: chevron toggles the set rows; the
+        // collapsed header shows a "top-set · N sets" summary.
+        const collapsed = _collapsedExercises.has(exercise);
+        const countLabel = `${count} set${count === 1 ? '' : 's'}`;
+        const workSets = orderedSets.filter(s => !s.warmup);
+        const topSet = workSets.length
+            ? workSets.reduce((a, b) => (b.weight > a.weight ? b : a))
+            : orderedSets[orderedSets.length - 1];
+        const headMeta = (collapsed && topSet)
+            ? `${topSet.weight} × ${topSet.reps} · ${countLabel}`
+            : countLabel;
         html += `
-            <div class="session-set-group${isCollapsed ? ' is-collapsed' : ''}">
-                <div class="session-set-group-header">
-                    ${collapseBtn}
-                    <span class="muscle-tag" style="background:${muscleBg}"></span>
-                    <span class="session-set-group-name">${exTitle}</span>
-                    <span class="session-set-count">${orderedSets.length} set${orderedSets.length === 1 ? '' : 's'}</span>
-                    ${moreBtn}
+            <div class="aw-ex-card${collapsed ? ' is-collapsed' : ''}">
+                <div class="aw-ex-head">
+                    <button type="button" class="aw-ex-toggle" data-action="toggleExerciseCollapse" data-exercise="${exName}" aria-expanded="${collapsed ? 'false' : 'true'}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${exTitle}">
+                        <span class="aw-ex-dot" style="background:${muscleBg}"></span>
+                        <span class="aw-ex-name">${exTitle}</span>
+                        <span class="aw-ex-count tnum">${escapeHtml(headMeta)}</span>
+                        <svg class="aw-ex-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <button type="button" class="aw-ex-add" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Add a set of ${exTitle}">+</button>
                 </div>
-                <div class="session-set-pills">${colHeader}${setPills}${addPill}</div>
+                ${collapsed ? '' : rows}
             </div>`;
     }
+
+    // Planned (template / recommended) exercises with no logged sets yet —
+    // rendered as ready-to-log cards. Tapping prefills quick-add from the last
+    // set, so documenting a template workout is a few taps.
+    for (const q of plannedPending) {
+        const muscle = muscleOf(q.name) || q.muscle || 'core';
+        const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
+        const exTitle = escapeHtml(titleCase(q.name));
+        const exName = escapeHtml(q.name);
+        const info = plannedInfo[q.name] || {};
+        // Design's active-workout card shows "0 sets" in the head; the last-set
+        // prefill is pulled in when the user taps (openQuickAdd). Surface the
+        // last-set hint inline when we have history.
+        const lastLabel = info.last ? `+ Log first set — last ${escapeHtml(info.last)}` : '+ Log first set — tap here or use the mic';
+        html += `
+            <div class="aw-ex-card aw-ex-planned">
+                <button type="button" class="aw-ex-head" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Log first set of ${exTitle}">
+                    <span class="aw-ex-dot" style="background:${muscleBg}"></span>
+                    <span class="aw-ex-name">${exTitle}</span>
+                    <span class="aw-ex-count">0 sets</span>
+                    <span class="aw-ex-plus" aria-hidden="true">+</span>
+                </button>
+                <button type="button" class="aw-log-first" data-action="openQuickAdd" data-exercise="${exName}">${lastLabel}</button>
+            </div>`;
+    }
+
+    // "+ Add exercise" lives in the fixed bottom bar now (v9.51), not in-list.
     container.innerHTML = html;
 }
 
@@ -6281,6 +7019,12 @@ function showScreen(name) {
     }
     if (!VALID_SCREENS.includes(name)) name = 'home';
     currentScreen = name;
+    // v9.50 — Home hides the global app header (the wordmark inside the Home
+    // screen is the only top chrome there, per the redesign). The Workout
+    // screen becomes a full-screen view that hides the header + tab bar while
+    // a session is running (see body.workout-view.session-running CSS).
+    document.body.classList.toggle('home-active', name === 'home');
+    document.body.classList.toggle('workout-view', name === 'workout');
     document.querySelectorAll('main > .screen').forEach(s => {
         s.hidden = s.dataset.screen !== name;
     });
@@ -6294,6 +7038,10 @@ function showScreen(name) {
     if (name === 'prs') renderPRsScreen();
     if (name === 'history') renderHistoryScreen();
     if (name === 'home') {
+        // v9.51: renderHome() toggles the "Workout in progress · Resume" strip
+        // vs the idle Start CTA — essential when minimizing an active workout
+        // here, otherwise Home shows no sign of the running session.
+        renderHome();
         refreshSessionCard();          // keep workout-screen state in sync too
         renderHomeEmptyState();        // first-launch empty hint
         // v9.1: re-pull state-aware tiles and subtitle. Cheap and matters
@@ -6363,11 +7111,26 @@ async function renderPRsScreen() {
     const empty = $('pr-empty');
     if (!grid) return;
 
-    const tiles = await computePRTiles();
+    const allTiles = await computePRTiles();
+    // v9.50 — Records search (by name) + muscle filter.
+    const q = (_prSearchQuery || '').trim().toLowerCase();
+    const tiles = allTiles.filter(t =>
+        (!q || t.exercise.toLowerCase().includes(q)) &&
+        (_prMuscleFilter.length === 0 || _prMuscleFilter.includes(t.muscle)));
 
     if (!tiles.length) {
         grid.innerHTML = '';
         empty.style.display = '';
+        const title = empty.querySelector('.empty-state-title');
+        const body = empty.querySelector('p');
+        if (allTiles.length && q) {
+            // Has records, but the search matched none.
+            if (title) title.textContent = 'No matches';
+            if (body) body.textContent = 'No exercises match your search.';
+        } else {
+            if (title) title.textContent = 'No records yet';
+            if (body) body.textContent = 'Every set you log builds your PR shelf — your heaviest lift in each exercise lands here automatically.';
+        }
         return;
     }
     empty.style.display = 'none';
@@ -6376,10 +7139,11 @@ async function renderPRsScreen() {
         const bg = escapeHtml(muscleColor[t.muscle] || '#888');
         const exAttr = escapeHtml(t.exercise);
         const name = escapeHtml(titleCase(t.exercise));
-        const weightHtml = `${escapeHtml(String(t.maxWeight))}<span class="pr-row-unit"> lb</span>`;
-        const valueHtml = (prTab === 'weight-reps')
+        // Prototype: big main figure + a small "× reps" sub.
+        const valueMain = (prTab === 'weight-reps')
             ? `${escapeHtml(String(t.maxWeight))} × ${escapeHtml(String(t.repsAtMax))}`
-            : weightHtml;
+            : `${escapeHtml(String(t.maxWeight))}`;
+        const valueSub = (prTab === 'weight-reps') ? 'lb' : `× ${escapeHtml(String(t.repsAtMax))}`;
         const ariaSuffix = (prTab === 'weight-reps')
             ? `${t.maxWeight} pounds for ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
             : `${t.maxWeight} pounds`;
@@ -6390,8 +7154,8 @@ async function renderPRsScreen() {
                 <button type="button" class="pr-row-main" data-action="openExerciseFromPR" data-exercise="${exAttr}" aria-label="${ariaLabel}">
                     <span class="pr-row-dot" style="background:${bg}" aria-hidden="true"></span>
                     <span class="pr-row-name">${name}</span>
-                    <span class="pr-row-value">${valueHtml}</span>
-                    <svg class="pr-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                    <span class="pr-row-value tnum">${valueMain}</span>
+                    <span class="pr-row-sub tnum">${valueSub}</span>
                 </button>
                 <button type="button" class="pr-row-share" data-action="sharePRFromRow" data-exercise="${exAttr}" aria-label="${shareAria}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
@@ -6404,6 +7168,13 @@ function setPRTab(tab) {
     if (tab !== 'weight' && tab !== 'weight-reps') return;
     prTab = tab;
     setSegmentedActive($('pr-tab-segment'), b => b.dataset.val === tab);
+    renderPRsScreen();
+}
+
+// v9.50 — Records search. Input handler (data-on-input="filterRecords").
+let _prSearchQuery = '';
+function filterRecords(el) {
+    _prSearchQuery = el.value || '';
     renderPRsScreen();
 }
 
@@ -6431,6 +7202,20 @@ function isoForLocalDate(date) {
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+}
+
+// v9.51 — tapping a trained day on the Home Activity calendar jumps to that
+// day in the History tab: set the visible week + selected day, then navigate.
+function openHistoryDate(el) {
+    const iso = el?.dataset?.date;
+    if (!iso) return;
+    const [y, mo, d] = iso.split('-').map(Number);
+    const targetWeekStart = startOfWeek(new Date(y, mo - 1, d));
+    const thisWeekStart = startOfWeek(new Date());
+    historyWeekOffset = Math.round((targetWeekStart - thisWeekStart) / (7 * 24 * 60 * 60 * 1000));
+    historySelectedDate = iso;
+    showScreen('history');
+    haptic(8);
 }
 
 async function renderHistoryScreen() {
@@ -6514,29 +7299,65 @@ async function renderHistoryScreen() {
     // day-detail. Pull once and pass through to avoid a double-fetch.
     const allSessions = await performDB('sessions', 'getAll');
 
-    // Per-week rollup: sum Total/Workout/Rest across sessions whose
-    // startedAt falls in the visible week. Hidden when the week has
-    // no sessions.
+    // Per-week rollup (v9.51 — 6 cells matching the prototype: Workouts /
+    // Time / Upper vol / Sets / PRs / Lower vol). Hidden on empty weeks.
     const weekDateSet = new Set(days.map(d => isoForLocalDate(d)));
     const weekSessions = allSessions.filter(s =>
         weekDateSet.has(isoForLocalDate(new Date(s.startedAt)))
     );
-    renderRollupTotals('history-week-rollup', weekSessions, allWorkouts);
+    const weekPRs = await performDB('prs', 'getAll');
+    renderHistoryWeekRollup(weekSessions, allWorkouts, weekDateSet, weekPRs);
 
     // v9.49 — per-week muscle bar summary. Aggregates work sets across the
     // seven visible days (independent of which day is currently selected)
     // so flipping between days doesn't change the bars. Hidden on weeks
     // with no work sets logged.
+    // v9.51 — the per-week Focus card was removed to match the prototype;
+    // the card stays hidden. (Per-day Muscle focus remains in the day detail.)
     const focusCard = $('history-week-focus-card');
-    const focusList = $('history-week-focus-list');
-    if (focusCard && focusList) {
-        const weekWorkouts = allWorkouts.filter(w => weekDateSet.has(w.date));
-        const ok = renderMuscleFocusFromSets(focusList, weekWorkouts);
-        focusCard.style.display = ok ? '' : 'none';
-    }
+    if (focusCard) focusCard.style.display = 'none';
 
     // Render the selected day's detail
     await renderHistoryDayDetail(historySelectedDate, allWorkouts, allSessions);
+}
+
+// v9.51 — week rollup: Workouts / Time / Upper vol / Sets / PRs / Lower vol,
+// a 3-col × 2-row grid matching the design prototype. Volume splits on the
+// single lower-body muscle group ('legs'); everything else counts as upper.
+function renderHistoryWeekRollup(sessions, allWorkouts, weekDateSet, prs) {
+    const el = $('history-week-rollup');
+    if (!el) return;
+    if (!sessions.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+    el.className = 'hist-week-rollup';
+
+    const sessionIds = new Set(sessions.map(s => s.id));
+    let upperVol = 0, lowerVol = 0, setCount = 0, totalMs = 0;
+    for (const w of allWorkouts) {
+        if (!w.sessionId || !sessionIds.has(w.sessionId) || w.deleted || w.warmup) continue;
+        const vol = (w.weight || 0) * (w.reps || 0);
+        if (LOWER_MUSCLES.has(muscleOf(w.exercise))) lowerVol += vol; else upperVol += vol;
+        setCount += 1;
+    }
+    for (const s of sessions) {
+        const ss = allWorkouts.filter(w => w.sessionId === s.id && !w.deleted).sort((a, b) => a.id - b.id);
+        totalMs += computeSessionTimes(s, ss).totalMs;
+    }
+    let prCount = 0;
+    for (const p of (prs || [])) {
+        if (p.achievedAt && weekDateSet.has(isoForLocalDate(new Date(p.achievedAt)))) prCount++;
+    }
+    const cells = [
+        ['Workouts', String(sessions.length)],
+        ['Time', formatDurationCompact(totalMs)],
+        ['Upper vol', upperVol.toLocaleString('en-US')],
+        ['Sets', String(setCount)],
+        ['PRs', String(prCount)],
+        ['Lower vol', lowerVol.toLocaleString('en-US')],
+    ];
+    el.innerHTML = cells.map(([l, v]) =>
+        `<div class="hist-wk-cell"><div class="hist-wk-label">${escapeHtml(l)}</div><div class="hist-wk-value tnum">${escapeHtml(v)}</div></div>`
+    ).join('');
 }
 
 // Builds the {totalMs, restMs, workoutMs} sum across a list of sessions
@@ -6631,7 +7452,8 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
     // sets so the user sees exactly what they trained that day. Hidden when
     // only warmups (or zero work sets) were logged.
     if (dayFocusCard && dayFocusList) {
-        const ok = renderMuscleFocusFromSets(dayFocusList, dayWorkouts);
+        // Design shows per-muscle VOLUME for only the muscles trained that day.
+        const ok = renderMuscleFocusFromSets(dayFocusList, dayWorkouts, { metric: 'volume', onlyTrained: true });
         dayFocusCard.style.display = ok ? '' : 'none';
     }
 
@@ -6668,172 +7490,73 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
         });
     if (sessionBuckets.has('untagged')) orderedKeys.push('untagged');
 
-    // Top-of-detail summary header(s) — start time + set count on the
-    // first line, Total/Workout/Rest chips on a second sub-row. The
-    // bare-minute "dur" was redundant once the rollup chips landed.
-    // Track per-day totals as we iterate so we can render the per-day
-    // rollup above the headers in a single pass.
-    let headerHtml = '';
-    let dayTotalMs = 0, dayRestMs = 0, dayWorkoutMs = 0;
-    let dayVolume = 0, daySetCount = 0;
-    let realSessionCount = 0;
-    for (const key of orderedKeys) {
-        if (key === 'untagged') continue;
+    // v9.51 — day header: workout name + meta ("9:05 AM · 38 min · 4 sets"),
+    // matching the design prototype. The rollup grid + per-session header
+    // cards were removed; the per-day Muscle-focus card above carries the
+    // breakdown, and tapping an exercise card opens the History edit sheet.
+    if (dayRollup) { dayRollup.style.display = 'none'; dayRollup.innerHTML = ''; }
+
+    const realKeys = orderedKeys.filter(k => k !== 'untagged');
+    let dayName = 'Workout', firstStart = null, dayTotalMs = 0, dayWorkSets = 0;
+    for (const key of realKeys) {
         const s = sessionMap[key];
         if (!s) continue;
-        const setsInSession = sessionBuckets.get(key);
-        const startTime = new Date(s.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        const t = computeSessionTimes(s, setsInSession);
-        dayTotalMs   += t.totalMs;
-        dayRestMs    += t.restMs;
-        dayWorkoutMs += t.workoutMs;
-        realSessionCount++;
-        // Per-session volume — work sets only. The meta line still shows the
-        // total set count (warmups included) so the user can reconcile the
-        // visible pills with the number; the volume + day rollup count work
-        // sets only so the tonnage matches every other "how much" surface.
-        let sessionVolume = 0;
-        let sessionWorkSetCount = 0;
-        for (const w of setsInSession) {
-            if (w.warmup) continue;
-            sessionVolume += (w.weight || 0) * (w.reps || 0);
-            sessionWorkSetCount += 1;
-        }
-        dayVolume += sessionVolume;
-        daySetCount += sessionWorkSetCount;
-        const estimatedFlag = s.estimated ? `<span class="estimated">~estimated</span>` : '';
-        // v9.26 — warmup count is shown as a small flag in the head row when
-        // present, so the grid's "Sets" cell (work-only) and the warmup
-        // annotation refer to the same population. Without the flag the user
-        // would see "Sets 4" but 5 visible pills — reads as a count error.
-        const warmupInSession = setsInSession.length - sessionWorkSetCount;
-        const warmupFlag = warmupInSession > 0
-            ? `<span class="session-header-warmup">${warmupInSession}W</span>`
-            : '';
-        // v9.33 — per-session header is now a card matching the rollup grid
-        // above: head row (checkmark + start time + optional flags) then the
-        // same 5-cell Volume/Sets/Total/Workout/Rest layout used by the day
-        // and week rollups. Reuses rollupCellsHtml() so the visual + content
-        // contract stays in lockstep.
-        headerHtml += `
-            <div class="session-header-row">
-                <div class="session-header-head">
-                    <span class="session-header-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                    <span class="session-header-time">${escapeHtml(startTime)}</span>
-                    ${warmupFlag}
-                    ${estimatedFlag}
-                </div>
-                <div class="history-rollup">
-                    ${rollupCellsHtml({ totalMs: t.totalMs, workoutMs: t.workoutMs, restMs: t.restMs, volume: sessionVolume, setCount: sessionWorkSetCount })}
-                </div>
-            </div>`;
-    }
-
-    // Per-day rollup: only meaningful if at least one real session
-    // contributed. Untagged-only days fall through to the existing
-    // "no session timer" header below without a rollup row.
-    if (dayRollup) {
-        if (realSessionCount > 0 && dayTotalMs > 0) {
-            dayRollup.style.display = '';
-            dayRollup.innerHTML = rollupCellsHtml({
-                totalMs: dayTotalMs, workoutMs: dayWorkoutMs, restMs: dayRestMs,
-                volume: dayVolume, setCount: daySetCount,
-            });
-        } else {
-            dayRollup.style.display = 'none';
-            dayRollup.innerHTML = '';
+        const ss = sessionBuckets.get(key);
+        dayTotalMs += computeSessionTimes(s, ss).totalMs;
+        dayWorkSets += ss.filter(w => !w.warmup).length;
+        if (firstStart == null || s.startedAt < firstStart) {
+            firstStart = s.startedAt;
+            dayName = sessionDisplayName(s, ss);
         }
     }
-    const untaggedSets = sessionBuckets.get('untagged');
-    if (untaggedSets && !sessionMap[orderedKeys[0]]) {
-        // Only emit the untagged note if there are no real sessions for the
-        // day; otherwise the session header(s) above carry the count.
-        headerHtml += `<div class="session-header-row session-header-row--untagged">
-            <span class="session-header-icon" style="background:var(--label-tertiary)"><svg viewBox="0 0 24 24" fill="white" width="13" height="13"><circle cx="12" cy="12" r="10"/></svg></span>
-            <span>${untaggedSets.length} sets · no session timer</span>
-        </div>`;
+    if (!realKeys.length) {
+        dayName = deriveWorkoutName(dayWorkouts);
+        dayWorkSets = dayWorkouts.filter(w => !w.warmup).length;
     }
-    headers.innerHTML = headerHtml;
+    const metaParts = [];
+    if (firstStart != null) metaParts.push(new Date(firstStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    if (dayTotalMs > 0) metaParts.push(`${Math.max(1, Math.round(dayTotalMs / 60000))} min`);
+    metaParts.push(`${dayWorkSets} set${dayWorkSets === 1 ? '' : 's'}`);
+    headers.innerHTML = `<div class="hist-day-head">
+        <span class="hist-day-name">${escapeHtml(dayName)}</span>
+        <span class="hist-day-meta">${escapeHtml(metaParts.join(' · '))}</span>
+    </div>`;
 
-    // Build the pill groups. For each session bucket, group its sets by
-    // exercise (preserving first-seen order) and render the same markup
-    // renderSessionSets() emits — minus the trailing "+ Add set" pill,
-    // which is workout-screen-only.
+    // Exercise chip cards — the whole card taps to the History edit sheet.
     let bodyHtml = '';
     for (const key of orderedKeys) {
         const sets = sessionBuckets.get(key) || [];
         if (!sets.length) continue;
-
-        // Optional per-bucket label only when there are multiple sessions
-        // in the day, so a single-session day doesn't get redundant chrome.
-        const realSessionCount = orderedKeys.filter(k => k !== 'untagged').length;
-        if (key !== 'untagged' && realSessionCount > 1) {
-            const s = sessionMap[key];
-            const startTime = s ? new Date(s.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-            bodyHtml += `<div class="history-session-divider">${escapeHtml(startTime)}</div>`;
-        }
-
         const exerciseGroups = new Map();
         for (const w of sets) {
             if (!exerciseGroups.has(w.exercise)) exerciseGroups.set(w.exercise, []);
             exerciseGroups.get(w.exercise).push(w);
         }
-
         for (const [exercise, exSets] of exerciseGroups) {
             const lib = exerciseLibrary.find(ex => ex.name === exercise);
             const muscle = lib?.muscle || muscleOf(exercise) || 'core';
             const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
             const exTitle = escapeHtml(titleCase(exercise));
             const exName = escapeHtml(exercise);
-            const hasPR = exSets.some(s => prMap[s.exercise] === s.id);
-
-            // v9.26 — same per-index PREV hint as the active workout pills;
-            // excludes the current row's sessionId so we don't compare a
-            // historical day against itself. Untagged sets pass null,
-            // which the helper handles by skipping the exclusion.
-            const prevSets = await getPrevExerciseSets(
-                exercise,
-                key !== 'untagged' ? Number(key) : null
-            );
-
-            // v9.29 — same work-set numbering as the active workout. exSets
-            // is already in chronological order from the bucket builder above.
-            let workIdx = 0;
-            const pills = exSets.map((s, i) => {
-                const isPR = prMap[s.exercise] === s.id;
-                const setLabel = s.warmup ? 'W' : String(++workIdx);
-                const prev = prevSets[i] || prevSets[prevSets.length - 1] || null;
-                return renderSetPill(s, prev, { isPR, setLabel });
+            const ordered = [...exSets].sort((a, b) => a.id - b.id);
+            const chips = ordered.map(s => {
+                const isPR = prMap[s.exercise] === s.id && !s.warmup;
+                const cls = isPR ? 'hist-chip is-pr' : (s.warmup ? 'hist-chip is-warm' : 'hist-chip');
+                return `<span class="${cls} tnum">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))}${isPR ? '<span class="hist-chip-pr">PR</span>' : ''}</span>`;
             }).join('');
-            const colHeader = `<div class="session-set-cols">
-                <span class="pill-col-set">SET</span>
-                <span class="pill-col-prev">PREV</span>
-                <span class="pill-col-main">LBS × REPS</span>
-            </div>`;
-
             bodyHtml += `
-                <div class="session-set-group history-set-group">
-                    <button type="button" class="session-set-group-header history-group-header" data-history-exercise="${exName}">
-                        <span class="muscle-tag" style="background:${muscleBg}"></span>
-                        <span class="session-set-group-name">${exTitle}${hasPR ? '<span class="item-pr-tag">PR</span>' : ''}</span>
-                        <span class="session-set-count">${exSets.length} set${exSets.length === 1 ? '' : 's'}</span>
-                    </button>
-                    <div class="session-set-pills">${colHeader}${pills}</div>
-                </div>`;
+                <button type="button" class="hist-ex-card" data-action="openHistEdit" data-exercise="${exName}" data-date="${escapeHtml(date)}" data-session-key="${escapeHtml(String(key))}" aria-label="Edit ${exTitle}">
+                    <div class="hist-ex-head">
+                        <span class="hist-ex-dot" style="background:${muscleBg}"></span>
+                        <span class="hist-ex-name">${exTitle}</span>
+                        <span class="hist-ex-count">${ordered.length} set${ordered.length === 1 ? '' : 's'}</span>
+                        <svg class="hist-ex-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </div>
+                    <div class="hist-chips">${chips}</div>
+                </button>`;
         }
     }
     groups.innerHTML = bodyHtml || '';
-
-    // Tap a group header to open the exercise sheet. Pill taps are handled
-    // by the global dispatcher via data-action="openSetAction".
-    groups.querySelectorAll('.history-group-header').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const ex = btn.dataset.historyExercise;
-            if (ex) openExercise(ex);
-        });
-    });
 }
 
 // Items 7 + 9: incremental sync + restore-typo detection.
@@ -6894,10 +7617,108 @@ async function lastActivityTimestamp() {
     return Math.max(...all.map(w => w.id));
 }
 
+// ============================================================================
+// v9.50 — Workout reminder sheet.
+//
+// A smarter, once-per-day version of the v8 launch prompt: instead of a
+// generic confirmSheet at the 12h mark, it learns your usual training
+// time-of-day from your session history and nudges you only when you've
+// skipped today AND it's past when you normally lift. Source of truth for
+// the time pattern is the `sessions` store (their `startedAt`), not a
+// parallel localStorage mirror — IndexedDB stays authoritative. The only
+// new persisted state is `iv_reminder_last` (calendar date), so the sheet
+// shows at most once per day across cold opens.
+// ============================================================================
+const REMINDER_LAST_KEY = 'iv_reminder_last';
+let _reminderHandledThisSession = false;
+
+function reminderTodayStr() { return new Date().toDateString(); }
+
+// Format minutes-of-day → "6:30 AM" (lifted from the handoff spec).
+function fmtReminderTime(min) {
+    let h = Math.floor(min / 60), m = min % 60;
+    const ap = h < 12 ? 'AM' : 'PM';
+    let h12 = h % 12; if (h12 === 0) h12 = 12;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + ap;
+}
+
+// Recent workout timestamps (≤16), oldest→newest. Prefer real sessions'
+// startedAt; fall back to one timestamp per training day from raw entries
+// for users whose history predates sessions (untagged-only data).
+async function getRecentWorkoutTimes() {
+    const sessions = (await performDB('sessions', 'getAll'))
+        .filter(s => !s.deleted && s.startedAt);
+    if (sessions.length) {
+        return sessions.map(s => s.startedAt).sort((a, b) => a - b).slice(-16);
+    }
+    const byDay = {};
+    (await performDB('workouts', 'getAll'))
+        .filter(w => !w.deleted)
+        .forEach(e => { if (byDay[e.date] == null || e.id < byDay[e.date]) byDay[e.date] = e.id; });
+    return Object.values(byDay).sort((a, b) => a - b).slice(-16);
+}
+
+// Same gate as the handoff pseudocode. Evaluated once, ~500ms after boot.
+async function maybeWorkoutReminder() {
+    if (_reminderHandledThisSession) return;
+    if (activeSession) return;                       // already lifting
+    if (_forgottenPromptDidFire) return;             // one prompt at a time
+    if (localStorage.getItem(REMINDER_LAST_KEY) === reminderTodayStr()) return;  // already today
+
+    const times = await getRecentWorkoutTimes();
+    if (!times.length) return;                        // no history → nothing to remind about
+
+    const now = new Date();
+    const last = new Date(Math.max(...times));
+    if (last.toDateString() === now.toDateString()) return;   // trained today
+    const hrs = (now - last) / 3600000;
+    if (hrs < 24) return;                                      // < 1 day
+
+    // Usual time = mean time-of-day across recorded workouts.
+    const mins = times.map(t => { const d = new Date(t); return d.getHours() * 60 + d.getMinutes(); });
+    const usual = Math.round(mins.reduce((a, b) => a + b, 0) / mins.length);
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (nowMin < usual) return;                                // not past usual time yet
+
+    const days = Math.floor(hrs / 24);
+    showWorkoutReminder({
+        usualLabel: fmtReminderTime(usual),
+        sinceLabel: days <= 1 ? 'yesterday' : (days + ' days ago'),
+    });
+}
+
+function showWorkoutReminder({ usualLabel, sinceLabel }) {
+    _reminderHandledThisSession = true;   // suppress the legacy launch prompt
+    const sinceEl = $('reminder-since');
+    const usualEl = $('reminder-usual');
+    if (sinceEl) sinceEl.textContent = sinceLabel;
+    if (usualEl) usualEl.textContent = usualLabel;
+    $('workout-reminder-overlay')?.classList.add('active');
+    haptic(10);
+}
+
+function closeWorkoutReminder() {
+    $('workout-reminder-overlay')?.classList.remove('active');
+}
+
+// "Not now" / backdrop tap — dismiss and don't re-ask until tomorrow.
+function dismissWorkoutReminder() {
+    closeWorkoutReminder();
+    try { localStorage.setItem(REMINDER_LAST_KEY, reminderTodayStr()); } catch (_) {}
+}
+
+// "Start workout" — same path as the Home Start button (navigate + start).
+async function startReminderWorkout() {
+    closeWorkoutReminder();
+    try { localStorage.setItem(REMINDER_LAST_KEY, reminderTodayStr()); } catch (_) {}
+    await enterWorkout();
+}
+
 // Launch prompt — call this AFTER resumeOrPromptSession (so the forgotten
 // case takes precedence) and only if no session ended up active.
 async function maybePromptStartOnLaunch() {
     if (activeSession) return;                  // already in a workout
+    if (_reminderHandledThisSession) return;    // v9.50 reminder already nudged
     if (_forgottenPromptDidFire) return;        // user just dealt with one prompt
     if (isPromptThrottled()) return;            // recently asked, don't pester
     const lastAt = await lastActivityTimestamp();

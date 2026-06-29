@@ -49,9 +49,9 @@
     <!-- Theme color follows the active scheme so the system bar matches the
          app surface in both modes. Browsers without media support fall back
          to the second tag (no-media), keeping dark as the safe default. -->
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf7f2">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0E0F11">
+    <meta name="theme-color" content="#0E0F11">
 </head>
 <body>
     <!-- Profile sheet -->
@@ -80,7 +80,7 @@
         <div class="modal sheet pr-celebrate-modal" role="dialog" aria-modal="true" aria-labelledby="pr-celebrate-title">
             <div class="sheet-header">
                 <h2 id="pr-celebrate-title">New PR! 🏆</h2>
-                <button class="sheet-close" data-action="closePRCelebrate">Done</button>
+                <button class="sheet-close-x" data-action="closePRCelebrate" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
             <div class="sheet-body">
                 <p class="subtitle pr-celebrate-sub" id="pr-celebrate-sub">—</p>
@@ -104,17 +104,20 @@
                 <div class="grouped-list" style="margin-top:6px">
                     <label class="row-input"><span>Name</span><input type="text" id="custom-name" placeholder="e.g. Sandbag carry" autocomplete="off" enterkeyhint="done"></label>
                 </div>
-                <div class="section-label" style="margin-top:18px">Muscle group</div>
-                <div class="grouped-list">
-                    <div class="row-segmented">
-                        <span id="custom-muscle-label">Group</span>
-                        <div class="segmented segmented-wide" id="custom-muscle-segment" role="tablist" aria-labelledby="custom-muscle-label">
-                            <button role="tab" aria-selected="false" data-val="chest">Chest</button>
-                            <button role="tab" aria-selected="false" data-val="back">Back</button>
-                            <button role="tab" aria-selected="false" data-val="legs">Legs</button>
-                            <button role="tab" aria-selected="false" data-val="shoulders">Shldrs</button>
-                            <button role="tab" aria-selected="false" data-val="arms">Arms</button>
-                            <button role="tab" aria-selected="false" data-val="core">Core</button>
+                <div class="grouped-list" style="margin-top:18px">
+                    <div class="muscle-pick">
+                        <div class="muscle-pick-label" id="custom-muscle-label">Muscle group</div>
+                        <div class="muscle-pills" id="custom-muscle-segment" role="tablist" aria-labelledby="custom-muscle-label">
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="chest">Chest</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="back">Back</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="quads">Quads</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="hamstrings">Hamstrings</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="glutes">Glutes</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="calves">Calves</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="shoulders">Shoulders</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="biceps">Biceps</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="triceps">Triceps</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="core">Core</button>
                         </div>
                     </div>
                 </div>
@@ -131,39 +134,48 @@
 
     <!-- Template editor sheet -->
     <div id="tpl-overlay" class="overlay" aria-hidden="true">
-        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-label="Template editor">
-            <div class="sheet-header sheet-header-3col">
-                <button class="sheet-close cancel" data-action="cancelTemplate">Cancel</button>
-                <input type="text" id="tpl-name" class="sheet-title-input" placeholder="Template name" enterkeyhint="done" aria-label="Template name">
-                <button class="sheet-close" data-action="saveTemplate">Save</button>
+        <div class="modal sheet tpl-sheet" role="dialog" aria-modal="true" aria-labelledby="tpl-title">
+            <div class="tpl-head">
+                <span class="tpl-title" id="tpl-title">New template</span>
+                <button type="button" class="sheet-close-x" data-action="cancelTemplate" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
-            <div class="sheet-body">
-                <div class="section-foot">Tap exercises to include them. Selected exercises can have a target weight, reps, and set count.</div>
-                <div id="tpl-exercises" class="chip-grid"></div>
-                <div id="tpl-targets" class="targets-list"></div>
-                <div id="tpl-delete-wrap" class="grouped-list" style="margin-top:24px;display:none">
-                    <button class="row-action danger" data-action="deleteTemplate"><span>Delete template</span></button>
+            <div class="tpl-body scr">
+                <div class="section-label">Template name</div>
+                <input type="text" id="tpl-name" class="tpl-name-input" placeholder="e.g. Upper Body A" enterkeyhint="done" autocomplete="off" aria-label="Template name">
+                <div class="section-label" style="margin-top:20px">Exercises</div>
+                <div id="tpl-exercises-list"></div>
+                <button type="button" class="tpl-add-ex" data-action="addExerciseToTemplate">+ Add exercise</button>
+                <div id="tpl-delete-wrap" style="display:none;margin-top:18px">
+                    <button type="button" class="he-delete" data-action="deleteTemplate">Delete template</button>
                 </div>
+            </div>
+            <div class="tpl-footer">
+                <button type="button" class="community-cancel-btn" data-action="cancelTemplate">Cancel</button>
+                <button type="button" class="primary-btn tpl-save-btn" data-action="saveTemplate">Save template</button>
             </div>
         </div>
     </div>
 
-    <!-- Exercise detail sheet (1RM trend) -->
+    <!-- Exercise / PR detail sheet — 1RM·Sessions·Volume trio, estimated-1RM
+         bar chart, recent sets, Share PR card. -->
     <div id="ex-overlay" class="overlay" aria-hidden="true">
         <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="ex-title">
             <div class="sheet-header">
-                <h2 id="ex-title">Exercise</h2>
-                <button class="sheet-close" data-action="closeExercise">Done</button>
+                <span class="ex-head-left"><span class="ex-head-dot" id="ex-dot"></span><h2 id="ex-title">Exercise</h2></span>
+                <button class="sheet-close-x" data-action="closeExercise" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
             <div class="sheet-body">
                 <div class="ex-stats" id="ex-stats"></div>
-                <div class="card chart-card" style="margin-top:16px">
-                    <div class="chart-header"><h3>1RM trend · 90 days</h3><span class="chart-meta-text" id="ex-trend-meta">—</span></div>
-                    <div class="trend-chart" id="ex-trend"></div>
+                <div class="ex-chart-head">
+                    <span class="ex-chart-eyebrow" id="ex-trend-meta">Estimated 1RM</span>
+                    <span class="ex-chart-delta" id="ex-trend-delta"></span>
                 </div>
-                <div class="section-label" style="margin-top:20px">Recent sets</div>
-                <div class="grouped-list" id="ex-sets"></div>
-                <button class="row-action" id="ex-share" data-action="sharePR" style="margin-top:18px;background:var(--surface-3);border-radius:14px;border:0.5px solid var(--hairline)"><span>Share PR card</span></button>
+                <div class="ex-chart-card">
+                    <div class="ex-chart scr" id="ex-trend"></div>
+                </div>
+                <div class="section-label" style="margin-top:18px">Recent sets</div>
+                <div class="ex-sets-list" id="ex-sets"></div>
+                <button class="ex-share-btn" id="ex-share" data-action="sharePR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Share PR card</button>
             </div>
         </div>
     </div>
@@ -173,50 +185,34 @@
          buildEntry(exercise, w, r) → saveAndSyncUI(entry), so it goes through
          the same PR/sync/UI pipeline as voice and manual entry. -->
     <div id="quick-add-overlay" class="overlay" aria-hidden="true">
-        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
-            <div class="sheet-header sheet-header-3col">
-                <button class="sheet-close cancel" data-action="closeQuickAdd">Cancel</button>
-                <span class="sheet-title-text" id="quick-add-title">Add set</span>
-                <button class="sheet-close" data-action="saveQuickAdd">Save</button>
+        <div class="modal sheet qa-sheet" role="dialog" aria-modal="true" aria-labelledby="quick-add-name">
+            <div class="qa-head">
+                <span class="qa-head-dot" id="quick-add-muscle"></span>
+                <span class="qa-head-name" id="quick-add-name">—</span>
             </div>
-            <div class="sheet-body">
-                <div class="quick-add-exercise">
-                    <span class="muscle-tag" id="quick-add-muscle"></span>
-                    <span class="quick-add-name" id="quick-add-name">—</span>
-                </div>
-                <div class="quick-add-prev" id="quick-add-prev"></div>
-                <div class="grouped-list" style="margin-top:14px">
-                    <!-- v9.49 — wrapper is <div>, not <label>, so a tap on
-                         a stepper button's padding can't bubble to a parent
-                         label and re-focus the input. The visible text label
-                         is an explicit <label for="..."> for a11y. -->
-                    <div class="row-input row-input-stepper"><label for="quick-add-w">Weight (lb)</label>
-                        <div class="qa-input-stepper">
-                            <input type="number" id="quick-add-w" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll">
-                        </div>
-                        <div class="qa-stepper-row">
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="-5" aria-label="Weight minus 5">−5</button>
-                            <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
-                            <button type="button" class="qa-step qa-step-fine" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
-                        </div>
-                    </div>
-                    <div class="row-input row-input-stepper"><label for="quick-add-r">Reps</label>
-                        <div class="qa-input-stepper">
-                            <input type="number" id="quick-add-r" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll">
-                        </div>
-                        <div class="qa-stepper-row">
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
-                            <button type="button" class="qa-step qa-step-coarse" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
-                        </div>
-                    </div>
-                    <button type="button" class="row-toggle" id="quick-add-warmup-row" data-action="toggleQuickAddWarmup" aria-pressed="false">
-                        <span class="row-toggle-label">Warmup</span>
-                        <span class="row-toggle-sub">Excluded from volume and PRs</span>
-                        <span class="row-toggle-switch" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <div class="section-foot" id="quick-add-foot">Same exercise, new weight × reps. Pre-filled from the previous set.</div>
+            <div class="qa-meta" id="quick-add-prev"></div>
+            <div class="qa-eyebrow">Weight (lb)</div>
+            <div class="qa-flank">
+                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="-5" aria-label="Weight minus 5">−5</button>
+                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
+                <input type="number" id="quick-add-w" class="qa-fval" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll" aria-label="Weight">
+                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
+                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
+            </div>
+            <div class="qa-eyebrow">Reps</div>
+            <div class="qa-flank">
+                <button type="button" class="qa-fbtn qa-fbtn-wide" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
+                <input type="number" id="quick-add-r" class="qa-fval" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll" aria-label="Reps">
+                <button type="button" class="qa-fbtn qa-fbtn-wide" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
+            </div>
+            <button type="button" class="row-toggle qa-warmup" id="quick-add-warmup-row" data-action="toggleQuickAddWarmup" aria-pressed="false">
+                <span class="row-toggle-label">Warmup</span>
+                <span class="row-toggle-sub">Excluded from volume and PRs</span>
+                <span class="row-toggle-switch" aria-hidden="true"></span>
+            </button>
+            <div class="qa-actions">
+                <button type="button" class="qa-cancel" data-action="closeQuickAdd">Cancel</button>
+                <button type="button" class="qa-add" id="quick-add-save" data-action="saveQuickAdd">Add set</button>
             </div>
         </div>
     </div>
@@ -312,16 +308,9 @@
             <div class="sheet-header sheet-header-3col">
                 <span></span>
                 <span class="sheet-title-text" id="exercises-title">Exercises</span>
-                <button class="sheet-close" data-action="closeExercises">Done</button>
+                <button class="sheet-close-x" data-action="closeExercises" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
             <div class="sheet-body">
-                <!-- v9.46: admin-only Review submissions row. Toggled visible by openExercises() when isCurrentUserAdmin(). -->
-                <div class="grouped-list" id="exercises-admin-row" hidden>
-                    <button class="row-action" data-action="openReviewQueue">
-                        <span>Review submissions</span>
-                        <span class="row-trailing" id="review-queue-count">—</span>
-                    </button>
-                </div>
                 <div class="grouped-list" id="exercises-actions">
                     <button class="row-action" data-action="newCustomExerciseFromHub"><span>+ New exercise</span></button>
                     <button class="row-action" data-action="browseCommunityFromHub">
@@ -336,27 +325,11 @@
         </div>
     </div>
 
-    <!-- v9.46: Admin review queue (gated by ADMIN_EMAIL on the worker).
-         Opened from the Review submissions row inside the Exercises hub. -->
-    <div id="review-queue-overlay" class="overlay" aria-hidden="true">
-        <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="review-queue-title">
-            <div class="sheet-header sheet-header-3col">
-                <span></span>
-                <span class="sheet-title-text" id="review-queue-title">Review submissions</span>
-                <button class="sheet-close" data-action="closeReviewQueue">Done</button>
-            </div>
-            <div class="sheet-body">
-                <div id="review-queue-list" class="review-list"></div>
-                <div class="section-foot" style="margin-top:18px">Approve adds the exercise to the community pool. Reject removes it from the queue and lets the submitter know.</div>
-            </div>
-        </div>
-    </div>
-
     <!-- v9.42: Community exercise pool browser -->
     <div id="community-overlay" class="overlay" aria-hidden="true">
         <div class="modal sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="community-title">
             <div class="sheet-header sheet-header-3col">
-                <button class="sheet-close cancel" data-action="closeCommunity">Done</button>
+                <button class="sheet-close-x" data-action="closeCommunity" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
                 <span class="sheet-title-text" id="community-title">Community exercises</span>
                 <span></span>
             </div>
@@ -375,7 +348,7 @@
         <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="plate-title">
             <div class="sheet-header">
                 <h2 id="plate-title">Plate calculator</h2>
-                <button class="sheet-close" data-action="closePlate">Done</button>
+                <button class="sheet-close-x" data-action="closePlate" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
             <div class="sheet-body">
                 <div class="grouped-list" style="margin-bottom:18px">
@@ -388,18 +361,14 @@
     </div>
 
     <!-- PR share preview sheet -->
-    <div id="share-overlay" class="overlay" aria-hidden="true">
-        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
-            <div class="sheet-header">
-                <h2 id="share-title">PR card</h2>
-                <button class="sheet-close" data-action="closeShare">Close</button>
-            </div>
-            <div class="sheet-body">
-                <canvas id="pr-canvas" width="1080" height="1920" class="pr-canvas-preview"></canvas>
-                <div class="share-actions">
-                    <button class="primary-btn" data-action="nativeShare">Share…</button>
-                </div>
-            </div>
+    <div id="share-overlay" class="overlay share-fullscreen" role="dialog" aria-modal="true" aria-label="Share PR card" aria-hidden="true">
+        <button class="share-close" data-action="closeShare" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <div class="share-card-wrap">
+            <canvas id="pr-canvas" width="1080" height="1920" class="pr-canvas-preview"></canvas>
+        </div>
+        <div class="share-actions">
+            <button type="button" class="share-save-btn" data-action="savePRImage">Save image</button>
+            <button type="button" class="share-share-btn" data-action="nativeShare">Share</button>
         </div>
     </div>
 
@@ -410,7 +379,7 @@
             <div class="sheet-header sheet-header-3col">
                 <span></span>
                 <span class="sheet-title-text" id="help-title">Voice commands</span>
-                <button class="sheet-close" data-action="closeHelp">Done</button>
+                <button class="sheet-close-x" data-action="closeHelp" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
             <div class="sheet-body">
                 <p class="subtitle" style="margin-top:4px">Tap the mic and try any of these. Numbers can be spoken naturally — "two twenty-five" works the same as "225".</p>
@@ -464,7 +433,7 @@
             <div class="sheet-header sheet-header-3col">
                 <span></span>
                 <span class="sheet-title-text" id="whats-new-title">What's new</span>
-                <button class="sheet-close" data-action="closeWhatsNew">Done</button>
+                <button class="sheet-close-x" data-action="closeWhatsNew" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
             </div>
             <div class="sheet-body">
                 <p class="subtitle" id="whats-new-sub">Highlights since you last opened the app.</p>
@@ -506,6 +475,167 @@
                     <button type="button" class="primary-btn" id="confirm-sheet-confirm" data-action="confirmSheetYes">Confirm</button>
                     <button type="button" class="primary-btn secondary" id="confirm-sheet-cancel" data-action="confirmSheetNo">Cancel</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.50 — Workout reminder sheet. Fires once/day on open when you
+         haven't trained today and it's past your usual training time.
+         Structurally a normal sheet (.modal chrome); the inner content is
+         reminder-specific. -->
+    <div id="workout-reminder-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-title">
+            <div class="reminder-head">
+                <span class="reminder-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/>
+                    </svg>
+                </span>
+                <span class="reminder-text">
+                    <span class="reminder-eyebrow">Ready to lift?</span>
+                    <span class="reminder-title" id="reminder-title">Time for today's session</span>
+                </span>
+            </div>
+            <p class="reminder-body">Your last workout was <strong id="reminder-since">yesterday</strong> — you usually train around <strong id="reminder-usual">6:30 AM</strong>. Want to start now?</p>
+            <button type="button" class="reminder-start" data-action="startReminderWorkout">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                Start workout
+            </button>
+            <button type="button" class="reminder-dismiss" data-action="dismissWorkoutReminder">Not now</button>
+        </div>
+    </div>
+
+    <!-- v9.50 — Start workout sheet (Empty workout + templates). Opened from
+         the Home Start CTA. -->
+    <div id="start-sheet-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="start-sheet-title">
+            <div class="sheet-header sheet-header-3col">
+                <span></span>
+                <span class="sheet-title-text" id="start-sheet-title">Start workout</span>
+                <button type="button" class="sheet-close-x" data-action="closeStartSheet" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+            <div class="sheet-body">
+                <button type="button" class="start-empty" data-action="startEmptyWorkout">
+                    <span class="start-empty-icon" aria-hidden="true">+</span>
+                    <span class="start-empty-text">
+                        <span class="start-empty-title">Empty workout</span>
+                        <span class="start-empty-sub">Start blank — add exercises by voice or tap</span>
+                    </span>
+                </button>
+                <div class="section-label" id="start-sheet-tpl-label" style="display:none">From a template</div>
+                <div id="start-sheet-templates"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.50 — Voice sheet: listening UI with live transcript + Log. The
+         recognition engine (toggleListening) is reused unchanged; results
+         populate the transcript and still auto-log, and Log re-submits an
+         edited line through the same parse pipeline. -->
+    <div id="voice-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet voice-modal">
+            <div class="vs-status"><span class="vs-dot" aria-hidden="true"></span><span class="vs-status-text mono" id="vs-status">LISTENING…</span></div>
+            <div class="vs-wave" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="vs-eyebrow">Heard — edit if we misheard</div>
+            <input type="text" id="vs-input" class="vs-input mono" placeholder="Listening… or type your set" autocomplete="off" enterkeyhint="send">
+            <div class="vs-actions">
+                <button type="button" class="vs-cancel" data-action="closeVoiceSheet" aria-label="Cancel">&times;</button>
+                <button type="button" class="vs-log mono" data-action="logVoiceSheet">LOG SET</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- v9.50 — Exercise picker: search + full catalog. Picking opens the
+         quick-add sheet to log the first set. -->
+    <div id="ex-picker-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet ex-picker-modal">
+            <div class="sheet-header sheet-header-3col">
+                <span></span>
+                <span class="sheet-title-text">Add exercise</span>
+                <button type="button" class="sheet-close-x" data-action="closeExPicker" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+            <div class="ex-picker-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+                <input type="text" id="ex-picker-input" placeholder="Search exercise…" autocomplete="off" data-on-input="filterExPicker" aria-label="Search exercises">
+            </div>
+            <div class="ex-picker-list scr" id="ex-picker-list"></div>
+        </div>
+    </div>
+
+    <!-- v9.50 — Records muscle filter. -->
+    <div id="pr-filter-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet">
+            <div class="pf-head">
+                <span class="pf-title">Filter by muscle</span>
+                <button type="button" class="pf-clear" data-action="clearRecordsFilter">Clear</button>
+            </div>
+            <div class="pf-list" id="pf-list"></div>
+            <button type="button" class="primary-btn pf-done" data-action="closeRecordsFilter">Show records</button>
+        </div>
+    </div>
+
+    <!-- v9.50 — History exercise edit sheet: per-set steppers, add/remove,
+         save, delete exercise. -->
+    <div id="hist-edit-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet">
+            <div class="he-head">
+                <span class="he-title" id="he-title">Exercise</span>
+                <button type="button" class="sheet-close-x" data-action="closeHistEdit" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+            <div class="he-sub">Adjust weight &amp; reps, add or remove sets.</div>
+            <div class="he-list scr" id="he-list"></div>
+            <button type="button" class="he-add" data-action="histEditAddSet">+ Add set</button>
+            <button type="button" class="primary-btn he-save" data-action="saveHistEdit">Save changes</button>
+            <button type="button" class="he-delete" data-action="histEditDeleteExercise">Delete exercise</button>
+        </div>
+    </div>
+
+    <!-- v9.50 — Spoken-voice picker. A scrollable bottom sheet listing the
+         device's TTS voices with a checkmark on the active one; replaces the
+         native <select>. -->
+    <div id="voice-picker-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet">
+            <div class="vp-head">
+                <span class="vp-title">Spoken voice</span>
+                <button type="button" class="sheet-close-x" data-action="closeVoicePicker" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+            <div class="vp-sub">The voice IronVoice uses to read sets back to you.</div>
+            <div class="vp-list scr" id="voice-picker-list"></div>
+            <div class="vp-foot">Voices are provided by your device — the full list appears on a real phone.</div>
+        </div>
+    </div>
+
+    <!-- v9.51 — Community exercise edit sheet. Edits the shared catalog entry
+         directly (no review). -->
+    <div id="community-edit-overlay" class="overlay" aria-hidden="true">
+        <div class="modal sheet">
+            <div class="vp-head">
+                <span class="vp-title">Edit exercise</span>
+                <button type="button" class="sheet-close-x" data-action="closeCommunityEdit" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+            <div class="grouped-list">
+                <label class="row-input"><span>Exercise</span><input type="text" id="community-edit-name" placeholder="Name" autocomplete="off" enterkeyhint="done"></label>
+                <div class="muscle-pick">
+                    <div class="muscle-pick-label" id="community-edit-muscle-label">Muscle group</div>
+                    <div class="muscle-pills" id="community-edit-muscle" role="tablist" aria-labelledby="community-edit-muscle-label">
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="chest">Chest</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="back">Back</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="quads">Quads</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="hamstrings">Hamstrings</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="glutes">Glutes</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="calves">Calves</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="shoulders">Shoulders</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="biceps">Biceps</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="triceps">Triceps</button>
+                        <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="core">Core</button>
+                    </div>
+                </div>
+            </div>
+            <div class="community-edit-actions">
+                <button type="button" class="community-cancel-btn" data-action="closeCommunityEdit">Cancel</button>
+                <button type="button" class="primary-btn community-save-btn" data-action="saveCommunityEdit">Save to community</button>
             </div>
         </div>
     </div>
@@ -575,98 +705,78 @@
         <!-- ============================================================
              HOME SCREEN
              ============================================================ -->
-        <section class="screen" data-screen="home">
-            <!-- v9.2: Hero Load + Start workout sit side-by-side as the
-                 home launchpad row. Load (left) answers "am I ready?",
-                 Start workout (right) is the primary action. Both halves
-                 use 50% of the row so the two questions a gym-goer asks
-                 walking in — readiness and "let's go" — are answered in
-                 a single glance. Tiles below this row stay 2-up. -->
-            <div class="card-row hero-row">
-                <div class="hero-load card status-card" id="strain-card" role="group" aria-label="Training load and readiness">
-                    <div class="hero-load-head">
-                        <h3>Load</h3>
-                        <span class="hero-load-pulse" aria-hidden="true"></span>
+        <section class="screen home-screen" data-screen="home">
+            <!-- v9.50 redesign — Home launchpad per the design handoff:
+                 centered IRONVOICE wordmark, an optional resume strip,
+                 the Weekly-load ring + STREAK/TODAY/LAST trio, the Start
+                 CTA, and the "Suggested for today" card. The global app
+                 header is hidden on Home (body.home-active) so the
+                 wordmark is the only chrome, matching the prototype. -->
+            <div class="home-wordmark">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--acc)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/></svg>
+                <span>IRONVOICE</span>
+            </div>
+
+            <!-- Resume strip — only when a session is in progress. -->
+            <button type="button" class="home-resume" id="home-resume" data-action="enterWorkout" style="display:none">
+                <span class="home-resume-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="var(--acc-ink)"><path d="M8 5v14l11-7z"/></svg></span>
+                <span class="home-resume-text">
+                    <span class="home-resume-title">Workout in progress</span>
+                    <span class="home-resume-sub tnum" id="home-resume-sub">—</span>
+                </span>
+                <span class="home-resume-cta">Resume</span>
+            </button>
+
+            <!-- Load card: Weekly load (+ delta) | Lifetime load, two columns. -->
+            <div class="load-card">
+                <div class="load-col">
+                    <div class="load-eyebrow">Weekly load</div>
+                    <div class="load-value tnum" id="load-value">—<span class="load-value-unit"> lb</span></div>
+                    <div class="load-delta" id="load-delta"></div>
+                </div>
+                <div class="load-col">
+                    <div class="load-eyebrow">Lifetime load</div>
+                    <div class="load-value tnum" id="lifetime-value">—<span class="load-value-unit"> lb</span></div>
+                </div>
+            </div>
+
+            <!-- Start CTA + Suggested — hidden while a session is running. -->
+            <div id="home-idle">
+                <button type="button" class="home-start-btn" data-action="openStartSheet">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="var(--acc-ink)" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Start workout
+                </button>
+                <div class="home-suggested-eyebrow">Suggested for today</div>
+                <div class="suggested-card" id="suggested-card" style="display:none">
+                    <div class="suggested-head">
+                        <span class="suggested-title" id="suggested-title">—</span>
+                        <span class="suggested-time" id="suggested-time"></span>
                     </div>
-                    <div class="hero-load-value" id="strain-text">—</div>
-                    <div class="hero-load-sub" id="strain-sub">Log a set to see your readiness</div>
+                    <div class="suggested-rationale" id="suggested-rationale"></div>
+                    <div class="suggested-tags" id="suggested-tags"></div>
+                    <button type="button" class="suggested-cta" id="suggested-cta" data-action="startRecommendedWorkout">
+                        <span id="suggested-cta-label">Start workout</span>
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--acc)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
                 </div>
-                <button type="button" class="home-primary-action" id="home-primary-action" data-action="enterWorkout" aria-label="Start workout">
-                    <span class="hpa-icon" id="hpa-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <polygon points="6 4 20 12 6 20 6 4"/>
-                        </svg>
-                    </span>
-                    <span class="hpa-text">
-                        <span class="hpa-title" id="hpa-title">Start workout</span>
-                        <span class="hpa-sub" id="hpa-sub">Track time, sets, and volume</span>
-                    </span>
-                    <svg class="hpa-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
+                <div class="suggested-empty" id="suggested-empty" style="display:none">Log a few sets and I'll suggest your next workout.</div>
             </div>
 
-            <!-- v9.1: Home is now a launchpad, not a brochure. "Today"
-                 section labels the daily summary tiles below. -->
-            <div class="home-section-header"><h3>Today</h3></div>
-
-            <div class="card-row card-row-2">
-                <button type="button" class="card card-mini card-button today-card" id="today-card" data-action="goToday" aria-label="Today's training">
-                    <h3 id="today-card-label">Today</h3>
-                    <div id="today-card-value">—</div>
-                </button>
-                <button type="button" class="card card-mini card-button week-card" id="week-card" data-screen-target="history" aria-label="This week's history">
-                    <h3>This week</h3>
-                    <div id="week-card-value">—</div>
-                    <div id="week-card-delta" class="week-card-delta"></div>
-                </button>
-            </div>
-
-            <!-- v9.18: Home pivots from dashboard to coach. The old Trends
-                 cards (Strength, Rhythm, Balance) and the auto-deload
-                 Insights card were analytics without a verb. They're
-                 replaced by two prescriptive cards that turn the same
-                 data into a concrete next action. -->
-            <div class="home-section-header" id="plan-section-header"><h3>Plan</h3></div>
-
-            <section class="rec-card card" id="focus-card" data-screen-target="history" role="button" tabindex="0" aria-label="See muscle focus, opens History">
-                <div class="rec-header">
-                    <h3>Focus</h3>
-                    <span class="rec-meta-text">Sets · 14d</span>
-                </div>
-                <div class="rec-headline" id="focus-headline">—</div>
-                <div class="focus-list" id="focus-list"></div>
-            </section>
-
-            <section class="rec-card card" id="recommended-card">
-                <div class="rec-header">
-                    <h3>Recommended next</h3>
-                    <span class="rec-meta-text" id="recommended-duration"></span>
-                </div>
-                <div class="rec-headline" id="recommended-headline">—</div>
-                <div class="recommended-list" id="recommended-list"></div>
-                <button type="button" class="rec-cta" id="recommended-cta" data-action="startRecommendedWorkout" style="display:none">Start this workout</button>
-            </section>
-
-            <!-- v9.49 — Accountability card. Month calendar with a small
-                 dumbbell glyph on every day the user logged a work set.
-                 Prev/next navigates month-to-month; next is disabled on
-                 the current month. Left-edge color band stays driven by
-                 CURRENT state (trained today / N-day gap) regardless of
-                 which month is being viewed. Hidden until first work set. -->
-            <section class="rec-card card activity-card" id="activity-card" style="display:none">
-                <div class="rec-header activity-header-row">
-                    <button class="icon-btn-sm" id="activity-prev" data-action="activityPrevMonth" aria-label="Previous month">
+            <!-- Activity calendar — month grid of trained days; populated by
+                 renderActivityCard(). Hidden until the first work set. Tapping a
+                 trained day opens it in the History tab. -->
+            <div class="activity-card" id="activity-card" style="display:none">
+                <div class="activity-header-row">
+                    <button type="button" class="icon-btn-sm" data-action="activityPrevMonth" aria-label="Previous month">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     </button>
-                    <h3 id="activity-month-label">Activity</h3>
-                    <button class="icon-btn-sm" id="activity-next" data-action="activityNextMonth" aria-label="Next month">
+                    <h3 id="activity-month-label">—</h3>
+                    <button type="button" class="icon-btn-sm" id="activity-next" data-action="activityNextMonth" aria-label="Next month">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                 </div>
-                <div class="rec-headline" id="activity-headline">—</div>
                 <div class="activity-grid" id="activity-grid"></div>
                 <div class="activity-summary" id="activity-summary"></div>
-            </section>
+            </div>
 
             <!-- First-launch empty hint. Hidden once any data exists. -->
             <div id="home-empty" class="home-empty" style="display:none">
@@ -679,7 +789,7 @@
                 </div>
                 <div class="home-empty-title">Welcome to IronVoice</div>
                 <p class="home-empty-text">Tap the mic and try saying<br><strong>&ldquo;bench two twenty-five for five.&rdquo;</strong></p>
-                <p class="home-empty-text-sub">Or head to the Workout tab to log a set manually.</p>
+                <p class="home-empty-text-sub">Or tap Start workout to log a set by hand.</p>
             </div>
         </section>
 
@@ -689,65 +799,45 @@
              Start-CTA + recent-templates surface when idle. Quick-add
              input lives here so logging is contextual to a workout.
              ============================================================ -->
-        <section class="screen" data-screen="workout" hidden>
-            <div class="screen-header">
-                <h2>Workout</h2>
-                <span id="workout-clock" class="workout-clock" aria-hidden="true"></span>
+        <section class="screen workout-screen" data-screen="workout" hidden>
+            <!-- v9.50 redesign — Active Workout full-screen view per the
+                 design handoff. Header (minimize · IN PROGRESS · name · End),
+                 a live ELAPSED/VOLUME/SETS row, an in-card RESTING pill, the
+                 set list, and a fixed bottom command bar. The global app
+                 header and tab bar are hidden in this view (body.workout-view)
+                 so it reads as a focused, full-screen session. Elements marked
+                 .aw-active-only show only while a session is running. -->
+            <div class="aw-header aw-active-only">
+                <button type="button" class="aw-minimize" data-screen-target="home" aria-label="Minimize workout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="aw-title-block">
+                    <div class="aw-eyebrow">In progress</div>
+                    <div class="aw-name" id="aw-name">Workout</div>
+                </div>
+                <button type="button" class="aw-end" data-action="confirmEndWorkout">End</button>
             </div>
 
-            <!-- Active session: visible only while a workout is running. v9.2:
-                 the End button now lives inside this card (was a separate
-                 footer below the screen) and routes through confirmEndWorkout
-                 so a misplaced tap can't accidentally close out a session.
-                 The rest timer also lives inside this card (in-flow, not a
-                 bottom-fixed pill) so all session timing surfaces — elapsed
-                 time, set/vol stats, rest countdown — sit together. -->
-            <div id="session-card" class="session-card" style="display:none">
-                <div class="session-card-row">
-                    <div class="session-card-meta">
-                        <div class="session-card-label">In progress</div>
-                        <div class="session-card-time" id="session-card-time">0:00</div>
-                        <button type="button" id="rest-timer" class="timer-pill" data-action="dismissTimer" aria-label="Dismiss rest timer">
-                            <span class="timer-label">Rest</span>
-                            <span class="timer-text" id="timer-text">1:30</span>
-                        </button>
-                    </div>
-                    <div class="session-card-right">
-                        <div class="session-card-stats">
-                            <div>
-                                <div class="session-card-label session-card-label-blue">Set</div>
-                                <span id="session-card-sets">0</span>
-                            </div>
-                            <div>
-                                <div class="session-card-label session-card-label-blue">Volume</div>
-                                <span id="session-card-vol">0</span>
-                            </div>
-                        </div>
-                        <button type="button" class="end-workout-btn" data-action="confirmEndWorkout">
-                            End workout
-                        </button>
-                    </div>
-                </div>
+            <div class="aw-totals aw-active-only">
+                <div class="aw-total-cell"><div class="aw-total-label">Elapsed</div><div class="aw-total-value tnum" id="session-card-time">0:00</div></div>
+                <div class="aw-total-cell"><div class="aw-total-label">Volume</div><div class="aw-total-value tnum" id="session-card-vol">0</div></div>
+                <div class="aw-total-cell"><div class="aw-total-label">Sets</div><div class="aw-total-value tnum" id="session-card-sets">0</div></div>
             </div>
 
-            <!-- v9.18: Suggested-queue strip — visible only when the Home
-                 "Recommended next" card seeded the session. Each chip is
-                 an exercise the recommender picked; tap opens quick-add
-                 prefilled; the count tracks sets logged this session vs
-                 the target. Cleared on endWorkoutSession. -->
-            <div id="suggested-queue" class="suggested-queue" style="display:none"></div>
+            <!-- RESTING pill — shown only while a rest countdown is active
+                 (.active toggled by startRestTimer). IDs preserved so the
+                 timer functions keep working. -->
+            <button type="button" id="rest-timer" class="aw-rest" data-action="dismissTimer" aria-label="Dismiss rest timer">
+                <span class="aw-rest-dot" aria-hidden="true"></span>
+                <span class="aw-rest-label">Resting</span>
+                <span class="aw-rest-time tnum" id="timer-text">1:30</span>
+                <span class="aw-rest-skip">Skip</span>
+            </button>
 
-            <!-- v9.49 — Focus summary for the active session. Same bar layout
-                 as the Home Focus card, scoped to sets logged in this workout
-                 so the user gets a quick "what have I trained today" read.
-                 Hidden when no session is active or no work sets logged yet. -->
-            <section class="rec-card card" id="workout-focus-card" style="display:none">
-                <div class="rec-header">
-                    <h3>Focus</h3>
-                    <span class="rec-meta-text">This workout</span>
-                </div>
-                <div class="focus-list" id="workout-focus-list"></div>
-            </section>
+            <!-- Active set list — exercise cards with set rows + the trailing
+                 "+ Add exercise" button, all populated by renderSessionSets()
+                 (matches the design prototype exactly). The primary body. -->
+            <div id="session-sets" class="session-sets" style="display:none"></div>
 
             <!-- Quick-add: search, weight, reps. Same logic as the old home
                  manual-entry block, just now scoped to the Workout screen.
@@ -755,7 +845,7 @@
                  steppers, Add button) is hidden by default; revealed when
                  selectExercise() adds .is-expanded; hidden again after
                  handleManualEntry() saves or the search input clears. -->
-            <section class="manual-entry" id="manual-entry">
+            <section class="manual-entry" id="manual-entry" style="display:none">
                 <div class="search-container">
                     <input type="text" id="ex-search" placeholder="Search exercise…" data-on-input="filterExercises" data-on-focus="showExercises" autocomplete="off" enterkeyhint="search" aria-label="Search exercise" aria-autocomplete="list" aria-controls="ex-dropdown" role="combobox" aria-expanded="false">
                     <div id="ex-dropdown" class="search-results" role="listbox"></div>
@@ -788,10 +878,6 @@
                 </div>
             </section>
 
-            <!-- Active set list — grouped by exercise, populated by
-                 renderSessionSets(). Hidden when no session is active. -->
-            <div id="session-sets" class="session-sets" style="display:none"></div>
-
             <!-- Idle state: shown only when NO session is active. -->
             <div id="workout-idle">
                 <button type="button" class="workout-start-cta" data-action="toggleWorkoutSession">
@@ -814,6 +900,16 @@
                 </div>
             </div>
 
+            <!-- Fixed bottom bar (v9.51) — permanent "+ Add exercise" next to
+                 the voice mic, replacing the old say-or-type command field.
+                 Shows only while a session is running (.aw-active-only). -->
+            <div class="aw-cmdbar aw-active-only">
+                <button type="button" class="aw-add-exercise-bar" data-action="openExPicker"><span class="aw-add-plus" aria-hidden="true">+</span>Add exercise</button>
+                <button type="button" class="aw-cmd-mic" data-action="micTap" aria-label="Voice log">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--acc-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3" fill="var(--acc-ink)" stroke="none"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+                </button>
+            </div>
+
         </section>
 
         <!-- ============================================================
@@ -823,11 +919,28 @@
              since they're transient editor surfaces.
              ============================================================ -->
         <section class="screen" data-screen="profile" hidden>
-            <div class="screen-header">
+            <div class="screen-header screen-header-titled">
                 <h2>Profile</h2>
+                <button class="screen-close" data-screen-target="home" aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="profile-id">
+                <span class="profile-avatar" id="profile-avatar">N</span>
+                <div class="profile-id-text">
+                    <div class="profile-id-name" id="profile-id-name">—</div>
+                    <div class="profile-id-email" id="profile-id-email">—</div>
+                </div>
+            </div>
+            <div class="profile-pills" id="profile-pills">
+                <button type="button" class="profile-pill active" data-action="selectProfilePanel" data-panel="account">Account</button>
+                <button type="button" class="profile-pill" data-action="selectProfilePanel" data-panel="preferences">Preferences</button>
+                <button type="button" class="profile-pill" data-action="selectProfilePanel" data-panel="training">Training</button>
+                <button type="button" class="profile-pill" data-action="selectProfilePanel" data-panel="data">Data</button>
+                <button type="button" class="profile-pill" data-action="selectProfilePanel" data-panel="community">Community</button>
             </div>
             <div class="profile-screen-body">
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="account">
                     <div class="section-label">Profile</div>
                     <div class="grouped-list">
                         <label class="row-input"><span>First name</span><input type="text" id="settings-first" placeholder="—" enterkeyhint="next" autocomplete="given-name"></label>
@@ -836,7 +949,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="account">
                     <div class="section-label">Sync</div>
                     <div class="grouped-list">
                         <label class="row-input"><span>Access key</span><input type="password" id="settings-token" placeholder="Paste your access key" autocomplete="off" enterkeyhint="done"></label>
@@ -846,7 +959,7 @@
                     <div class="section-foot" id="sync-meta">No sync activity yet.</div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="preferences">
                     <div class="section-label">Appearance</div>
                     <div class="grouped-list">
                         <div class="row-segmented">
@@ -861,11 +974,11 @@
                     <div class="section-foot">Auto follows your system setting.</div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="preferences">
                     <div class="section-label">Rest timer</div>
                     <div class="grouped-list">
                         <div class="row-segmented">
-                            <span id="rest-segment-label">Duration</span>
+                            <span id="rest-segment-label">Default duration</span>
                             <div class="segmented" id="rest-segment" role="tablist" aria-labelledby="rest-segment-label">
                                 <button role="tab" aria-selected="false" data-val="60">60s</button>
                                 <button role="tab" aria-selected="false" data-val="90">90s</button>
@@ -877,7 +990,7 @@
                     </div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="training">
                     <div class="section-label">
                         <span>Templates</span>
                         <button class="section-add" data-action="newTemplate">+ New</button>
@@ -888,31 +1001,34 @@
 
                 <!-- v9.43: Custom exercises moved to the Exercises hub (header dumbbell icon). -->
 
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="training">
                     <div class="section-label">Voice</div>
                     <div class="grouped-list">
+                        <button class="row-action row-plain voice-test-row" data-action="testVoice">
+                            <span class="voice-test-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="var(--acc-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3" fill="var(--acc-ink)" stroke="none"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg></span>
+                            <span>Test voice</span>
+                        </button>
                         <div class="row-segmented">
-                            <span id="workout-mode-label">Workout mode</span>
+                            <span id="workout-mode-label">Continuous workout mode</span>
                             <div class="segmented" id="workout-mode-segment" role="tablist" aria-labelledby="workout-mode-label">
                                 <button role="tab" aria-selected="false" data-val="off">Off</button>
                                 <button role="tab" aria-selected="false" data-val="on">On</button>
                             </div>
                         </div>
-                        <label class="row-select">
-                            <span>Voice</span>
-                            <select id="voice-picker" aria-label="Speech voice"></select>
-                        </label>
+                        <button class="row-action row-plain" data-action="openVoicePicker">
+                            <span>Spoken voice</span>
+                            <span class="row-trailing-chev"><span id="voice-name-label">System default</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+                        </button>
                         <div class="row-slider">
-                            <span>Speed</span>
+                            <span>Speech speed</span>
                             <input type="range" id="voice-rate" min="0.5" max="2" step="0.05" value="1.05" aria-label="Speech rate" aria-valuetext="1.05 times speed">
                             <span class="row-trailing" id="voice-rate-label" aria-hidden="true">1.05×</span>
                         </div>
-                        <button class="row-action" data-action="testVoice"><span>Test voice</span></button>
                     </div>
-                    <div class="section-foot">When workout mode is on, the mic stays open between sets. Tap the mic to stop. On iOS, additional voices can be downloaded in Settings → Accessibility → Spoken Content → Voices.</div>
+                    <div class="section-foot">In continuous mode the mic stays open between sets. Voice logging needs Chrome / Android; on iPhone, type your sets.</div>
                 </div>
 
-                <div class="settings-section">
+                <div class="settings-section" data-ppanel="data">
                     <div class="section-label">Data</div>
                     <div class="grouped-list">
                         <button class="row-action" data-action="exportJSON"><span>Export JSON</span></button>
@@ -923,7 +1039,33 @@
                     <div class="section-foot">CSV format. Importable into Excel, Sheets, or any HealthKit-compatible utility (Health Auto Export, Shortcuts, etc).</div>
                 </div>
 
-                <div class="settings-foot" id="app-version-footer">IronVoice Pro</div>
+                <div class="settings-section" data-ppanel="community">
+                    <div class="section-label">Add to community</div>
+                    <p class="community-intro">Can't find a lift? Add it — it goes straight into the database, no review needed.</p>
+                    <div class="grouped-list">
+                        <label class="row-input"><span>Exercise</span><input type="text" id="community-add-name" placeholder="e.g. Cable fly" autocomplete="off" enterkeyhint="done"></label>
+                        <div class="muscle-pick">
+                            <div class="muscle-pick-label" id="community-add-muscle-label">Muscle group</div>
+                            <div class="muscle-pills" id="community-add-muscle" role="tablist" aria-labelledby="community-add-muscle-label">
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="chest">Chest</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="back">Back</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="quads">Quads</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="hamstrings">Hamstrings</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="glutes">Glutes</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="calves">Calves</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="shoulders">Shoulders</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="biceps">Biceps</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="triceps">Triceps</button>
+                                <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="core">Core</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="primary-btn community-add-btn" id="community-add-btn" data-action="submitCommunity">Add exercise</button>
+                    <div class="section-label" id="community-list-label" style="margin-top:22px;display:none">Community exercises</div>
+                    <div class="grouped-list" id="community-list-tab" style="display:none"></div>
+                </div>
+
+                <div class="settings-foot" data-ppanel="data" id="app-version-footer">IronVoice Pro</div>
             </div>
         </section>
 
@@ -931,12 +1073,25 @@
              PRs SCREEN
              ============================================================ -->
         <section class="screen" data-screen="prs" hidden>
-            <div class="screen-header">
-                <h2>Personal records</h2>
+            <div class="screen-header screen-header-titled">
+                <h2>Personal Records</h2>
+                <button class="screen-close" data-screen-target="home" aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                </button>
             </div>
             <div class="segmented segmented-tabs" id="pr-tab-segment" role="tablist" aria-label="PR view">
                 <button role="tab" aria-selected="true" data-val="weight" class="active">Max weight</button>
                 <button role="tab" aria-selected="false" data-val="weight-reps">Weight × reps</button>
+            </div>
+            <div class="pr-search-row">
+                <div class="pr-search-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="pr-search" class="pr-search-input" placeholder="Search exercises" autocomplete="off" aria-label="Search records" data-on-input="filterRecords">
+                </div>
+                <button type="button" class="pr-filter-btn" id="pr-filter-btn" data-action="openRecordsFilter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    Filter<span class="pr-filter-count" id="pr-filter-count" style="display:none">0</span>
+                </button>
             </div>
             <div id="pr-grid" class="pr-grid"></div>
             <div id="pr-empty" class="empty-state empty-state-rich" style="display:none">
@@ -954,95 +1109,93 @@
              HISTORY SCREEN
              ============================================================ -->
         <section class="screen" data-screen="history" hidden>
-            <div class="screen-header">
+            <div class="screen-header screen-header-titled">
                 <h2>History</h2>
+                <button class="screen-close" data-screen-target="home" aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="history-weeknav">
                 <button class="icon-btn-sm" id="history-prev" aria-label="Previous week">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
+                <div id="history-week-label" class="history-week-label">This week</div>
                 <button class="icon-btn-sm" id="history-next" aria-label="Next week">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
             </div>
-            <div id="history-week-label" class="history-week-label">This week</div>
-            <div id="history-week-rollup" class="history-rollup" style="display:none"></div>
-            <!-- v9.49 — Per-week Focus summary. Same bar layout as the Home
-                 Focus card, scoped to all work sets in the visible week so
-                 the user can see at a glance what muscles got hit. Hidden
-                 on empty weeks. -->
-            <section class="rec-card card" id="history-week-focus-card" style="display:none">
-                <div class="rec-header">
-                    <h3>Focus</h3>
-                    <span class="rec-meta-text" id="history-week-focus-meta">This week</span>
-                </div>
+            <!-- Prototype order: 7-day strip, then the week rollup. -->
+            <div id="history-week-strip" class="history-week-strip"></div>
+            <div id="history-week-rollup" class="hist-week-rollup" style="display:none"></div>
+            <!-- Per-week Focus card removed to match the prototype (kept in the
+                 DOM as a hidden no-op target so renderMuscleFocusFromSets stays
+                 safe). -->
+            <section id="history-week-focus-card" style="display:none">
                 <div class="focus-list" id="history-week-focus-list"></div>
             </section>
-            <div id="history-week-strip" class="history-week-strip"></div>
 
             <div id="history-day-detail" class="history-day-detail">
                 <div id="history-day-empty" class="empty-state">Pick a day above.</div>
+                <!-- v9.51 — name + meta line (prototype order: header first). -->
+                <div id="history-session-headers"></div>
                 <div id="history-day-rollup" class="history-rollup" style="display:none"></div>
-                <!-- v9.49 — Per-day Focus summary. Same bar layout as the
-                     Home / Workout / Week Focus cards, scoped to the
-                     selected day so the user can see exactly what they
-                     trained that day. Hidden on empty days. -->
-                <section class="rec-card card" id="history-day-focus-card" style="display:none">
-                    <div class="rec-header">
-                        <h3>Focus</h3>
-                        <span class="rec-meta-text">This day</span>
-                    </div>
+                <!-- Per-day Muscle focus (prototype's "MUSCLE FOCUS" card). -->
+                <section class="hist-focus-card" id="history-day-focus-card" style="display:none">
+                    <div class="hist-focus-eyebrow">Muscle focus</div>
                     <div class="focus-list" id="history-day-focus-list"></div>
                 </section>
-                <div id="history-session-headers"></div>
                 <div id="history-day-groups"></div>
             </div>
         </section>
     </main>
 
-    <button id="mic-btn" type="button" data-action="toggleListening" aria-label="Voice log" aria-pressed="false">
-        <svg class="mic-icon" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-        </svg>
-        <!-- Audio-level equalizer. Shown only while listening; bar heights
-             driven by --mic-level-N CSS vars, written by startMicLevelMeter().
-             Replaces the static SVG visually so the FAB feels alive. -->
-        <span class="mic-eq" aria-hidden="true">
-            <span class="mic-eq-bar"></span>
-            <span class="mic-eq-bar"></span>
-            <span class="mic-eq-bar"></span>
-            <span class="mic-eq-bar"></span>
-            <span class="mic-eq-bar"></span>
-        </span>
-    </button>
-
-    <!-- Persistent tab bar. Five slots, with the mic raised above slot 3.
-         The mic itself remains a separate fixed element above this bar
-         so its breath animation can scale freely without affecting the
-         bar layout. -->
+    <!-- Persistent tab bar — five-column grid: Home · History · [mic FAB] ·
+         Records · Profile. v9.51: the mic FAB lives INSIDE the grid's center
+         cell (the prototype's model) and is raised via margin-top so the bar
+         + mic are a single fixed unit that can never drift apart on scroll.
+         Home is a tab; the old Workout tab is retired — workouts start from
+         the Home CTA, the mic, or voice. -->
     <nav class="tab-bar" id="tab-bar" aria-label="Primary">
-        <button type="button" class="tab-btn" data-screen-target="prs" aria-label="Personal records">
+        <button type="button" class="tab-btn" data-screen-target="home" aria-label="Home">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 4H2v2a4 4 0 0 0 5 4M19 4h3v2a4 4 0 0 1-5 4"/>
+                <path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>
             </svg>
-            <span class="tab-label">PRs</span>
+            <span class="tab-label">Home</span>
         </button>
         <button type="button" class="tab-btn" data-screen-target="history" aria-label="Workout history">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2"/>
-                <path d="M16 2v4M8 2v4M3 10h18"/>
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
             </svg>
             <span class="tab-label">History</span>
         </button>
-        <button type="button" class="tab-btn tab-workout" id="tab-workout" data-action="enterWorkout" aria-label="Workout">
-            <svg class="tab-icon" id="tab-workout-icon" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="6 4 20 12 6 20 6 4"/>
+        <div class="tab-mic-slot">
+            <button id="mic-btn" type="button" data-action="micTap" aria-label="Voice log" aria-pressed="false">
+                <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="#1a1300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="11" rx="3" fill="#1a1300" stroke="none"/>
+                    <path d="M5 11a7 7 0 0 0 14 0"/>
+                    <line x1="12" y1="18" x2="12" y2="22"/>
+                </svg>
+                <!-- Audio-level equalizer. Shown only while listening; bar
+                     heights driven by --mic-level-N CSS vars, written by
+                     startMicLevelMeter(). Replaces the icon so the FAB feels alive. -->
+                <span class="mic-eq" aria-hidden="true">
+                    <span class="mic-eq-bar"></span>
+                    <span class="mic-eq-bar"></span>
+                    <span class="mic-eq-bar"></span>
+                    <span class="mic-eq-bar"></span>
+                    <span class="mic-eq-bar"></span>
+                </span>
+            </button>
+        </div>
+        <button type="button" class="tab-btn" data-screen-target="prs" aria-label="Personal records">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 7H4v1a3 3 0 0 0 3 3M17 7h3v1a3 3 0 0 1-3 3M9 19h6M12 14v5"/>
             </svg>
-            <span class="tab-label" id="tab-workout-label">Workout</span>
+            <span class="tab-label">Records</span>
         </button>
         <button type="button" class="tab-btn" data-screen-target="profile" aria-label="Profile and settings">
             <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M4 21v-1a8 8 0 0 1 16 0v1"/>
+                <circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>
             </svg>
             <span class="tab-label">Profile</span>
         </button>
