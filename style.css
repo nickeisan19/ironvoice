@@ -3565,10 +3565,16 @@ button.aw-ex-head {
   gap: 10px;
   margin-top: 4px;
 }
+/* v10.4 — match the destructive confirm CTA (End workout, Delete all sets,
+   Wipe, etc.) to the .aw-end "End" button and the .row-action.danger
+   "Delete all sets" row: red outline + red text, NOT a solid red fill with
+   dark text. Keeps the app's danger language consistent across surfaces. */
 .primary-btn.danger {
-  background: var(--red);
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
 }
-.primary-btn.danger:active { background: #c63a30; }
+.primary-btn.danger:active { background: rgba(255, 82, 82, 0.10); }
 
 /* v9.8 — Secondary "Cancel" companion to .primary-btn. Uses surface
    tones rather than the blue/red fills so it reads as the lower-weight
