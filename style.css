@@ -209,10 +209,12 @@ body::before {
 html, body {
   margin: 0; padding: 0;
   /* v10.1: the document no longer scrolls — <main> is the scroll container
-     (see the body rule below). Locking html+body height to the viewport and
-     hiding their overflow is what moves the scroll inward. */
+     (see the body rule below). Both need an explicit height so body's
+     height:100% has something to resolve against. NOTE: overflow:hidden is
+     set on body ONLY, never <html> — overflow on <html> turns it into the
+     scroll container, which on iOS mis-references the bottom edge for
+     position:fixed chrome (the tab bar floated up off the screen bottom). */
   height: 100%;
-  overflow: hidden;
   background: var(--bg);
   color: var(--label);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
@@ -238,7 +240,11 @@ body {
      was treating the symptom. Making body a non-scrolling flex column and
      scrolling an inner <main> instead pins the fixed tab bar rock-solid,
      because the fixed chrome is no longer part of a document-scroll repaint.
-     The bottom clearance for the fixed tab bar now lives on <main>, not here. */
+     The bottom clearance for the fixed tab bar now lives on <main>, not here.
+     overflow:hidden goes here (body), not <html> — see the html,body note —
+     so the document doesn't scroll but position:fixed bars stay pinned to the
+     viewport bottom. */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background:
