@@ -208,6 +208,11 @@ body::before {
 
 html, body {
   margin: 0; padding: 0;
+  /* v10.1: the document no longer scrolls — <main> is the scroll container
+     (see the body rule below). Locking html+body height to the viewport and
+     hiding their overflow is what moves the scroll inward. */
+  height: 100%;
+  overflow: hidden;
   background: var(--bg);
   color: var(--label);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
@@ -217,24 +222,37 @@ html, body {
   font-feature-settings: "ss01", "cv11";
   letter-spacing: -0.01em;
   overscroll-behavior-y: none;
+  /* Kill the iOS double-tap-to-zoom gesture (the "I tapped wrong and the
+     screen zoomed in" complaint) WITHOUT disabling pinch-to-zoom, which
+     stays available for low-vision users. `manipulation` = pan + pinch
+     allowed, double-tap zoom dropped. */
+  touch-action: manipulation;
 }
 
 body {
-  /* overflow-x must be on body only, not html. Setting any non-visible
-     overflow on <html> makes it the scroll container, causing position:fixed
-     elements (tab bar, mic FAB) to scroll with the page instead of staying
-     pinned to the viewport. */
-  overflow-x: hidden;
-  padding-bottom: calc(140px + env(safe-area-inset-bottom));
-  min-height: 100vh;
+  /* v10.1 — <main> is the scroll container, not the document. On iOS, a
+     document-level scroll repaints position:fixed + backdrop-filter chrome
+     (the tab bar, the scrolled header) laggily during momentum scroll: the
+     bar visibly tracked the scroll then snapped back. Every prior fix
+     (translate3d layer promotion, will-change, isolation across v9.4/v9.47)
+     was treating the symptom. Making body a non-scrolling flex column and
+     scrolling an inner <main> instead pins the fixed tab bar rock-solid,
+     because the fixed chrome is no longer part of a document-scroll repaint.
+     The bottom clearance for the fixed tab bar now lives on <main>, not here. */
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(1200px 600px at 50% -200px, rgba(255, 193, 7, 0.06), transparent 60%),
     var(--bg);
 }
 
-button { font-family: inherit; cursor: pointer; }
+/* touch-action:manipulation here too — touch-action doesn't inherit, so the
+   document-level rule above doesn't cover the actual tap targets. Buttons are
+   where mis-taps land, and this is what stops the double-tap zoom on them
+   while leaving pinch-zoom intact. */
+button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 button:active { transform: scale(0.96); }
-input { font-family: inherit; -webkit-appearance: none; appearance: none; }
+input { font-family: inherit; -webkit-appearance: none; appearance: none; touch-action: manipulation; }
 
 .num, .item-data, .timer-text, #strain-text, .tc-primary, .tc-sub, .week-card-delta {
   font-variant-numeric: tabular-nums;
@@ -912,7 +930,11 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; }
    ========================================================================== */
 
 header {
-  position: sticky; top: 0; z-index: 100;
+  /* v10.1: was position:sticky on the document scroller. Now that <main> is
+     the scroll container, the header is a non-shrinking flex child pinned at
+     the top of the (non-scrolling) body — it stays put without sticky. The
+     .scrolled bg/border toggle below is now driven by <main>'s scroll. */
+  position: relative; z-index: 100; flex: 0 0 auto;
   padding: env(safe-area-inset-top) 20px 0;
   background: transparent;
   transition: background 0.3s var(--ease);
@@ -1104,6 +1126,17 @@ header.scrolled .subtitle-line { opacity: 0; height: 0; overflow: hidden; }
    ========================================================================== */
 
 main {
+  /* v10.1: the single scroll container. flex:1 + min-height:0 lets it take
+     the space below the header and shrink enough to actually scroll its
+     overflow (min-height:0 is required — a flex item's default min-height of
+     auto would refuse to shrink below content height and break the scroll).
+     -webkit-overflow-scrolling:touch keeps iOS momentum; overscroll-behavior
+     stops the inner scroll from chaining to the (locked) document. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   padding: 0 22px;
   /* Bottom clearance for the fixed tab bar (~64px) + the raised mic (~32px
      extra) + the home indicator safe area on modern iPhones. Without this

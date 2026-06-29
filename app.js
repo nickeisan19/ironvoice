@@ -605,6 +605,48 @@ function applyUpdate() {
     $('update-toast').classList.remove('active');
 }
 
+// Numeric MAJOR.MINOR compare — string compare gets '10.0' < '9.51' wrong,
+// which would break the What's New picker the moment we crossed v10. Returns
+// >0 if a is newer, <0 if older, 0 if equal.
+function compareVersions(a, b) {
+    const pa = String(a).split('.').map(Number);
+    const pb = String(b).split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const da = pa[i] || 0, db = pb[i] || 0;
+        if (da !== db) return da - db;
+    }
+    return 0;
+}
+
+// Decide which WHATS_NEW entry (if any) should pop on this launch. Reads
+// 'ironLastSeenWhatsNew' (not the snackbar's key) so the snackbar suppression
+// and the sheet agree on a single source of truth.
+//
+// An exact entry for the running version wins. Otherwise — e.g. a bug-fix
+// release like v10.1 with no entry of its own — fall back to the most recent
+// prior entry the user hasn't seen yet. That's the v10.0 redesign case: a
+// tester who's still on a 9.x build and jumps straight to 10.1 must still get
+// the v10.0 redesign notes, not have them skipped because they leapfrogged
+// the exact version that carried them. Returns the version key, or null.
+function whatsNewToShow() {
+    const current = self.APP_VERSION;
+    if (!current) return null;
+    let previous;
+    try { previous = localStorage.getItem('ironLastSeenWhatsNew'); } catch (_) { return null; }
+    if (!previous) return null;            // first install — silent
+    if (previous === current) return null; // already acknowledged
+    if (WHATS_NEW[current]) return current;
+    let best = null;
+    for (const v of Object.keys(WHATS_NEW)) {
+        if (compareVersions(v, current) <= 0 &&
+            compareVersions(v, previous) > 0 &&
+            (best === null || compareVersions(v, best) > 0)) {
+            best = v;
+        }
+    }
+    return best;
+}
+
 // v9.10 — Most updates land via the auto-apply / cold-start swap, which is
 // invisible by design. Without a post-reload signal a tester can't tell
 // whether the swap happened — the only proof is the Profile footer, which
@@ -620,10 +662,12 @@ function acknowledgeVersionLanding() {
         const previous = localStorage.getItem(KEY);
         if (previous && previous !== current) {
             // v9.32 — suppress the snackbar when a What's New sheet is
-            // queued for this version. The sheet covers the same "you got
+            // queued for this launch. The sheet covers the same "you got
             // the update" message at higher fidelity; competing surfaces
-            // would feel noisy.
-            if (!WHATS_NEW[current]) {
+            // would feel noisy. v10.1 — gate on whatsNewToShow() (not just
+            // WHATS_NEW[current]) so a fall-back sheet for a recent redesign
+            // also suppresses the snackbar.
+            if (!whatsNewToShow()) {
                 showSnackbar(`Updated to v${current}`, { duration: 3500 });
             }
         }
@@ -764,16 +808,12 @@ function maybeShowWhatsNew() {
     try {
         const KEY = 'ironLastSeenWhatsNew';
         const current = self.APP_VERSION;
-        const previous = localStorage.getItem(KEY);
-        const content = WHATS_NEW[current];
-        // First install — silent. Just write the key so we don't pop the
-        // sheet later for a new user who already has everything.
-        if (!previous) { localStorage.setItem(KEY, current); return; }
-        if (previous === current) return;
-        // No content defined for this version — quietly update the key so
-        // the v9.10 snackbar (which is the fallback channel) is what
-        // carries the upgrade signal for bug-fix releases.
-        if (!content) { localStorage.setItem(KEY, current); return; }
+        const target = whatsNewToShow();
+        // No sheet to show — first install, already acknowledged, or a
+        // bug-fix release with no relevant entry. Sync the key so the sheet
+        // doesn't fire later; the v9.10 snackbar carries bug-fix upgrades.
+        if (!target) { localStorage.setItem(KEY, current); return; }
+        const content = WHATS_NEW[target];
         const list = $('whats-new-list');
         if (list) {
             list.innerHTML = content.items.map(t =>
@@ -797,6 +837,9 @@ function initOnlineHandler() {
 
 function initScroll() {
     const header = $('app-header');
+    // v10.1: <main> is the scroll container now (not the document), so the
+    // scrolled-header toggle reads main.scrollTop and listens on <main>.
+    const scroller = document.querySelector('main');
     let ticking = false;
     // v9.47: hysteresis so the class doesn't flip on every rAF tick when
     // the user hovers right at the boundary (8px). Was contributing to
@@ -804,10 +847,10 @@ function initScroll() {
     // backdrop-filter add/remove kept re-rasterizing the header's layer
     // adjacent to the tab bar's.
     let scrolled = false;
-    window.addEventListener('scroll', () => {
+    scroller.addEventListener('scroll', () => {
         if (!ticking) {
             requestAnimationFrame(() => {
-                const y = window.scrollY;
+                const y = scroller.scrollTop;
                 if (!scrolled && y > 12) {
                     scrolled = true;
                     header.classList.add('scrolled');
@@ -7059,7 +7102,9 @@ function showScreen(name) {
     if (name === 'workout') { renderWorkoutScreen(); updateWorkoutClock(); }
     if (name === 'profile') renderProfileScreen();
     // Scroll to top so the new screen always starts at the top.
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    // v10.1: <main> is the scroll container, not the document window.
+    const scroller = document.querySelector('main');
+    if (scroller) scroller.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 // Convenience: PR card tap routes to the PRs screen.
