@@ -506,7 +506,10 @@ function applyTheme(next) {
 // If version.js ever fails to load we still want the footer to render
 // gracefully rather than show "undefined".
 function renderVersionFooter() {
-    const el = document.getElementById('app-version-footer');
+    // The version string lives in #app-version-text (a span inside the
+    // tappable footer button); fall back to the button itself for safety.
+    const el = document.getElementById('app-version-text')
+            || document.getElementById('app-version-footer');
     if (!el) return;
     const v = self.APP_VERSION;
     const d = self.APP_BUILD_DATE;
@@ -640,6 +643,23 @@ function whatsNewToShow() {
     for (const v of Object.keys(WHATS_NEW)) {
         if (compareVersions(v, current) <= 0 &&
             compareVersions(v, previous) > 0 &&
+            (best === null || compareVersions(v, best) > 0)) {
+            best = v;
+        }
+    }
+    return best;
+}
+
+// The most recent WHATS_NEW entry at or below the running version, ignoring
+// what the user has already seen. Used by the manual "What's New" link in the
+// Profile footer so a user who dismissed the sheet on launch can re-read it.
+// On a 10.x patch with no own entry this resolves to the v10.0 redesign notes.
+function latestWhatsNewKey() {
+    const current = self.APP_VERSION;
+    if (!current) return null;
+    let best = null;
+    for (const v of Object.keys(WHATS_NEW)) {
+        if (compareVersions(v, current) <= 0 &&
             (best === null || compareVersions(v, best) > 0)) {
             best = v;
         }
@@ -804,6 +824,23 @@ const WHATS_NEW = {
     },
 };
 
+// Render a WHATS_NEW entry into the sheet and open it. Shared by the
+// launch-time auto-show and the manual Profile-footer viewer.
+function openWhatsNewSheet(versionKey) {
+    const content = WHATS_NEW[versionKey];
+    if (!content) return false;
+    const list = $('whats-new-list');
+    if (list) {
+        list.innerHTML = content.items.map(t =>
+            `<li>${escapeHtml(t)}</li>`
+        ).join('');
+    }
+    const sub = $('whats-new-sub');
+    if (sub) sub.textContent = `What's new in v${versionKey}.`;
+    $('whats-new-overlay')?.classList.add('active');
+    return true;
+}
+
 function maybeShowWhatsNew() {
     try {
         const KEY = 'ironLastSeenWhatsNew';
@@ -813,15 +850,18 @@ function maybeShowWhatsNew() {
         // bug-fix release with no relevant entry. Sync the key so the sheet
         // doesn't fire later; the v9.10 snackbar carries bug-fix upgrades.
         if (!target) { localStorage.setItem(KEY, current); return; }
-        const content = WHATS_NEW[target];
-        const list = $('whats-new-list');
-        if (list) {
-            list.innerHTML = content.items.map(t =>
-                `<li>${escapeHtml(t)}</li>`
-            ).join('');
-        }
-        $('whats-new-overlay')?.classList.add('active');
+        openWhatsNewSheet(target);
     } catch (_) { /* localStorage unavailable — skip */ }
+}
+
+// Manual re-open from the Profile → Account version footer, for a user who
+// closed the launch sheet before reading it. Shows the latest notes at or
+// below the running version (the v10.0 redesign while we're on 10.x patches).
+function viewWhatsNew() {
+    const key = latestWhatsNewKey();
+    if (!key || !openWhatsNewSheet(key)) {
+        infoSheet({ title: 'No release notes', body: "You're on the latest build — nothing new to show yet." });
+    }
 }
 
 function closeWhatsNew() {
@@ -3094,6 +3134,8 @@ function initActionDispatcher() {
         // v9.32: What's New bottom-sheet — dismissed from either the
         // primary "Got it" button or the Done sheet-header button.
         closeWhatsNew,
+        // v10.5: re-open What's New from the Profile → Account version footer.
+        viewWhatsNew,
         // v9.42: Community exercise pool — Browse button on Profile, per-row
         // Add button inside the sheet, Submit-to-community row inside the
         // custom editor.
