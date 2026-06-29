@@ -506,16 +506,14 @@ function applyTheme(next) {
 // If version.js ever fails to load we still want the footer to render
 // gracefully rather than show "undefined".
 function renderVersionFooter() {
-    // The version string lives in #app-version-text (a span inside the
-    // tappable footer button); fall back to the button itself for safety.
-    const el = document.getElementById('app-version-text')
-            || document.getElementById('app-version-footer');
+    // The version value lives in the About > Version row (#app-version-value).
+    const el = document.getElementById('app-version-value');
     if (!el) return;
     const v = self.APP_VERSION;
     const d = self.APP_BUILD_DATE;
-    el.textContent = (v && d) ? `IronVoice Pro · v${v} · ${d}`
-                   : v       ? `IronVoice Pro · v${v}`
-                             : 'IronVoice Pro';
+    el.textContent = (v && d) ? `v${v} · ${d}`
+                   : v       ? `v${v}`
+                             : '—';
 }
 
 function updateThemeColor() {

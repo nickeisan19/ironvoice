@@ -859,14 +859,10 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; touch-
 .empty-mini { padding: 18px 16px; text-align: center; color: var(--label-tertiary); font-size: 0.88rem; }
 
 .settings-foot { text-align: center; font-size: 0.72rem; color: var(--label-tertiary); padding: 16px 0 8px; }
-/* v10.5 — version footer is now a tappable button (re-opens What's New). */
-.app-version-foot {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  width: 100%; background: transparent; border: none; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.app-version-foot:active { opacity: 0.6; }
-.app-version-whatsnew { color: var(--gold); font-weight: 700; font-size: 0.78rem; }
+/* v10.6 — read-only grouped-list row (e.g. the About > Version row): looks
+   like a row but is non-interactive, so it gets no tap-press feedback. */
+.row-static { cursor: default; }
+.row-static:active { background: transparent; }
 
 /* Chip grid (template editor) */
 .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0 18px; }
