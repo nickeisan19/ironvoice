@@ -260,6 +260,52 @@ let restTimerHandle = null;
 let restCompleteTimeout = null;
 let theme = _prefs.theme || 'dark';
 let workoutMode = !!_prefs.voiceWorkoutMode;
+// v10.9 — default logging style for new workouts (behavior E). 'straight' |
+// 'rounds'; fixed at session start (there is no in-workout toggle anymore).
+let roundsDefault = (_prefs.roundsDefault === 'rounds') ? 'rounds' : 'straight';
+
+// ---------------------------------------------------------------------------
+// Weight units (design behavior F). Data is ALWAYS stored in pounds; the unit
+// preference only changes what's *displayed*. Everything the user reads —
+// load cards, set pills, PR values/1RM, history rollups, the share card,
+// template hints, voice readbacks — routes through these helpers, and every
+// weight *entered* (steppers, manual/quick-add) converts back to lb on store.
+// Factor and rounding rules ported verbatim from index.dc.html.
+// ---------------------------------------------------------------------------
+const KG_PER_LB = 0.45359237;
+let displayUnit = (_prefs.units === 'kg') ? 'kg' : 'lb';
+// "lb" | "kg" label for the current unit.
+function unitLabel() { return displayUnit; }
+// Spoken-word unit for voice readbacks.
+function unitWord() { return displayUnit === 'kg' ? 'kilos' : 'pounds'; }
+// A per-set weight in the display unit. kg rounds to a clean 0.5 gym
+// increment; lb is preserved as stored (the repo logs fractional plates).
+function wDisp(lb) {
+    if (lb == null || !Number.isFinite(lb)) return lb;
+    if (displayUnit === 'kg') return Math.round(lb * KG_PER_LB * 2) / 2;
+    return lb;
+}
+// A per-set weight as a display string, trimming a trailing ".0".
+function fmtW(lb) {
+    const v = wDisp(lb);
+    if (typeof v !== 'number' || !Number.isFinite(v)) return String(v);
+    return String(Math.round(v * 10) / 10);
+}
+// A large aggregate load (volume/tonnage) in the display unit, as an integer.
+function convLoad(lb) {
+    return displayUnit === 'kg' ? Math.round(lb * KG_PER_LB) : Math.round(lb);
+}
+// Aggregate load, locale-formatted (no unit suffix).
+function loadDisp(lb) { return convLoad(lb).toLocaleString('en-US'); }
+// Convert a value typed/stepped in the current display unit back to stored lb.
+function toLb(disp) { return displayUnit === 'kg' ? disp / KG_PER_LB : disp; }
+function setUnits(u) {
+    u = (u === 'kg') ? 'kg' : 'lb';
+    if (u === displayUnit) return;
+    displayUnit = u;
+    _prefs.units = u;
+    persistPrefs();
+}
 let serverSyncedAt = parseInt(localStorage.getItem('ironServerSyncedAt') || '0', 10);
 let editingCustomExercise = null;
 let voiceURI = _prefs.voiceName || '';
@@ -701,6 +747,16 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '10.9': {
+        items: [
+            'Choose your units — Pounds or Kilograms — in Profile → Preferences. Every weight and volume across the app converts instantly (your data still stores in pounds).',
+            'Weekly load now includes your live workout and shows a % change vs last week next to both the tonnage and your set count.',
+            'The home calendar counts your training days for the month ("12 / 31 days trained").',
+            'Rounds mode is now set once in Preferences → Set style. Turn it on and every exercise you add drops straight into the current round — no in-workout toggle.',
+            'Templates can be circuits: flip "Circuit / rounds" in the builder to group exercises into rounds.',
+            'The Share PR card is now a tidy bottom sheet with Save image and Share.',
+        ],
+    },
     '10.8': {
         items: [
             'Home load card is back to two clean cells — Weekly load and Lifetime load, side by side — with the month calendar below.',
@@ -938,6 +994,28 @@ function initSegmented() {
         if (!btn) return;
         setSegmentedActive($('theme-segment'), b => b === btn);
         applyTheme(btn.dataset.val);
+        haptic(8);
+    });
+
+    // v10.9 — Units (lb/kg). Data stays in lb; this only changes display.
+    $('units-segment')?.addEventListener('click', async e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn) return;
+        setSegmentedActive($('units-segment'), b => b === btn);
+        setUnits(btn.dataset.val);
+        haptic(8);
+        await rerenderForUnitChange();
+    });
+
+    // v10.9 — Default logging style (Straight sets / Rounds). Fixes the mode
+    // for the *next* workout; the in-workout toggle was removed (behavior E).
+    $('logstyle-segment')?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn) return;
+        setSegmentedActive($('logstyle-segment'), b => b === btn);
+        roundsDefault = (btn.dataset.val === 'rounds') ? 'rounds' : 'straight';
+        _prefs.roundsDefault = roundsDefault;
+        persistPrefs();
         haptic(8);
     });
 
@@ -1305,7 +1383,7 @@ async function selectExercise(name) {
     let templatePrefilled = false;
     if (activeTemplate) {
         const target = activeTemplate.exercises.find(e => e.name === name);
-        if (target?.targetWeight) { $('manual-w').value = target.targetWeight; templatePrefilled = true; }
+        if (target?.targetWeight) { $('manual-w').value = String(wDisp(target.targetWeight)); templatePrefilled = true; }
         if (target?.targetReps) { $('manual-r').value = target.targetReps; templatePrefilled = true; }
     }
 
@@ -1320,9 +1398,9 @@ async function selectExercise(name) {
                 .filter(w => !w.deleted && w.exercise === name)
                 .sort((a, b) => b.id - a.id)[0] || null;
             if (prev) {
-                $('manual-w').value = String(prev.weight);
+                $('manual-w').value = String(wDisp(prev.weight));
                 $('manual-r').value = String(prev.reps);
-                if (hint) hint.textContent = `Last set: ${prev.weight} × ${prev.reps}`;
+                if (hint) hint.textContent = `Last set: ${fmtW(prev.weight)} × ${prev.reps}`;
             } else if (hint) {
                 hint.textContent = 'First time logging this exercise.';
             }
@@ -1338,9 +1416,11 @@ async function selectExercise(name) {
 // ============================================================================
 
 async function handleManualEntry() {
-    const w = parseFloat($('manual-w').value);
+    // The input operates in the display unit; store always in lb.
+    const wIn = parseFloat($('manual-w').value);
     const r = parseInt($('manual-r').value);
-    if (!selectedExercise || isNaN(w) || isNaN(r) || w <= 0 || r <= 0) { haptic([20, 50, 20]); return; }
+    if (!selectedExercise || isNaN(wIn) || isNaN(r) || wIn <= 0 || r <= 0) { haptic([20, 50, 20]); return; }
+    const w = Math.round(toLb(wIn) * 10) / 10;
     const entry = buildEntry(selectedExercise, w, r);
     await saveAndSyncUI(entry);
     $('manual-w').value = '';
@@ -1357,8 +1437,36 @@ async function handleManualEntry() {
     haptic(15);
 }
 
+// Rounds mode (behavior E): membership + which round each exercise belongs to
+// lives on activeSession.circuit as [{ name, round }]. In rounds mode every
+// exercise you log auto-joins the current round (no in-workout toggle, no
+// "+ Round" button). Idempotent; returns the round the exercise sits in.
+function ensureInCurrentRound(exercise) {
+    if (!activeSession?.roundsMode) return undefined;
+    if (!Array.isArray(activeSession.circuit)) activeSession.circuit = [];
+    let entry = activeSession.circuit.find(c => c.name === exercise);
+    if (!entry) {
+        entry = { name: exercise, round: activeSession.currentRound || 1 };
+        activeSession.circuit.push(entry);
+        persistActiveSession();
+    }
+    return entry.round;
+}
+function circuitRoundOf(exercise) {
+    if (!activeSession?.roundsMode || !Array.isArray(activeSession.circuit)) return undefined;
+    const entry = activeSession.circuit.find(c => c.name === exercise);
+    return entry ? entry.round : undefined;
+}
+
 function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
     const id = Date.now();
+    // In rounds mode, auto-add the exercise to the current round (membership)
+    // and stamp the set with the current round (matches index.dc.html addSet).
+    let round;
+    if (activeSession?.roundsMode) {
+        ensureInCurrentRound(exercise);
+        round = activeSession.currentRound || 1;
+    }
     return {
         id,
         exercise, weight, reps,
@@ -1368,12 +1476,9 @@ function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
         // v6: tag this set with the active session if any. Untagged sets
         // are fine (they pre-date sessions or were logged outside one).
         sessionId: activeSession?.id ?? null,
-        // v10.8 — round number, stamped only when the session is in Rounds
-        // mode AND this exercise is flagged into the circuit (behavior E).
+        // v10.9 — round number, stamped only in Rounds mode (behavior E).
         // Undefined otherwise, so straight-sets logging is unchanged.
-        round: (activeSession?.roundsMode && Array.isArray(activeSession.circuit)
-            && activeSession.circuit.includes(exercise))
-            ? (activeSession.currentRound || 1) : undefined,
+        round,
         // Scheduled rest after this set, captured at log time so later
         // preference changes don't corrupt rollups for older sets. 0 means
         // rest was Off. Used by the History rollups (Total / Workout / Rest)
@@ -1956,7 +2061,7 @@ async function executeIntent(intent) {
         }
         case 'prQuery': {
             const pr = await performDB('prs', 'get', intent.exercise);
-            if (pr) speak(`Your ${intent.exercise} PR is ${Math.round(pr.max1RM)} pounds, hit at ${pr.maxWeight} for relevant reps.`);
+            if (pr) speak(`Your ${intent.exercise} PR is ${fmtW(pr.max1RM)} ${unitWord()}, hit at ${fmtW(pr.maxWeight)} for relevant reps.`);
             else speak(`No ${intent.exercise} record yet.`);
             break;
         }
@@ -1965,21 +2070,23 @@ async function executeIntent(intent) {
             const w = await getActiveWorkSets();
             const cutoff = isoForOffset(7);
             const total = w.filter(e => e.date >= cutoff).reduce((s, e) => s + e.weight * e.reps, 0);
-            speak(total > 0 ? `${Math.round(total).toLocaleString()} pounds over the last seven days.` : "No volume in the last week.");
+            speak(total > 0 ? `${loadDisp(total)} ${unitWord()} over the last seven days.` : "No volume in the last week.");
             break;
         }
         case 'lastSet': {
             const result = await performDB('workouts', 'searchLast', intent.exercise);
-            if (result) speak(`Last ${result.exercise}: ${result.weight} pounds for ${result.reps}.`);
+            if (result) speak(`Last ${result.exercise}: ${fmtW(result.weight)} ${unitWord()} for ${result.reps}.`);
             else speak("No data found.");
             break;
         }
         case 'log': {
-            const entry = buildEntry(intent.exercise, intent.weight, intent.reps, { warmup: !!intent.warmup });
+            // Voice numbers are spoken in the display unit; store in lb.
+            const w = Math.round(toLb(intent.weight) * 10) / 10;
+            const entry = buildEntry(intent.exercise, w, intent.reps, { warmup: !!intent.warmup });
             await saveAndSyncUI(entry);
             speak(entry.warmup
-                ? `Warmup logged. ${entry.weight} for ${entry.reps}.`
-                : `Logged ${entry.weight} for ${entry.reps}.`);
+                ? `Warmup logged. ${fmtW(entry.weight)} for ${entry.reps}.`
+                : `Logged ${fmtW(entry.weight)} for ${entry.reps}.`);
             break;
         }
     }
@@ -2210,6 +2317,16 @@ async function refreshLatestStats() {
     } catch (err) { console.error(err); }
 }
 
+// v10.9 — after a units (lb/kg) switch, refresh every visible surface so all
+// weights/volumes re-render in the new unit. Nothing stored changes.
+async function rerenderForUnitChange() {
+    try { await renderAll(); } catch (_) {}
+    try { await renderHome(); } catch (_) {}
+    try { if ($('history-screen')?.classList.contains('active') || $('history-week-rollup')) await renderHistoryScreen(); } catch (_) {}
+    try { await renderPRsScreen(); } catch (_) {}
+    try { await renderWorkoutFocus(); } catch (_) {}
+}
+
 const getCurrentPR = async exercise => (await performDB('prs', 'get', exercise)) ?? null;
 
 async function updateUI(entry, isNewPR) {
@@ -2237,7 +2354,7 @@ async function updateUI(entry, isNewPR) {
         // celebration sheet that the user had to dismiss). Tap Share to open
         // the PR card; otherwise it disappears on its own. The share card is
         // still reachable any time from the Records screen.
-        showSnackbar(`🏆 New PR · ${titleCase(entry.exercise)} ${entry.weight} × ${entry.reps}`, {
+        showSnackbar(`🏆 New PR · ${titleCase(entry.exercise)} ${fmtW(entry.weight)} × ${entry.reps}`, {
             actionLabel: 'Share',
             onAction: () => { hideSnackbar(); currentExerciseSheet = { exercise: entry.exercise, sets: [] }; sharePR(); },
             duration: 6000,
@@ -2248,8 +2365,11 @@ async function updateUI(entry, isNewPR) {
 // v9.1: Format a tonnage value compactly for tile display. Threshold of 1k
 // keeps small workouts readable as full numbers while heavy weeks compress.
 function formatVol(v) {
-    if (v >= 1000) return `${(v / 1000).toFixed(1)}k lb`;
-    return `${Math.round(v)} lb`;
+    // v (tonnage) is stored in lb; convert to the display unit before abbreviating.
+    const u = unitLabel();
+    const c = convLoad(v);
+    if (c >= 1000) return `${(c / 1000).toFixed(1)}k ${u}`;
+    return `${c} ${u}`;
 }
 
 // v9.1: Today card. Three states drive both the label and the value:
@@ -2375,10 +2495,10 @@ async function renderHome() {
     const work = await getActiveWorkSets();
     const todayStr = todayISO();
 
-    // --- Weekly load (current Mon–Sun week) + Lifetime load, two cells ----
-    // Matches the prototype: no ring, no percent, no delta. Weekly is this
-    // calendar week's work tonnage; its sub-label is last week's set count.
-    // Lifetime is all-time work tonnage; its sub-label is total set count.
+    // --- Weekly load (current Mon–Sun week, incl. the live in-progress
+    // session — its sets are persisted to the store immediately) + Lifetime
+    // load. Weekly shows a % delta vs the prior full Mon–Sun week next to
+    // BOTH the tonnage and the set count (behavior from index.dc.html).
     const now = new Date(); now.setHours(0, 0, 0, 0);
     const monday = new Date(now);
     monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));   // Monday-anchored
@@ -2388,18 +2508,39 @@ async function renderHome() {
     const lastMondayIso = isoForLocalDate(lastMonday);
 
     const volOf = (sets) => sets.reduce((s, w) => s + w.weight * w.reps, 0);
-    const weekly = volOf(work.filter(w => w.date >= mondayIso));
+    const u = unitLabel();
+    const thisWeekSets = work.filter(w => w.date >= mondayIso);
+    const lastWeekSetsArr = work.filter(w => w.date >= lastMondayIso && w.date < mondayIso);
+    const weekly = volOf(thisWeekSets);
+    const lastWeekLoad = volOf(lastWeekSetsArr);
+    const weeklyCount = thisWeekSets.length;
+    const lastWeekCount = lastWeekSetsArr.length;
+
+    // % delta vs last week; null (hidden) when there's no prior-week baseline.
+    const mkDelta = (cur, prev) => {
+        if (!prev) return null;
+        const d = Math.round((cur - prev) / prev * 100);
+        return { arrow: d >= 0 ? '▲' : '▼', text: `${Math.abs(d)}%`, up: d >= 0 };
+    };
+    const setDelta = (elId, delta) => {
+        const el = $(elId);
+        if (!el) return;
+        if (!delta) { el.textContent = ''; el.className = 'load-delta tnum'; return; }
+        el.textContent = `${delta.arrow} ${delta.text}`;
+        el.className = `load-delta tnum ${delta.up ? 'load-delta-up' : 'load-delta-down'}`;
+    };
+
     $('load-weekly').innerHTML =
-        `${weekly.toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
-    const lastWeekSets = work.filter(w => w.date >= lastMondayIso && w.date < mondayIso).length;
-    $('load-weekly-sub').textContent =
-        `${lastWeekSets} ${lastWeekSets === 1 ? 'set' : 'sets'} last week`;
+        `${loadDisp(weekly)}<span class="load-value-unit"> ${u}</span>`;
+    setDelta('load-weekly-delta', mkDelta(weekly, lastWeekLoad));
+    $('load-weekly-sub').textContent = `${weeklyCount} ${weeklyCount === 1 ? 'set' : 'sets'}`;
+    setDelta('load-weekly-sets-delta', mkDelta(weeklyCount, lastWeekCount));
 
     const lifetime = volOf(work);
     $('load-lifetime').innerHTML =
-        `${lifetime.toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
+        `${loadDisp(lifetime)}<span class="load-value-unit"> ${u}</span>`;
     $('load-lifetime-sub').textContent =
-        `${work.length.toLocaleString('en-US')} total sets`;
+        `${work.length.toLocaleString('en-US')} sets`;
 
     // --- Resume strip vs idle (Start CTA + Suggested) -------------------
     const resume = $('home-resume');
@@ -2488,7 +2629,8 @@ async function startTemplateWorkout(el) {
     const id = Number(el?.dataset.id);
     const t = (await getActiveTemplates()).find(x => x.id === id);
     closeStartSheet();
-    if (t) {
+    const circuit = !!(t && t.circuit);
+    if (t && !circuit) {
         activeTemplate = t;
         // v9.51: pre-load every template exercise as a ready-to-log planned
         // card so the user can document the workout quickly (prefilled).
@@ -2497,9 +2639,23 @@ async function startTemplateWorkout(el) {
             muscle: muscleOf(e.name),
             sets: e.sets || e.targetSets || 3,
         })));
+    } else if (t) {
+        activeTemplate = t;
     }
     showScreen('workout');
     if (!activeSession) await startWorkoutSession();
+    // Circuit templates (behavior E) start in rounds mode with each exercise
+    // seeded into the round its rounds[] entry maps to (the Round card takes
+    // the place of the planned-queue cards).
+    if (t && circuit && activeSession) {
+        activeSession.roundsMode = true;
+        activeSession.currentRound = 1;
+        activeSession.circuit = (t.exercises || []).map((e, i) => ({
+            name: e.name,
+            round: (t.rounds && t.rounds[i]) || e.round || 1,
+        }));
+        persistActiveSession();
+    }
     await refreshSessionCard();
 }
 
@@ -2581,13 +2737,17 @@ async function pickExercise(el) {
     // (which stays open underneath) instead of starting a workout set.
     if (forTpl) {
         if (editingTemplate && !editingTemplate.exercises.some(e => e.name === name)) {
-            editingTemplate.exercises.push({ name });
+            editingTemplate.exercises.push({ name, round: editingTemplate.circuit ? (_builderTargetRound || 1) : 1 });
             await renderTemplateEditor();
         }
         haptic(8);
         return;
     }
     if (!activeSession) { showScreen('workout'); await startWorkoutSession(); }
+    // Rounds mode (behavior E): a picked exercise auto-joins the current round
+    // so it shows as "Tap to log" in the Round card immediately, before the
+    // quick-add sheet is even confirmed.
+    if (activeSession?.roundsMode) { ensureInCurrentRound(name); await refreshSessionCard(); }
     await openQuickAdd({ dataset: { exercise: name } });
 }
 
@@ -2670,10 +2830,10 @@ function renderHistEditList() {
         <div class="he-row">
             <div class="he-stepper">
                 <button type="button" data-action="histEditStep" data-i="${i}" data-f="w" data-d="-5" aria-label="Less weight">&minus;</button>
-                <span class="he-stepper-val w tnum">${escapeHtml(String(s.weight))}</span>
+                <span class="he-stepper-val w tnum">${escapeHtml(fmtW(s.weight))}</span>
                 <button type="button" data-action="histEditStep" data-i="${i}" data-f="w" data-d="5" aria-label="More weight">+</button>
             </div>
-            <span class="he-unit">lb</span><span class="he-x">×</span>
+            <span class="he-unit">${escapeHtml(unitLabel())}</span><span class="he-x">×</span>
             <div class="he-stepper">
                 <button type="button" data-action="histEditStep" data-i="${i}" data-f="r" data-d="-1" aria-label="Fewer reps">&minus;</button>
                 <span class="he-stepper-val r tnum">${escapeHtml(String(s.reps))}</span>
@@ -2688,7 +2848,8 @@ function histEditStep(el) {
     const i = Number(el.dataset.i), f = el.dataset.f, d = parseFloat(el.dataset.d);
     const s = _histEdit.sets[i];
     if (!s) return;
-    if (f === 'w') s.weight = Math.max(0, Math.round((s.weight + d) * 10) / 10);
+    // Weight steps in the display unit, then convert back to stored lb.
+    if (f === 'w') s.weight = Math.max(0, Math.round(toLb(wDisp(s.weight) + d) * 10) / 10);
     else s.reps = Math.max(1, s.reps + d);
     renderHistEditList();
     haptic(8);
@@ -3098,6 +3259,8 @@ function initActionDispatcher() {
         exportJSON, handleManualEntry, logoutFromSettings, nativeShare,
         newCustomExercise, newTemplate, openPlate, openSettings,
         addExerciseToTemplate, removeTemplateExercise,
+        // v10.9: template-builder rounds (behavior E).
+        toggleTemplateCircuit, templateAddToRound, templateNewRound,
         restoreFromNAS, saveCustomExercise, saveProfile, saveTemplate,
         sharePR, savePRImage, syncToNAS, testConnection, testVoice, toggleListening,
         wipeFromSettings,
@@ -3169,8 +3332,9 @@ function initActionDispatcher() {
         submitCommunity, editCommunity, closeCommunityEdit, saveCommunityEdit,
         // v9.49: Home Activity card — month navigation.
         activityPrevMonth, activityNextMonth, openHistoryDate,
-        // v10.8: Active-workout Straight sets / Rounds (behavior E).
-        setStraightSetsMode, setRoundsModeOn, awNextRound, awToggleCircuit, awToggleRound,
+        // v10.9: Active-workout rounds (behavior E) — mode is prefs-only now,
+        // so no in-workout Straight/Rounds toggle handlers.
+        awNextRound, awToggleCircuit, awToggleRound,
         // v9.50: workout reminder sheet — start (→ Workout) or dismiss.
         startReminderWorkout, dismissWorkoutReminder,
         // v9.50: History editing — delete a whole exercise from a day.
@@ -3743,7 +3907,7 @@ function renderMuscleFocusFromSets(listEl, sets, opts = {}) {
     order.forEach(m => {
         const v = counts[m];
         const pct = max ? (v / max) * 100 : 0;
-        const valStr = useVolume ? Math.round(v).toLocaleString() : String(v);
+        const valStr = useVolume ? loadDisp(v) : String(v);
         const row = document.createElement('div');
         row.className = 'focus-row';
         row.innerHTML = `
@@ -3829,6 +3993,7 @@ async function renderActivityCard() {
     // Mon-anchored grid: lead-in blanks before day 1, no trailing tail.
     const firstDow = (monthStart.getDay() + 6) % 7;   // 0=Mon..6=Sun
     let html = '';
+    let monthTrained = 0;
     for (let i = 0; i < firstDow; i++) {
         html += '<span class="home-cal-cell is-blank" aria-hidden="true"></span>';
     }
@@ -3837,6 +4002,7 @@ async function renderActivityCard() {
         cellDate.setDate(day);
         const iso = isoForLocalDate(cellDate);
         const trained = (countByDate.get(iso) || 0) > 0;
+        if (trained) monthTrained++;
         const isToday = iso === todayStr;
         const cls = ['home-cal-cell', trained ? 'is-trained' : '', isToday ? 'is-today' : '']
             .filter(Boolean).join(' ');
@@ -3849,6 +4015,11 @@ async function renderActivityCard() {
         }
     }
     grid.innerHTML = html;
+
+    // "N / D days trained" count row (index.dc.html): D = days in the shown
+    // month (the prototype uses the full month denominator).
+    const countEl = $('home-cal-count');
+    if (countEl) countEl.textContent = `${monthTrained} / ${daysInMonth} days trained`;
 }
 
 function activityPrevMonth() {
@@ -4182,6 +4353,8 @@ function renderProfileScreen() {
     setSegmentedActive($('rest-segment'), b => parseInt(b.dataset.val, 10) === restDuration);
     setSegmentedActive($('theme-segment'), b => b.dataset.val === theme);
     setSegmentedActive($('workout-mode-segment'), b => b.dataset.val === (workoutMode ? 'on' : 'off'));
+    setSegmentedActive($('units-segment'), b => b.dataset.val === displayUnit);
+    setSegmentedActive($('logstyle-segment'), b => b.dataset.val === roundsDefault);
     populateVoicePicker();
     if ($('voice-rate')) {
         $('voice-rate').value = voiceRate;
@@ -4447,11 +4620,17 @@ async function renderTemplatesList() {
     });
 }
 
+// The round each exercise is added to (behavior E). The picker's next pick
+// lands in this round when the builder is in circuit mode.
+let _builderTargetRound = 1;
+
 function newTemplate() {
-    editingTemplate = { id: Date.now(), name: '', exercises: [] };
+    editingTemplate = { id: Date.now(), name: '', exercises: [], circuit: false };
+    _builderTargetRound = 1;
     if ($('tpl-title')) $('tpl-title').textContent = 'New template';
     $('tpl-name').value = '';
     $('tpl-delete-wrap').style.display = 'none';
+    updateTemplateBuilderMode();
     renderTemplateEditor();
     $('tpl-overlay').classList.add('active');
     setTimeout(() => $('tpl-name').focus(), 350);
@@ -4459,41 +4638,88 @@ function newTemplate() {
 
 function editTemplate(t) {
     editingTemplate = JSON.parse(JSON.stringify(t));
+    editingTemplate.circuit = !!t.circuit;
+    // Rehydrate each exercise's round from the parallel rounds[] array.
+    (editingTemplate.exercises || []).forEach((e, i) => {
+        e.round = (t.rounds && t.rounds[i]) || e.round || 1;
+    });
+    _builderTargetRound = Math.max(1, ...(editingTemplate.exercises || []).map(e => e.round || 1));
     if ($('tpl-title')) $('tpl-title').textContent = 'Edit template';
     $('tpl-name').value = t.name;
     $('tpl-delete-wrap').style.display = '';
+    updateTemplateBuilderMode();
     renderTemplateEditor();
     $('tpl-overlay').classList.add('active');
 }
 
-// v9.51 — design's card model: each selected exercise is a row showing the
-// muscle dot, name, last-set line, optional "max NNN lb", and a remove ✕.
+// Reflect circuit on/off across the toggle knob and which add-buttons show.
+function updateTemplateBuilderMode() {
+    const on = !!editingTemplate?.circuit;
+    const toggle = $('tpl-circuit-toggle');
+    if (toggle) { toggle.classList.toggle('is-on', on); toggle.setAttribute('aria-checked', on ? 'true' : 'false'); }
+    const addBtn = $('tpl-add-ex-btn');
+    const newRoundBtn = $('tpl-new-round-btn');
+    if (addBtn) addBtn.style.display = on ? 'none' : '';
+    if (newRoundBtn) newRoundBtn.style.display = on ? '' : 'none';
+}
+
+function toggleTemplateCircuit() {
+    if (!editingTemplate) return;
+    editingTemplate.circuit = !editingTemplate.circuit;
+    if (!editingTemplate.circuit) {
+        // Turning rounds off flattens everyone back to round 1.
+        (editingTemplate.exercises || []).forEach(e => { e.round = 1; });
+        _builderTargetRound = 1;
+    }
+    updateTemplateBuilderMode();
+    renderTemplateEditor();
+    haptic(8);
+}
+
+// v10.9 — design's card model. Straight mode: a flat list of exercise rows.
+// Circuit mode: exercises grouped into "ROUND N" cards, each with "+ Add to
+// this round"; a "Start a new round" button opens a fresh group.
 async function renderTemplateEditor() {
     const list = $('tpl-exercises-list');
     if (!list || !editingTemplate) return;
     const exs = editingTemplate.exercises || [];
-    if (!exs.length) {
-        list.innerHTML = `<div class="tpl-empty">No exercises yet. Add a few below.</div>`;
-        return;
-    }
-    // History + PRs once, then per-exercise last-set + max.
     const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup);
     const prs = await performDB('prs', 'getAll');
     const prMap = Object.fromEntries(prs.map(p => [p.exercise, p]));
-    list.innerHTML = exs.map((ex, idx) => {
+    const rowHtml = (ex, idx) => {
         const name = ex.name;
         const color = muscleColor[muscleOf(name)] || '#888';
         const sets = all.filter(w => w.exercise === name).sort((a, b) => b.id - a.id);
-        const lastStr = sets.length ? `Last set ${sets[0].weight} × ${sets[0].reps}` : 'No history yet';
+        const lastStr = sets.length ? `Last set ${fmtW(sets[0].weight)} × ${sets[0].reps}` : 'No history yet';
         const pr = prMap[name];
-        const maxStr = pr && pr.max1RM ? `max ${Math.round(pr.max1RM)} lb` : '';
+        const maxStr = pr && pr.max1RM ? `max ${fmtW(pr.max1RM)} ${unitLabel()}` : '';
         return `<div class="tpl-ex-card">
             <span class="tpl-ex-dot" style="background:${color}"></span>
             <span class="tpl-ex-text"><span class="tpl-ex-name">${escapeHtml(titleCase(name))}</span><span class="tpl-ex-sub">${escapeHtml(lastStr)}</span></span>
             ${maxStr ? `<span class="tpl-ex-max">${escapeHtml(maxStr)}</span>` : ''}
             <button type="button" class="tpl-ex-remove" data-action="removeTemplateExercise" data-idx="${idx}" aria-label="Remove ${escapeHtml(titleCase(name))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
         </div>`;
-    }).join('');
+    };
+
+    if (!editingTemplate.circuit) {
+        list.innerHTML = exs.length
+            ? exs.map((ex, idx) => rowHtml(ex, idx)).join('')
+            : `<div class="tpl-empty">No exercises yet. Add a few below.</div>`;
+        return;
+    }
+
+    // Circuit mode — group by round.
+    const maxRound = Math.max(1, _builderTargetRound, ...exs.map(e => e.round || 1));
+    let html = '';
+    for (let r = 1; r <= maxRound; r++) {
+        const inRound = exs.map((ex, idx) => ({ ex, idx })).filter(x => (x.ex.round || 1) === r);
+        html += `<div class="tpl-round-card">
+            <div class="tpl-round-head">Round ${r}</div>
+            ${inRound.length ? inRound.map(x => rowHtml(x.ex, x.idx)).join('') : `<div class="tpl-round-empty">No exercises in this round yet.</div>`}
+            <button type="button" class="tpl-round-add" data-action="templateAddToRound" data-round="${r}">+ Add to this round</button>
+        </div>`;
+    }
+    list.innerHTML = html;
 }
 
 function removeTemplateExercise(el) {
@@ -4510,6 +4736,20 @@ function removeTemplateExercise(el) {
 let _exPickerForTemplate = false;
 function addExerciseToTemplate() {
     _exPickerForTemplate = true;
+    _builderTargetRound = 1;
+    openExPicker();
+}
+// Circuit builder: "+ Add to this round" and "Start a new round".
+function templateAddToRound(el) {
+    _exPickerForTemplate = true;
+    _builderTargetRound = Number(el?.dataset.round) || 1;
+    openExPicker();
+}
+function templateNewRound() {
+    if (!editingTemplate) return;
+    const maxRound = Math.max(1, ...(editingTemplate.exercises || []).map(e => e.round || 1));
+    _exPickerForTemplate = true;
+    _builderTargetRound = maxRound + 1;
     openExPicker();
 }
 
@@ -4525,6 +4765,9 @@ async function saveTemplate() {
     if (!name) { $('tpl-name').focus(); haptic([20,50,20]); return; }
     if (!editingTemplate.exercises.length) { haptic([20,50,20]); return; }
     editingTemplate.name = name;
+    editingTemplate.circuit = !!editingTemplate.circuit;
+    // Persist the round layout as a parallel rounds[] array (behavior E).
+    editingTemplate.rounds = editingTemplate.exercises.map(e => (editingTemplate.circuit ? (e.round || 1) : 1));
     editingTemplate.modifiedAt = Date.now();
     await performDB('templates', 'put', editingTemplate);
     markUnsynced();   // v8
@@ -5350,7 +5593,7 @@ async function renderTemplateProgress() {
         const done = todays.filter(w => w.exercise === target.name).length;
         const doneClipped = Math.min(done, goal);
         doneSets += doneClipped;
-        const targetText = [target.targetWeight && `${target.targetWeight}`, target.targetReps && `× ${target.targetReps}`, `× ${goal}`].filter(Boolean).join(' ');
+        const targetText = [target.targetWeight && `${fmtW(target.targetWeight)}`, target.targetReps && `× ${target.targetReps}`, `× ${goal}`].filter(Boolean).join(' ');
         return `<div class="tp-item ${doneClipped >= goal ? 'done' : ''}"><span><span class="tp-check"></span><span class="tp-ex">${titleCase(target.name)}</span></span><span class="tp-target">${targetText} · ${doneClipped}/${goal}</span></div>`;
     }).filter(Boolean);
 
@@ -5389,8 +5632,10 @@ function computePlates(target, bar) {
 }
 
 function openPlate() {
-    const cur = parseFloat($('manual-w').value);
-    if (!isNaN(cur) && cur > 0) $('plate-target').value = cur;
+    // The plate calculator is an lb-plate utility; the manual input is in the
+    // display unit, so convert its value to lb before seeding the target.
+    const cur = toLb(parseFloat($('manual-w').value));
+    if (!isNaN(cur) && cur > 0) $('plate-target').value = Math.round(cur * 10) / 10;
     $('plate-overlay').classList.add('active');
     setTimeout(() => {
         const el = $('plate-target');
@@ -5456,13 +5701,14 @@ async function openQuickAdd(el) {
         if (prev) source = 'prior';
     }
 
-    $('quick-add-w').value = prev ? String(prev.weight) : '';
+    // Inputs operate in the display unit; the stored weight is lb.
+    $('quick-add-w').value = prev ? String(wDisp(prev.weight)) : '';
     $('quick-add-r').value = prev ? String(prev.reps) : '';
     // Meta line: "Last 155 × 5 · max 181 lb 1RM" (design).
     const pr = await getCurrentPR(exercise);
-    const maxPart = pr && pr.max1RM ? ` · max ${Math.round(pr.max1RM)} lb 1RM` : '';
+    const maxPart = pr && pr.max1RM ? ` · max ${fmtW(pr.max1RM)} ${unitLabel()} 1RM` : '';
     $('quick-add-prev').textContent = prev
-        ? `Last ${prev.weight} × ${prev.reps}${maxPart}`
+        ? `Last ${fmtW(prev.weight)} × ${prev.reps}${maxPart}`
         : (maxPart ? `No previous sets${maxPart}` : 'No previous sets yet');
 
     $('quick-add-overlay').classList.add('active');
@@ -5527,12 +5773,14 @@ function toggleQuickAddWarmup() {
 
 async function saveQuickAdd() {
     const exercise = _quickAddExercise;
-    const w = parseFloat($('quick-add-w').value);
+    // The input is in the display unit; convert to stored lb.
+    const wIn = parseFloat($('quick-add-w').value);
     const r = parseInt($('quick-add-r').value, 10);
-    if (!exercise || isNaN(w) || isNaN(r) || w <= 0 || r <= 0) {
+    if (!exercise || isNaN(wIn) || isNaN(r) || wIn <= 0 || r <= 0) {
         haptic([20, 50, 20]);
         return;
     }
+    const w = Math.round(toLb(wIn) * 10) / 10;
     const warmup = _quickAddWarmup;
     if (_quickAddEditId != null) {
         const id = _quickAddEditId;
@@ -5565,7 +5813,7 @@ async function openEditSet(id) {
     const tagEl = $('quick-add-muscle');
     if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
 
-    $('quick-add-w').value = String(entry.weight);
+    $('quick-add-w').value = String(wDisp(entry.weight));
     $('quick-add-r').value = String(entry.reps);
     $('quick-add-prev').textContent =
         `Logged ${new Date(entry.id).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
@@ -5625,10 +5873,10 @@ async function openSetAction(el) {
     const muscleEl = $('set-action-muscle');
     if (muscleEl) muscleEl.style.background = muscleColor[muscle] || '#888';
     $('set-action-name').textContent = titleCase(entry.exercise);
-    $('set-action-weight').textContent = String(entry.weight);
+    $('set-action-weight').textContent = String(fmtW(entry.weight));
     $('set-action-reps').textContent = `${entry.reps} reps`;
     $('set-action-onerm').textContent =
-        `est 1RM ${Number.isFinite(entry.oneRM) ? entry.oneRM.toFixed(1) : '—'} lb`;
+        `est 1RM ${Number.isFinite(entry.oneRM) ? fmtW(entry.oneRM) : '—'} ${unitLabel()}`;
 
     // Compute "Set N of M" within (sessionId, exercise). Untagged sets fall
     // back to the day's bucket so the meta line still gives useful context.
@@ -6016,9 +6264,9 @@ async function openExercise(exerciseName) {
     const totalVolume = workSets.reduce((s, w) => s + w.weight * w.reps, 0);
 
     $('ex-stats').innerHTML = `
-        <div class="ex-stat is-1rm"><div class="v tnum">${pr ? Math.round(pr.max1RM) : '—'}</div><div class="l">1RM lb</div></div>
+        <div class="ex-stat is-1rm"><div class="v tnum">${pr ? fmtW(pr.max1RM) : '—'}</div><div class="l">1RM ${unitLabel()}</div></div>
         <div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>
-        <div class="ex-stat"><div class="v tnum">${Math.round(totalVolume).toLocaleString()}</div><div class="l">Volume</div></div>
+        <div class="ex-stat"><div class="v tnum">${loadDisp(totalVolume)}</div><div class="l">Volume</div></div>
     `;
 
     renderTrendChart(all);
@@ -6038,7 +6286,7 @@ async function openExercise(exerciseName) {
         return `<div class="ex-set-row">
             <span class="ex-set-when">${escapeHtml(when)}</span>
             ${w.warmup ? '<span class="warmup-tag">W</span>' : ''}
-            <span class="ex-set-val tnum">${w.weight} <small>× ${w.reps}</small></span>
+            <span class="ex-set-val tnum">${fmtW(w.weight)} <small>× ${w.reps}</small></span>
             ${isPR ? '<span class="ex-set-pr">PR</span>' : ''}
         </div>`;
     }).join('');
@@ -6092,7 +6340,7 @@ function renderTrendChart(sets) {
         const lbl = isNow ? 'Now' : new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         return `<div class="ex-bar${isNow ? ' is-max' : ''}">
             <div class="ex-bar-top">
-                <span class="ex-bar-val tnum">${Math.round(v)}</span>
+                <span class="ex-bar-val tnum">${fmtW(v)}</span>
                 <div class="ex-bar-fill" style="height:${h}px"></div>
             </div>
             <span class="ex-bar-label">${escapeHtml(lbl)}</span>
@@ -6146,7 +6394,7 @@ async function presentPRCelebration(entry) {
     await drawPRCanvas('pr-celebrate-canvas', entry.exercise);
     const sub = $('pr-celebrate-sub');
     if (sub) {
-        sub.textContent = `${titleCase(entry.exercise)} — ${entry.weight} × ${entry.reps} (est. 1RM ${Math.round(entry.oneRM)} lb)`;
+        sub.textContent = `${titleCase(entry.exercise)} — ${fmtW(entry.weight)} × ${entry.reps} (est. 1RM ${fmtW(entry.oneRM)} ${unitLabel()})`;
     }
     $('pr-celebrate-overlay').classList.add('active');
     haptic([20, 60, 20, 60, 80]);
@@ -6260,9 +6508,13 @@ async function drawPRCanvas(canvasId, exerciseName) {
     // estimated 1RM demoted to the secondary line. Legacy records (pre-v9.9)
     // lack max1RMWeight; fall through to maxWeight.
     const prType = pr.prType === 'weight' ? 'weight' : '1rm';
+    // Units (behavior F): the card shows the display unit; the tag reads
+    // "KG · NEW MAX WEIGHT" in kg mode.
+    const uUpper = unitLabel().toUpperCase();
+    const uLower = unitLabel();
     const headline = prType === 'weight'
-        ? Math.round(pr.maxWeight)
-        : Math.round(Number(pr.max1RMWeight) || pr.maxWeight);
+        ? fmtW(pr.maxWeight)
+        : fmtW(Number(pr.max1RMWeight) || pr.maxWeight);
     ctx.font = '800 360px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif';
     const goldGrad = ctx.createLinearGradient(0, H * 0.4, 0, H * 0.7);
     goldGrad.addColorStop(0, '#ffd60a');
@@ -6273,7 +6525,7 @@ async function drawPRCanvas(canvasId, exerciseName) {
     // Tag below headline
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '500 56px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.fillText(prType === 'weight' ? 'LB · NEW MAX WEIGHT' : 'LB · NEW REP PR', W / 2, H * 0.66);
+    ctx.fillText(prType === 'weight' ? `${uUpper} · NEW MAX WEIGHT` : `${uUpper} · NEW REP PR`, W / 2, H * 0.66);
 
     // Secondary line — supporting context for the headline. Both variants
     // share the same structure (`for N reps · est. M lb 1RM`) so the cards
@@ -6283,10 +6535,10 @@ async function drawPRCanvas(canvasId, exerciseName) {
     const reps = prType === 'weight'
         ? Number(pr.maxWeightReps) || 0
         : Number(pr.max1RMReps)    || 0;
-    const oneRM = Math.round(pr.max1RM);
+    const oneRM = fmtW(pr.max1RM);
     const secondary = reps > 0
-        ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} lb 1RM`
-        : `est. ${oneRM} lb 1RM`;
+        ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} ${uLower} 1RM`
+        : `est. ${oneRM} ${uLower} 1RM`;
     ctx.fillText(secondary, W / 2, H * 0.78);
 
     // Date
@@ -6619,15 +6871,10 @@ function persistActiveSession() {
         try { localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession)); } catch (_) {}
     }
 }
-async function setSessionRoundsMode(on) {
-    if (!activeSession) return;
-    activeSession.roundsMode = on;
-    if (on && !activeSession.currentRound) activeSession.currentRound = 1;
-    persistActiveSession();
-    await refreshSessionCard();
-}
-function setStraightSetsMode() { return setSessionRoundsMode(false); }
-function setRoundsModeOn() { return setSessionRoundsMode(true); }
+// Rounds mode is fixed at session start from _prefs.roundsDefault (or a
+// circuit template) — there is no in-workout Straight/Rounds toggle anymore
+// (behavior E). "Next round" advances the circuit; removing an exercise from
+// the round drops it out of the circuit membership.
 async function awNextRound() {
     if (!activeSession) return;
     activeSession.currentRound = (activeSession.currentRound || 1) + 1;
@@ -6640,8 +6887,9 @@ async function awToggleCircuit(el) {
     const name = el?.dataset?.exercise;
     if (!name) return;
     if (!Array.isArray(activeSession.circuit)) activeSession.circuit = [];
-    const i = activeSession.circuit.indexOf(name);
-    if (i >= 0) activeSession.circuit.splice(i, 1); else activeSession.circuit.push(name);
+    const i = activeSession.circuit.findIndex(c => c.name === name);
+    if (i >= 0) activeSession.circuit.splice(i, 1);
+    else activeSession.circuit.push({ name, round: activeSession.currentRound || 1 });
     persistActiveSession();
     await refreshSessionCard();
 }
@@ -6683,14 +6931,9 @@ async function refreshSessionCard() {
     const workSetsInSession = setsInSession.filter(w => !w.warmup);
     const totalVol = workSetsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
     $('session-card-sets').textContent = String(workSetsInSession.length);
-    // Full comma-formatted volume ("4,090"), matching the prototype's
-    // totals row — not the abbreviated "4.1k" form used on Home tiles.
-    $('session-card-vol').textContent = Math.round(totalVol).toLocaleString('en-US');
-
-    // v10.8 — reflect Straight sets / Rounds toggle state.
-    const roundsOn = !!activeSession.roundsMode;
-    $('aw-mode-straight')?.classList.toggle('is-active', !roundsOn);
-    $('aw-mode-rounds')?.classList.toggle('is-active', roundsOn);
+    // Full comma-formatted volume ("4,090") in the display unit, matching the
+    // prototype's totals row — not the abbreviated "4.1k" form used on Home.
+    $('session-card-vol').textContent = loadDisp(totalVol);
 
     await renderSessionSets(sessionSets, setsInSession);
 }
@@ -6809,13 +7052,13 @@ async function getPrevExerciseSets(exercise, excludingSessionId) {
 function renderSetPill(s, prev, opts = {}) {
     const { isPR = false, setLabel = '?', extraClass = '' } = opts;
     const prevText = prev
-        ? `${escapeHtml(String(prev.weight))} × ${escapeHtml(String(prev.reps))}`
+        ? `${escapeHtml(fmtW(prev.weight))} × ${escapeHtml(String(prev.reps))}`
         : '—';
     const setHtml = s.warmup
         ? '<span class="warmup-tag">W</span>'
         : escapeHtml(setLabel);
     const prTag = isPR ? '<span class="pill-pr-tag">PR</span>' : '';
-    const aria = `${s.warmup ? 'Warmup. ' : ''}Set ${s.weight} pounds for ${s.reps} reps. Tap to edit or delete.`;
+    const aria = `${s.warmup ? 'Warmup. ' : ''}Set ${fmtW(s.weight)} ${unitLabel()} for ${s.reps} reps. Tap to edit or delete.`;
     const classes = [
         'session-set-pill', 'history-pill',
         s.warmup ? 'is-warmup' : '',
@@ -6825,7 +7068,7 @@ function renderSetPill(s, prev, opts = {}) {
     return `<button type="button" class="${classes}" data-action="openSetAction" data-id="${s.id}" aria-label="${escapeHtml(aria)}">
         <span class="pill-col-set">${setHtml}</span>
         <span class="pill-col-prev">${prevText}</span>
-        <span class="pill-col-main">${escapeHtml(String(s.weight))} <span class="pill-x">×</span> ${escapeHtml(String(s.reps))}${prTag}</span>
+        <span class="pill-col-main">${escapeHtml(fmtW(s.weight))} <span class="pill-x">×</span> ${escapeHtml(String(s.reps))}${prTag}</span>
     </button>`;
 }
 
@@ -6839,7 +7082,12 @@ async function renderSessionSets(container, sets) {
     // v9.51 — "planned" exercises (from a template / recommendation) render as
     // ready-to-log empty cards so a template workout pre-loads every lift.
     const planned = readSuggestedQueue() || [];
-    if (!sets.length && !planned.length) {
+    // Rounds mode (behavior E): the "Round N" card takes the place of the empty
+    // state, so it shows even before the first set is logged. Empty text is
+    // straight-mode only — the two are mutually exclusive.
+    const roundsActive = !!activeSession?.roundsMode;
+    const circuitMembers = roundsActive && Array.isArray(activeSession?.circuit) ? activeSession.circuit : [];
+    if (!sets.length && !planned.length && !(roundsActive && circuitMembers.length)) {
         container.style.display = '';
         container.innerHTML = `
             <div class="aw-empty">
@@ -6863,48 +7111,54 @@ async function renderSessionSets(container, sets) {
         .map(([exercise, exSets]) => ({ exercise, exSets, lastId: Math.max(...exSets.map(s => s.id)) }))
         .sort((a, b) => a.lastId - b.lastId);
 
-    // v10.8 — Rounds mode (behavior E). When on, circuit-flagged exercises are
-    // pulled out of the normal card list into a "Round N" card at the top, and
-    // completed rounds render as expandable summaries below.
+    // v10.9 — Rounds mode (behavior E). When on, exercises are grouped into
+    // numbered rounds by their `roundAdded` (membership on activeSession.circuit
+    // as [{name, round}]), pulled out of the normal card list into a "Round N"
+    // card, with completed rounds as expandable summaries below. There is no
+    // in-workout toggle and no "+ Round" button — every added exercise
+    // auto-joins the current round.
     const roundsOn = !!activeSession?.roundsMode;
     const currentRound = activeSession?.currentRound || 1;
-    const circuitSet = new Set(roundsOn && Array.isArray(activeSession?.circuit) ? activeSession.circuit : []);
+    const circuit = roundsOn && Array.isArray(activeSession?.circuit) ? activeSession.circuit : [];
+    const circuitNames = new Set(circuit.map(c => c.name));
     const muscleOfName = (name) => {
         const lib = exerciseLibrary.find(ex => ex.name === name);
         return lib?.muscle || muscleOf(name) || 'core';
     };
+    const setsOf = (name) => (groups.get(name) || []).filter(s => !s.warmup).sort((a, b) => a.id - b.id);
 
     const prs = await performDB('prs', 'getAll');
     const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
 
-    // Round N card + completed rounds (only in rounds mode).
+    // Round N card + completed rounds (only in rounds mode). Grouping is by the
+    // round each exercise was *added* to, not per-set.
     let roundCardHtml = '';
     if (roundsOn) {
-        const circuitGroups = sortedGroups.filter(g => circuitSet.has(g.exercise));
+        const curMembers = circuit.filter(c => (c.round || 1) === currentRound);
         let rowsHtml = '';
         let loggedThisRound = 0;
-        for (const g of circuitGroups) {
-            const setsThis = g.exSets.filter(s => (s.round || 1) === currentRound && !s.warmup);
+        for (const c of curMembers) {
+            const setsThis = setsOf(c.name);
             const last = setsThis[setsThis.length - 1];
             if (last) loggedThisRound++;
-            const mBg = escapeHtml(muscleColor[muscleOfName(g.exercise)] || '#888');
-            const val = last ? `${escapeHtml(String(last.weight))} × ${escapeHtml(String(last.reps))}` : 'Tap to log';
+            const mBg = escapeHtml(muscleColor[muscleOfName(c.name)] || '#888');
+            const val = last ? `${escapeHtml(fmtW(last.weight))} × ${escapeHtml(String(last.reps))}` : 'Tap to log';
             rowsHtml += `
                 <div class="aw-round-row">
                     <span class="aw-round-dot" style="background:${mBg}"></span>
-                    <button type="button" class="aw-round-log" data-action="openQuickAdd" data-exercise="${escapeHtml(g.exercise)}">
-                        <span class="aw-round-name">${escapeHtml(titleCase(g.exercise))}</span>
+                    <button type="button" class="aw-round-log" data-action="openQuickAdd" data-exercise="${escapeHtml(c.name)}">
+                        <span class="aw-round-name">${escapeHtml(titleCase(c.name))}</span>
                         <span class="aw-round-val tnum${last ? '' : ' is-empty'}">${val}</span>
                     </button>
-                    <button type="button" class="aw-round-remove" data-action="awToggleCircuit" data-exercise="${escapeHtml(g.exercise)}" aria-label="Remove from round">
+                    <button type="button" class="aw-round-remove" data-action="awToggleCircuit" data-exercise="${escapeHtml(c.name)}" aria-label="Remove from round">
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
                     </button>
                 </div>`;
         }
-        const progress = circuitGroups.length ? `${loggedThisRound} / ${circuitGroups.length} logged` : '';
-        const body = circuitGroups.length
+        const progress = curMembers.length ? `${loggedThisRound} / ${curMembers.length} logged` : '';
+        const body = curMembers.length
             ? rowsHtml + `<button type="button" class="aw-next-round" data-action="awNextRound">Next round<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`
-            : `<div class="aw-round-empty">No exercises in this round yet. Tap <strong>+ Round</strong> on an exercise below to add it to your circuit.</div>`;
+            : `<div class="aw-round-empty">No exercises in this round yet. Tap <strong>Add exercise</strong> below — it drops straight into this round.</div>`;
         roundCardHtml = `
             <div class="aw-round-card">
                 <div class="aw-round-head">
@@ -6925,15 +7179,15 @@ async function renderSessionSets(container, sets) {
             const hs = hist.filter(w => w.exercise === q.name).sort((a, b) => b.id - a.id);
             const pr = prFull[q.name];
             plannedInfo[q.name] = {
-                last: hs.length ? `${hs[0].weight} × ${hs[0].reps}` : '',
-                max: pr && pr.max1RM ? Math.round(pr.max1RM) : 0,
+                last: hs.length ? `${fmtW(hs[0].weight)} × ${hs[0].reps}` : '',
+                max: pr && pr.max1RM ? fmtW(pr.max1RM) : 0,
             };
         }
     }
 
     let html = roundCardHtml;
     // In rounds mode, circuit exercises live in the Round card, not the list.
-    const listGroups = roundsOn ? sortedGroups.filter(g => !circuitSet.has(g.exercise)) : sortedGroups;
+    const listGroups = roundsOn ? sortedGroups.filter(g => !circuitNames.has(g.exercise)) : sortedGroups;
     for (const { exercise, exSets } of listGroups) {
         const lib = exerciseLibrary.find(ex => ex.name === exercise);
         const muscle = lib?.muscle || muscleOf(exercise) || 'core';
@@ -6949,9 +7203,9 @@ async function renderSessionSets(container, sets) {
             const label = s.warmup ? 'W' : String(++workIdx);
             const tag = isPR ? '<span class="aw-tag aw-tag-pr">PR</span>'
                 : s.warmup ? '<span class="aw-tag aw-tag-warm">WARM</span>' : '';
-            return `<button type="button" class="aw-set-row" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${s.weight} pounds for ${s.reps} reps. Tap to edit or delete.">
+            return `<button type="button" class="aw-set-row" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${fmtW(s.weight)} ${unitLabel()} for ${s.reps} reps. Tap to edit or delete.">
                 <span class="aw-set-idx tnum">${label}</span>
-                <span class="aw-set-val tnum">${escapeHtml(String(s.weight))} <span class="aw-set-x">× ${escapeHtml(String(s.reps))}</span></span>
+                <span class="aw-set-val tnum">${escapeHtml(fmtW(s.weight))} <span class="aw-set-x">× ${escapeHtml(String(s.reps))}</span></span>
                 ${tag}
                 <svg class="aw-set-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>`;
@@ -6966,7 +7220,7 @@ async function renderSessionSets(container, sets) {
             ? workSets.reduce((a, b) => (b.weight > a.weight ? b : a))
             : orderedSets[orderedSets.length - 1];
         const headMeta = (collapsed && topSet)
-            ? `${topSet.weight} × ${topSet.reps} · ${countLabel}`
+            ? `${fmtW(topSet.weight)} × ${topSet.reps} · ${countLabel}`
             : countLabel;
         html += `
             <div class="aw-ex-card${collapsed ? ' is-collapsed' : ''}">
@@ -6977,7 +7231,6 @@ async function renderSessionSets(container, sets) {
                         <span class="aw-ex-count tnum">${escapeHtml(headMeta)}</span>
                         <svg class="aw-ex-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
-                    ${roundsOn ? `<button type="button" class="aw-ex-round" data-action="awToggleCircuit" data-exercise="${exName}" aria-label="Add ${exTitle} to round">+ Round</button>` : ''}
                     <button type="button" class="aw-ex-add" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Add a set of ${exTitle}">+</button>
                 </div>
                 ${collapsed ? '' : rows}
@@ -7009,16 +7262,16 @@ async function renderSessionSets(container, sets) {
             </div>`;
     }
 
-    // v10.8 — completed rounds (rounds mode): expandable summary per past round.
+    // v10.9 — completed rounds (rounds mode): expandable summary per past round,
+    // grouped by each exercise's roundAdded (membership on activeSession.circuit).
     if (roundsOn && currentRound > 1) {
-        const circuitGroups = sortedGroups.filter(g => circuitSet.has(g.exercise));
         for (let r = 1; r < currentRound; r++) {
-            const rows = circuitGroups.map(g => {
-                const st = g.exSets.filter(x => (x.round || 1) === r && !x.warmup);
+            const rows = circuit.filter(c => (c.round || 1) === r).map(c => {
+                const st = setsOf(c.name);
                 if (!st.length) return null;
-                const mBg = escapeHtml(muscleColor[muscleOfName(g.exercise)] || '#888');
-                const val = st.map(x => `${x.weight}×${x.reps}`).join(', ');
-                return `<div class="aw-cround-row"><span class="aw-cround-dot" style="background:${mBg}"></span><span class="aw-cround-name">${escapeHtml(titleCase(g.exercise))}</span><span class="aw-cround-val tnum">${escapeHtml(val)}</span></div>`;
+                const mBg = escapeHtml(muscleColor[muscleOfName(c.name)] || '#888');
+                const val = st.map(x => `${fmtW(x.weight)}×${x.reps}`).join(', ');
+                return `<div class="aw-cround-row"><span class="aw-cround-dot" style="background:${mBg}"></span><span class="aw-cround-name">${escapeHtml(titleCase(c.name))}</span><span class="aw-cround-val tnum">${escapeHtml(val)}</span></div>`;
             }).filter(Boolean);
             if (!rows.length) continue;
             const exp = !!_expandedRounds[r];
@@ -7065,6 +7318,13 @@ async function resumeOrPromptSession() {
     let stored;
     try { stored = JSON.parse(raw); } catch (_) { localStorage.removeItem(ACTIVE_SESSION_KEY); return; }
     if (!stored?.id) { localStorage.removeItem(ACTIVE_SESSION_KEY); return; }
+    // v10.9 — migrate a pre-refactor circuit (array of exercise-name strings)
+    // to the new [{ name, round }] membership shape so a session in progress
+    // across the upgrade keeps rendering.
+    if (Array.isArray(stored.circuit) && stored.circuit.some(c => typeof c === 'string')) {
+        stored.circuit = stored.circuit.map(c => typeof c === 'string'
+            ? { name: c, round: stored.currentRound || 1 } : c);
+    }
 
     // Find this session's most recent set timestamp.
     const setsInSession = (await performDB('workouts', 'getAll'))
@@ -7304,12 +7564,12 @@ async function renderPRsScreen() {
         const name = escapeHtml(titleCase(t.exercise));
         // Prototype: big main figure + a small "× reps" sub.
         const valueMain = (prTab === 'weight-reps')
-            ? `${escapeHtml(String(t.maxWeight))} × ${escapeHtml(String(t.repsAtMax))}`
-            : `${escapeHtml(String(t.maxWeight))}`;
-        const valueSub = (prTab === 'weight-reps') ? 'lb' : `× ${escapeHtml(String(t.repsAtMax))}`;
+            ? `${escapeHtml(fmtW(t.maxWeight))} × ${escapeHtml(String(t.repsAtMax))}`
+            : `${escapeHtml(fmtW(t.maxWeight))}`;
+        const valueSub = (prTab === 'weight-reps') ? unitLabel() : `× ${escapeHtml(String(t.repsAtMax))}`;
         const ariaSuffix = (prTab === 'weight-reps')
-            ? `${t.maxWeight} pounds for ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
-            : `${t.maxWeight} pounds`;
+            ? `${fmtW(t.maxWeight)} ${unitLabel()} for ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
+            : `${fmtW(t.maxWeight)} ${unitLabel()}`;
         const ariaLabel = escapeHtml(`${titleCase(t.exercise)}, ${ariaSuffix}. Open history.`);
         const shareAria = escapeHtml(`Share ${titleCase(t.exercise)} PR card`);
         return `
@@ -7513,10 +7773,10 @@ function renderHistoryWeekRollup(sessions, allWorkouts, weekDateSet, prs) {
     const cells = [
         ['Workouts', String(sessions.length)],
         ['Time', formatDurationCompact(totalMs)],
-        ['Upper vol', upperVol.toLocaleString('en-US')],
+        ['Upper vol', loadDisp(upperVol)],
         ['Sets', String(setCount)],
         ['PRs', String(prCount)],
-        ['Lower vol', lowerVol.toLocaleString('en-US')],
+        ['Lower vol', loadDisp(lowerVol)],
     ];
     el.innerHTML = cells.map(([l, v]) =>
         `<div class="hist-wk-cell"><div class="hist-wk-label">${escapeHtml(l)}</div><div class="hist-wk-value tnum">${escapeHtml(v)}</div></div>`
@@ -7705,7 +7965,7 @@ async function renderHistoryDayDetail(date, allWorkouts, allSessions) {
             const chips = ordered.map(s => {
                 const isPR = prMap[s.exercise] === s.id && !s.warmup;
                 const cls = isPR ? 'hist-chip is-pr' : (s.warmup ? 'hist-chip is-warm' : 'hist-chip');
-                return `<span class="${cls} tnum">${escapeHtml(String(s.weight))} × ${escapeHtml(String(s.reps))}${isPR ? '<span class="hist-chip-pr">PR</span>' : ''}</span>`;
+                return `<span class="${cls} tnum">${escapeHtml(fmtW(s.weight))} × ${escapeHtml(String(s.reps))}${isPR ? '<span class="hist-chip-pr">PR</span>' : ''}</span>`;
             }).join('');
             bodyHtml += `
                 <button type="button" class="hist-ex-card" data-action="openHistEdit" data-exercise="${exName}" data-date="${escapeHtml(date)}" data-session-key="${escapeHtml(String(key))}" aria-label="Edit ${exTitle}">

@@ -711,6 +711,49 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; touch-
   color: var(--acc); font-size: 14.5px; font-weight: 700; cursor: pointer; margin-top: 4px;
   -webkit-tap-highlight-color: transparent;
 }
+/* Circuit / rounds toggle + round grouping in the template builder (E). */
+.tpl-circuit-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border: 1px solid var(--hairline-strong);
+  border-radius: 12px; margin-top: 20px;
+}
+.tpl-circuit-text { flex: 1; }
+.tpl-circuit-title { display: block; font-size: 15px; font-weight: 600; color: var(--label); }
+.tpl-circuit-sub { display: block; font-size: 12.5px; color: var(--label-secondary); margin-top: 2px; }
+.tpl-toggle {
+  width: 52px; height: 31px; border-radius: 100px; border: none; cursor: pointer;
+  background: var(--surface-4); position: relative; flex: 0 0 auto;
+  transition: background 0.2s ease; -webkit-tap-highlight-color: transparent;
+}
+.tpl-toggle.is-on { background: var(--acc); }
+.tpl-toggle-knob {
+  position: absolute; top: 3px; left: 3px; width: 25px; height: 25px;
+  border-radius: 50%; background: #fff; transition: left 0.2s ease;
+}
+.tpl-toggle.is-on .tpl-toggle-knob { left: 24px; }
+.tpl-round-card {
+  border: 1px solid var(--acc); border-radius: 14px; overflow: hidden;
+  margin-bottom: 12px; background: rgba(255, 193, 7, 0.04);
+}
+.tpl-round-head {
+  padding: 11px 14px; background: rgba(255, 193, 7, 0.10);
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--acc);
+}
+.tpl-round-card .tpl-ex-card { border: none; border-top: 1px solid var(--hairline); border-radius: 0; margin: 0; }
+.tpl-round-empty { padding: 14px; font-size: 13px; color: var(--label-tertiary); border-top: 1px solid var(--hairline); }
+.tpl-round-add {
+  width: 100%; padding: 12px 14px; border: none; border-top: 1px solid var(--hairline);
+  background: none; color: var(--acc); font-size: 14px; font-weight: 700;
+  cursor: pointer; text-align: center; -webkit-tap-highlight-color: transparent;
+}
+.tpl-new-round {
+  width: 100%; padding: 13px; border-radius: 12px; background: transparent;
+  border: 1px dashed var(--acc); color: var(--acc); font-size: 14.5px; font-weight: 700;
+  cursor: pointer; margin-top: 4px; display: flex; align-items: center;
+  justify-content: center; gap: 8px; -webkit-tap-highlight-color: transparent;
+}
+
 .tpl-footer {
   flex: 0 0 auto;
   padding: 12px 22px calc(28px + env(safe-area-inset-bottom));
@@ -1945,24 +1988,13 @@ button.activity-cell.is-trained:active { transform: scale(0.94); }
 .plate-text strong { color: var(--label); }
 
 /* PR canvas preview */
-/* PR share card — full-screen overlay (design): dark + blur, centered card,
-   X top-right, Save image + Share buttons (v9.51). */
-.overlay.share-fullscreen {
-  align-items: center; justify-content: center; flex-direction: column;
-  gap: 22px; padding: 24px;
-  background: rgba(0, 0, 0, 0.74);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+/* PR share card — a bottom slide-up sheet (v10.9): "Share PR" title + close,
+   the branded PR card preview, then Save image + Share. Matches the other
+   sheets (was a full-screen centered overlay before). */
+.share-sheet-body {
+  display: flex; flex-direction: column; align-items: center; gap: 22px;
+  padding-top: 6px;
 }
-.share-close {
-  position: absolute; top: calc(env(safe-area-inset-top) + 18px); right: 24px;
-  width: 38px; height: 38px; border-radius: 50%;
-  background: var(--surface-3); border: 1px solid var(--hairline-strong);
-  color: var(--label); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-.share-close svg { width: 18px; height: 18px; }
 .share-card-wrap { width: 288px; max-width: 84vw; display: flex; }
 .pr-canvas-preview {
   display: block; width: 100%; height: auto;
@@ -2633,7 +2665,16 @@ button.activity-cell.is-trained:active { transform: scale(0.94); }
   letter-spacing: -0.02em; margin-top: 6px;
 }
 .load-value-unit { font-size: 13px; color: var(--label-secondary); font-weight: 600; }
-.load-sub { font-size: 13px; font-weight: 600; color: var(--label-secondary); margin-top: 3px; }
+.load-sub { font-size: 13px; font-weight: 600; color: var(--label-secondary); margin-top: 3px; white-space: nowrap; }
+/* Weekly load value + delta share a baseline row; sub + delta share another. */
+.load-value-row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.load-value-row .load-value { margin-top: 0; }
+.load-sub-row { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
+.load-sub-row .load-sub { margin-top: 0; }
+.load-delta { font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--label-tertiary); }
+.load-delta:empty { display: none; }
+.load-delta-up { color: var(--green); }
+.load-delta-down { color: var(--red); }
 
 /* Home month calendar (index.dc.html exact). */
 .home-cal-nav {
@@ -2677,6 +2718,12 @@ button.activity-cell.is-trained:active { transform: scale(0.94); }
 button.home-cal-cell.is-trained:active { transform: scale(0.94); }
 .home-cal-cell.is-today { border: 1.5px solid var(--acc); }
 .home-cal-cell.is-today .home-cal-daynum { color: var(--acc); }
+/* "N / D days trained" count row (index.dc.html). */
+.home-cal-count {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline);
+}
+.home-cal-count-text { font-size: 12.5px; font-weight: 700; color: var(--label-secondary); }
 
 .home-start-btn {
   width: 100%; height: 54px;
@@ -2817,18 +2864,6 @@ body:not(.session-running) .aw-active-only { display: none !important; }
 }
 .aw-total-value { font-size: 19px; font-weight: 800; color: var(--label); margin-top: 2px; }
 
-/* Straight sets / Rounds segmented control (index.dc.html exact). */
-.aw-mode-seg {
-  display: flex; gap: 4px;
-  background: var(--surface-3); border-radius: 10px; padding: 4px;
-  margin-bottom: 12px;
-}
-.aw-mode-btn {
-  flex: 1; padding: 9px; border-radius: 8px; border: none;
-  background: transparent; color: var(--label-secondary);
-  font-size: 13px; font-weight: 700; cursor: pointer;
-}
-.aw-mode-btn.is-active { background: var(--acc); color: var(--acc-ink); }
 
 /* Rounds mode — the active "Round N" card (index.dc.html exact). */
 .aw-round-card {
@@ -2876,13 +2911,6 @@ body:not(.session-running) .aw-active-only { display: none !important; }
 }
 .aw-round-empty strong { color: var(--acc); font-weight: 700; }
 
-/* Per-exercise "+ Round" header button (rounds mode only). */
-.aw-ex-round {
-  align-self: stretch; padding: 0 12px; display: flex; align-items: center;
-  background: none; border: none; border-left: 1px solid var(--hairline);
-  color: var(--acc); font-size: 12px; font-weight: 800; letter-spacing: 0.03em;
-  cursor: pointer; flex: 0 0 auto; white-space: nowrap;
-}
 
 /* Completed rounds — expandable summaries. */
 .aw-cround { border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden; margin-bottom: 10px; }

@@ -142,9 +142,19 @@
             <div class="tpl-body scr">
                 <div class="section-label">Template name</div>
                 <input type="text" id="tpl-name" class="tpl-name-input" placeholder="e.g. Upper Body A" enterkeyhint="done" autocomplete="off" aria-label="Template name">
+                <!-- Circuit / rounds toggle (behavior E): when on, exercises are
+                     grouped into rounds and the template starts in rounds mode. -->
+                <div class="tpl-circuit-row">
+                    <span class="tpl-circuit-text">
+                        <span class="tpl-circuit-title">Circuit / rounds</span>
+                        <span class="tpl-circuit-sub">Start this template in rounds mode</span>
+                    </span>
+                    <button type="button" class="tpl-toggle" id="tpl-circuit-toggle" role="switch" aria-checked="false" data-action="toggleTemplateCircuit" aria-label="Circuit / rounds"><span class="tpl-toggle-knob"></span></button>
+                </div>
                 <div class="section-label" style="margin-top:20px">Exercises</div>
                 <div id="tpl-exercises-list"></div>
-                <button type="button" class="tpl-add-ex" data-action="addExerciseToTemplate">+ Add exercise</button>
+                <button type="button" class="tpl-add-ex" id="tpl-add-ex-btn" data-action="addExerciseToTemplate">+ Add exercise</button>
+                <button type="button" class="tpl-new-round" id="tpl-new-round-btn" data-action="templateNewRound" style="display:none"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Start a new round</button>
                 <div id="tpl-delete-wrap" style="display:none;margin-top:18px">
                     <button type="button" class="he-delete" data-action="deleteTemplate">Delete template</button>
                 </div>
@@ -360,15 +370,23 @@
         </div>
     </div>
 
-    <!-- PR share preview sheet -->
-    <div id="share-overlay" class="overlay share-fullscreen" role="dialog" aria-modal="true" aria-label="Share PR card" aria-hidden="true">
-        <button class="share-close" data-action="closeShare" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
-        <div class="share-card-wrap">
-            <canvas id="pr-canvas" width="1080" height="1920" class="pr-canvas-preview"></canvas>
-        </div>
-        <div class="share-actions">
-            <button type="button" class="share-save-btn" data-action="savePRImage">Save image</button>
-            <button type="button" class="share-share-btn" data-action="nativeShare">Share</button>
+    <!-- PR share preview — a bottom slide-up sheet (matches the other sheets;
+         it used to be a full-screen centered overlay). -->
+    <div id="share-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Share PR card" aria-hidden="true">
+        <div class="modal sheet share-sheet">
+            <div class="sheet-header">
+                <h2>Share PR</h2>
+                <button class="sheet-close-x" data-action="closeShare" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </div>
+            <div class="sheet-body share-sheet-body">
+                <div class="share-card-wrap">
+                    <canvas id="pr-canvas" width="1080" height="1920" class="pr-canvas-preview"></canvas>
+                </div>
+                <div class="share-actions">
+                    <button type="button" class="share-save-btn" data-action="savePRImage">Save image</button>
+                    <button type="button" class="share-share-btn" data-action="nativeShare">Share</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -728,13 +746,21 @@
             </button>
 
             <!-- Load card: two equal cells (Weekly / Lifetime load) split by
-                 a hairline — matching the design handoff (index.dc.html)
-                 exactly. No ring, no percent, no delta (retired iteration). -->
+                 a hairline — matching the design handoff (index.dc.html).
+                 Weekly = current Mon–Sun week + the live in-progress session,
+                 with a % delta vs last week beside both the weight and the
+                 set count. Lifetime = all-time work tonnage + total sets. -->
             <div class="load-card">
                 <div class="load-cell load-cell--left">
                     <div class="load-eyebrow">Weekly load</div>
-                    <div class="load-value tnum" id="load-weekly">—<span class="load-value-unit"> lb</span></div>
-                    <div class="load-sub tnum" id="load-weekly-sub"></div>
+                    <div class="load-value-row">
+                        <div class="load-value tnum" id="load-weekly">—<span class="load-value-unit"> lb</span></div>
+                        <span class="load-delta tnum" id="load-weekly-delta"></span>
+                    </div>
+                    <div class="load-sub-row">
+                        <span class="load-sub tnum" id="load-weekly-sub"></span>
+                        <span class="load-delta tnum" id="load-weekly-sets-delta"></span>
+                    </div>
                 </div>
                 <div class="load-cell">
                     <div class="load-eyebrow">Lifetime load</div>
@@ -780,6 +806,10 @@
                         <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
                     </div>
                     <div class="home-cal-grid" id="home-cal-grid"></div>
+                    <div class="home-cal-count">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--acc)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/></svg>
+                        <span class="home-cal-count-text tnum" id="home-cal-count">—</span>
+                    </div>
                 </div>
             </div>
 
@@ -829,13 +859,9 @@
                 <div class="aw-total-cell"><div class="aw-total-label">Sets</div><div class="aw-total-value tnum" id="session-card-sets">0</div></div>
             </div>
 
-            <!-- Straight sets / Rounds mode toggle (behavior E). Rounds groups
-                 flagged exercises into circuit rounds; straight sets is the
-                 default per-exercise logging. -->
-            <div class="aw-mode-seg aw-active-only" role="tablist" aria-label="Workout mode">
-                <button type="button" class="aw-mode-btn is-active" id="aw-mode-straight" data-action="setStraightSetsMode" role="tab">Straight sets</button>
-                <button type="button" class="aw-mode-btn" id="aw-mode-rounds" data-action="setRoundsModeOn" role="tab">Rounds</button>
-            </div>
+            <!-- Rounds mode is set in Profile → Preferences (behavior E); there
+                 is no in-workout toggle. When on, the "Round N" card is injected
+                 into #session-sets by renderSessionSets. -->
 
             <!-- RESTING pill — shown only while a rest countdown is active
                  (.active toggled by startRestTimer). IDs preserved so the
@@ -994,6 +1020,34 @@
                         </div>
                     </div>
                     <div class="section-foot">Auto follows your system setting.</div>
+                </div>
+
+                <div class="settings-section" data-ppanel="preferences">
+                    <div class="section-label">Units</div>
+                    <div class="grouped-list">
+                        <div class="row-segmented">
+                            <span id="units-segment-label">Weight unit</span>
+                            <div class="segmented" id="units-segment" role="tablist" aria-labelledby="units-segment-label">
+                                <button role="tab" aria-selected="false" data-val="lb">Pounds (lb)</button>
+                                <button role="tab" aria-selected="false" data-val="kg">Kilograms (kg)</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-foot">Applies to every weight and volume shown across the app. Data stays stored in pounds.</div>
+                </div>
+
+                <div class="settings-section" data-ppanel="preferences">
+                    <div class="section-label">Set style</div>
+                    <div class="grouped-list">
+                        <div class="row-segmented">
+                            <span id="logstyle-segment-label">Default logging style</span>
+                            <div class="segmented" id="logstyle-segment" role="tablist" aria-labelledby="logstyle-segment-label">
+                                <button role="tab" aria-selected="false" data-val="straight">Straight sets</button>
+                                <button role="tab" aria-selected="false" data-val="rounds">Rounds</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-foot">Rounds groups exercises into a circuit — log one set of each, then tap Next round. Applies to every new workout.</div>
                 </div>
 
                 <div class="settings-section" data-ppanel="preferences">
