@@ -240,6 +240,47 @@ The full spec lives in `brand.md`. Key rules Claude must follow:
 These have been discussed in past sessions and have a definitive answer.
 If a request would change one of these, push back and ask explicitly.
 
+> **⚠️ v10.8 — Design Update v2 (2026-07-07). READ THIS FIRST — supersedes
+> the v10.7 Home note below.** Nick uploaded a new handoff (root
+> `index.dc.html` / `index.standalone.html` / `screenshots/`) and asked to
+> match it end-to-end. Two deltas from v10.7 landed; everything else in the
+> v10.0 list still holds.
+>
+> - **Home load card reverted to the prototype's two equal cells** — a
+>   bordered radius-20 card split by a hairline: left **WEEKLY LOAD**
+>   (current Mon–Sun tonnage → value → "N sets last week" sub), right
+>   **LIFETIME LOAD** (all-time work tonnage → value → "N total sets" sub).
+>   **The v10.7 weekly-load ring + STREAK/TODAY/LAST trio is retired** (the
+>   `.load-ring*` / `.load-trio*` markup + CSS are gone). All load figures
+>   are full `toLocaleString('en-US')` numbers, no ring/percent/delta. The
+>   **month calendar is back on Home** below "Suggested for today"
+>   (`renderActivityCard()` now renders the prototype's `‹ month ›` nav +
+>   bordered grid into `#home-cal-grid`; trained days show the dumbbell
+>   glyph and open that day in History, today gets a gold ring, next is
+>   disabled at the current month). This is the explicit request that the
+>   v10.7 "don't reintroduce the lifetime card / calendar" note warned
+>   against — it's now the contract. Don't swap back to the ring/trio.
+> - **Rounds / circuit mode on Active Workout (behavior E).** A
+>   `Straight sets` / `Rounds` gold segmented control (`.aw-mode-seg`) sits
+>   below the ELAPSED/VOLUME/SETS totals. `activeSession` carries
+>   `roundsMode` / `currentRound` / `circuit[]` (persisted in
+>   `ironActiveSession`); default mode from `_prefs.roundsDefault`
+>   (`'straight'`|`'rounds'`). In rounds mode, circuit-flagged exercises pull
+>   out of the normal card list into a gold "Round N" card (circuit rows +
+>   "Next round"), each remaining card gets a `+ Round` button
+>   (`awToggleCircuit`), and past rounds render as expandable
+>   `.aw-cround` summaries (`_expandedRounds`, in-memory, cleared on end).
+>   Sets logged for a circuit exercise while in rounds mode carry a `round`
+>   field (stamped in `buildEntry`). Handlers: `setStraightSetsMode`,
+>   `setRoundsModeOn`, `awNextRound`, `awToggleCircuit`, `awToggleRound`.
+>   Straight sets is unchanged from before — rounds is fully opt-in.
+> - **Active-workout VOLUME shows the full comma number** (`4,090`), not the
+>   abbreviated `4.1k` (that abbreviation stays on the Home tiles only).
+> - Reminder sheet (behavior A) and auto-named workouts (behavior B) were
+>   already in place from earlier work (`maybePromptStartOnLaunch`,
+>   `deriveWorkoutName`) and match the v2 spec; History / Records / Profile
+>   already matched the v2 screenshots.
+
 > **⚠️ v10.0 — Design Handoff Redesign (2026-06-29). READ THIS FIRST.**
 > v10.0 implemented the full `design_handoff_ironvoice_features/` redesign.
 > It **supersedes many of the older settled decisions below** — where an
