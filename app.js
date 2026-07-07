@@ -701,6 +701,13 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '10.8': {
+        items: [
+            'Home load card is back to two clean cells — Weekly load and Lifetime load, side by side — with the month calendar below.',
+            'Rounds mode: on the active workout, switch between Straight sets and Rounds to run exercises as a circuit. Tap "+ Round" to add a lift, then "Next round" to loop.',
+            'Workout volume now reads the full number (4,090) instead of a rounded "4.1k".',
+        ],
+    },
     '10.7': {
         items: [
             'Home matches the design end-to-end: a weekly-load ring with your progress vs last week, and a Streak / Today / Last trio.',
@@ -1361,6 +1368,12 @@ function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
         // v6: tag this set with the active session if any. Untagged sets
         // are fine (they pre-date sessions or were logged outside one).
         sessionId: activeSession?.id ?? null,
+        // v10.8 — round number, stamped only when the session is in Rounds
+        // mode AND this exercise is flagged into the circuit (behavior E).
+        // Undefined otherwise, so straight-sets logging is unchanged.
+        round: (activeSession?.roundsMode && Array.isArray(activeSession.circuit)
+            && activeSession.circuit.includes(exercise))
+            ? (activeSession.currentRound || 1) : undefined,
         // Scheduled rest after this set, captured at log time so later
         // preference changes don't corrupt rollups for older sets. 0 means
         // rest was Off. Used by the History rollups (Total / Workout / Rest)
@@ -2358,66 +2371,35 @@ const _localISO = (dt) => {
 const _capWord = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 async function renderHome() {
-    if (!$('load-value')) return;   // not on the Home DOM
+    if (!$('load-weekly')) return;   // not on the Home DOM
     const work = await getActiveWorkSets();
     const todayStr = todayISO();
 
-    // --- Weekly load (trailing 7d tonnage) + WoW delta -------------------
-    const cutoff7 = isoForOffset(6);
-    const cutoff14 = isoForOffset(13);
+    // --- Weekly load (current Mon–Sun week) + Lifetime load, two cells ----
+    // Matches the prototype: no ring, no percent, no delta. Weekly is this
+    // calendar week's work tonnage; its sub-label is last week's set count.
+    // Lifetime is all-time work tonnage; its sub-label is total set count.
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));   // Monday-anchored
+    const mondayIso = isoForLocalDate(monday);
+    const lastMonday = new Date(monday);
+    lastMonday.setDate(monday.getDate() - 7);
+    const lastMondayIso = isoForLocalDate(lastMonday);
+
     const volOf = (sets) => sets.reduce((s, w) => s + w.weight * w.reps, 0);
-    const vol7 = volOf(work.filter(w => w.date >= cutoff7));
-    const volPrev = volOf(work.filter(w => w.date >= cutoff14 && w.date < cutoff7));
-    $('load-value').innerHTML =
-        `${vol7.toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
-    const deltaEl = $('load-delta');
-    if (volPrev > 0) {
-        const pct = Math.round(((vol7 - volPrev) / volPrev) * 100);
-        deltaEl.className = 'load-delta ' + (pct >= 0 ? 'up' : 'down');
-        deltaEl.textContent = `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs last week`;
-    } else {
-        deltaEl.className = 'load-delta';
-        deltaEl.textContent = '';
-    }
+    const weekly = volOf(work.filter(w => w.date >= mondayIso));
+    $('load-weekly').innerHTML =
+        `${weekly.toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
+    const lastWeekSets = work.filter(w => w.date >= lastMondayIso && w.date < mondayIso).length;
+    $('load-weekly-sub').textContent =
+        `${lastWeekSets} ${lastWeekSets === 1 ? 'set' : 'sets'} last week`;
 
-    // --- Weekly-load ring: this week vs last week, capped at 100% --------
-    // The prototype ring is decorative (78%); here it tracks a real signal —
-    // how far this week's load has reached toward last week's. circumference
-    // for r=42 is 2π·42 ≈ 264 (matches the SVG dasharray).
-    const ringPct = volPrev > 0
-        ? Math.max(0, Math.min(100, Math.round((vol7 / volPrev) * 100)))
-        : (vol7 > 0 ? 100 : 0);
-    const arc = $('load-ring-arc');
-    if (arc) arc.setAttribute('stroke-dashoffset', String(Math.round(264 * (1 - ringPct / 100))));
-    const ringVal = $('load-ring-pct-val');
-    if (ringVal) ringVal.textContent = String(ringPct);
-
-    // --- STREAK / TODAY / LAST trio -------------------------------------
-    // Distinct trained days (work sets only), newest first.
-    const trainedDays = [...new Set(work.map(w => w.date))].sort().reverse();
-    // Streak: consecutive days back from today (or yesterday if not trained
-    // today yet), counting each day that has a work set.
-    let streak = 0;
-    if (trainedDays.length) {
-        const trained = new Set(trainedDays);
-        let cursor = trained.has(todayStr) ? todayStr : (trained.has(isoForOffset(1)) ? isoForOffset(1) : null);
-        while (cursor && trained.has(cursor)) {
-            streak++;
-            const d = new Date(cursor + 'T00:00:00');
-            d.setDate(d.getDate() - 1);
-            cursor = d.toISOString().slice(0, 10);
-        }
-    }
-    const streakEl = $('load-streak');
-    if (streakEl) streakEl.textContent = streak > 0 ? `${streak}d` : '0d';
-    const todayEl = $('load-today');
-    if (todayEl) todayEl.textContent = String(work.filter(w => w.date === todayStr).length);
-    const lastEl = $('load-last');
-    if (lastEl) {
-        lastEl.textContent = trainedDays.length
-            ? new Date(trainedDays[0] + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })
-            : '—';
-    }
+    const lifetime = volOf(work);
+    $('load-lifetime').innerHTML =
+        `${lifetime.toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
+    $('load-lifetime-sub').textContent =
+        `${work.length.toLocaleString('en-US')} total sets`;
 
     // --- Resume strip vs idle (Start CTA + Suggested) -------------------
     const resume = $('home-resume');
@@ -3187,6 +3169,8 @@ function initActionDispatcher() {
         submitCommunity, editCommunity, closeCommunityEdit, saveCommunityEdit,
         // v9.49: Home Activity card — month navigation.
         activityPrevMonth, activityNextMonth, openHistoryDate,
+        // v10.8: Active-workout Straight sets / Rounds (behavior E).
+        setStraightSetsMode, setRoundsModeOn, awNextRound, awToggleCircuit, awToggleRound,
         // v9.50: workout reminder sheet — start (→ Workout) or dismiss.
         startReminderWorkout, dismissWorkoutReminder,
         // v9.50: History editing — delete a whole exercise from a day.
@@ -3800,142 +3784,71 @@ const ACTIVITY_DUMBBELL_SVG =
     'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/></svg>';
 
+// v10.8 — the Home month calendar (matches index.dc.html exactly): a
+// ‹ month › nav row above a bordered grid card. Trained days show the
+// dumbbell glyph and open that day in History; today gets a gold ring.
+// No state band, no headline, no summary footer (those were the v9.49
+// activity card, retired to match the prototype).
+const HOME_CAL_DUMBBELL_SVG =
+    '<svg class="home-cal-dumb" viewBox="0 0 24 24" width="16" height="10" fill="none" ' +
+    'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" ' +
+    'aria-hidden="true"><path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/></svg>';
+
 async function renderActivityCard() {
-    const card = $('activity-card');
-    const grid = $('activity-grid');
-    const headline = $('activity-headline');
-    const summary = $('activity-summary');
-    const label = $('activity-month-label');
-    const nextBtn = $('activity-next');
-    if (!card || !grid) return;
+    const grid = $('home-cal-grid');
+    const label = $('home-cal-label');
+    const nextBtn = $('home-cal-next');
+    if (!grid) return;
 
     const allWork = await getActiveWorkSets();
-    if (!allWork.length) {
-        card.style.display = 'none';
-        return;
-    }
-    card.style.display = '';
 
-    // 1) Per-day work-set count map.
+    // Per-day work-set count map (trained = ≥1 work set that day).
     const countByDate = new Map();
     for (const w of allWork) {
         countByDate.set(w.date, (countByDate.get(w.date) || 0) + 1);
     }
 
-    // 2) Compute the displayed month from _activityMonthOffset.
+    // Displayed month from _activityMonthOffset (0 = current, -N = back).
     const today = new Date();
     const todayStr = todayISO();
-    const todayMidnight = new Date(today).setHours(0, 0, 0, 0);
-    const viewYear = today.getFullYear();
-    const viewMonth = today.getMonth() + _activityMonthOffset;   // can underflow; Date constructor normalizes
-    const monthStart = new Date(viewYear, viewMonth, 1);
+    const viewMonth = today.getMonth() + _activityMonthOffset;   // Date normalizes underflow
+    const monthStart = new Date(today.getFullYear(), viewMonth, 1);
     monthStart.setHours(0, 0, 0, 0);
     const nextMonthStart = new Date(monthStart);
     nextMonthStart.setMonth(monthStart.getMonth() + 1);
     const daysInMonth = Math.round((nextMonthStart - monthStart) / 86400000);
 
-    // 3) Month label ("May 2026") and prev/next button state. Next is
-    //    disabled when looking at the current month — there's no point
-    //    advancing into the future.
-    const monthName = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    if (label) label.textContent = monthName;
+    if (label) label.textContent =
+        monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    // Next disabled at the current month (no future-month browsing).
     if (nextBtn) {
         if (_activityMonthOffset >= 0) nextBtn.setAttribute('disabled', '');
         else nextBtn.removeAttribute('disabled');
     }
 
-    // 4) Build the calendar grid. Mon-anchored weeks (matches the rest
-    //    of the app). First row is padded with empty cells before day 1;
-    //    last row is padded after the last day so the grid stays a clean
-    //    7-column shape. Trailing weeks past the month's last day are
-    //    not emitted at all (no blank tail row).
+    // Mon-anchored grid: lead-in blanks before day 1, no trailing tail.
     const firstDow = (monthStart.getDay() + 6) % 7;   // 0=Mon..6=Sun
-    const cells = [];
-    for (let i = 0; i < firstDow; i++) cells.push(null);
+    let html = '';
+    for (let i = 0; i < firstDow; i++) {
+        html += '<span class="home-cal-cell is-blank" aria-hidden="true"></span>';
+    }
     for (let day = 1; day <= daysInMonth; day++) {
         const cellDate = new Date(monthStart);
         cellDate.setDate(day);
         const iso = isoForLocalDate(cellDate);
-        const cellMidnight = cellDate.setHours(0, 0, 0, 0);
-        cells.push({
-            day,
-            iso,
-            trained: (countByDate.get(iso) || 0) > 0,
-            isFuture: cellMidnight > todayMidnight,
-            isToday: iso === todayStr,
-        });
-    }
-    while (cells.length % 7 !== 0) cells.push(null);
-
-    // 5) Render: weekday header + N data rows.
-    const dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    let html = '<div class="activity-row activity-header">';
-    for (const n of dayNames) html += `<span class="activity-col-label">${n}</span>`;
-    html += '</div>';
-    for (let r = 0; r < cells.length / 7; r++) {
-        html += '<div class="activity-row">';
-        for (let c = 0; c < 7; c++) {
-            const cell = cells[r * 7 + c];
-            if (!cell) {
-                html += '<span class="activity-cell is-empty" aria-hidden="true"></span>';
-                continue;
-            }
-            const cls = [
-                'activity-cell',
-                cell.trained  ? 'is-trained' : '',
-                cell.isFuture ? 'is-future'  : '',
-                cell.isToday  ? 'is-today'   : '',
-            ].filter(Boolean).join(' ');
-            if (cell.trained) {
-                // v9.51 — trained days open that day in the History tab.
-                html += `<button type="button" class="${cls}" data-action="openHistoryDate" data-date="${cell.iso}" aria-label="${cell.iso}: trained — open in History">` +
-                        `<span class="activity-cell-num">${cell.day}</span>` +
-                        ACTIVITY_DUMBBELL_SVG +
-                        `</button>`;
-            } else {
-                html += `<span class="${cls}" aria-label="${cell.iso}: no workout">` +
-                        `<span class="activity-cell-num">${cell.day}</span>` +
-                        `</span>`;
-            }
+        const trained = (countByDate.get(iso) || 0) > 0;
+        const isToday = iso === todayStr;
+        const cls = ['home-cal-cell', trained ? 'is-trained' : '', isToday ? 'is-today' : '']
+            .filter(Boolean).join(' ');
+        if (trained) {
+            html += `<button type="button" class="${cls}" data-action="openHistoryDate" data-date="${iso}" aria-label="${iso}: trained — open in History">` +
+                    `<span class="home-cal-daynum tnum">${day}</span>${HOME_CAL_DUMBBELL_SVG}</button>`;
+        } else {
+            html += `<span class="${cls}" aria-label="${iso}: no workout">` +
+                    `<span class="home-cal-daynum tnum">${day}</span>${HOME_CAL_DUMBBELL_SVG}</span>`;
         }
-        html += '</div>';
     }
     grid.innerHTML = html;
-
-    // 6) State band + headline. Always reflects CURRENT accountability —
-    //    same logic as renderHeaderSubtitle. Decoupled from the displayed
-    //    month so the band tells you "what's going on now" regardless
-    //    of whether you're browsing March or May.
-    card.classList.remove('recovery', 'steady', 'high', 'over');
-    let state, headlineText;
-    if (countByDate.has(todayStr)) {
-        state = 'recovery';
-        headlineText = 'Trained today';
-    } else {
-        const lastDate = allWork.map(w => w.date).sort().pop();
-        const gap = dayDiff(lastDate, todayStr);
-        if (gap <= 2)      { state = 'steady'; headlineText = 'On track'; }
-        else if (gap <= 4) { state = 'high';   headlineText = `${gap} days since last lift`; }
-        else               { state = 'over';   headlineText = `${gap} days since last lift`; }
-    }
-    card.classList.add(state);
-    if (headline) headline.textContent = headlineText;
-
-    // 7) Summary footer: trained-day count for the displayed month.
-    //    For the current month, "days elapsed" caps at today so a
-    //    fresh month early in the calendar doesn't show "2 of 31" when
-    //    only the first two days have actually passed.
-    const monthStartIso = isoForLocalDate(monthStart);
-    const lastIsoInMonth = isoForLocalDate(new Date(nextMonthStart.getTime() - 86400000));
-    let trainedDays = 0;
-    for (const iso of countByDate.keys()) {
-        if (iso >= monthStartIso && iso <= lastIsoInMonth) trainedDays++;
-    }
-    const isCurrentMonth = (_activityMonthOffset === 0);
-    const denom = isCurrentMonth ? today.getDate() : daysInMonth;
-    if (summary) {
-        summary.textContent = `${trainedDays} of ${denom} days trained${isCurrentMonth ? ' this month' : ''}`;
-    }
 }
 
 function activityPrevMonth() {
@@ -6435,6 +6348,13 @@ async function startWorkoutSession({ silent = false } = {}) {
         endedAt: null,
         durationMs: 0,
         modifiedAt: id,
+        // v10.8 — Rounds mode (behavior E). Default comes from the profile
+        // preference; templates flagged circuit start in rounds (set by the
+        // caller after startWorkoutSession returns). circuit = exercise names
+        // in the current circuit; expanded rounds are in-memory only.
+        roundsMode: _prefs.roundsDefault === 'rounds',
+        currentRound: 1,
+        circuit: [],
     };
     localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession));
     await performDB('sessions', 'put', activeSession);
@@ -6537,6 +6457,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     // workout doesn't inherit the last recommendation's chips.
     clearSuggestedQueue();
     _collapsedExercises.clear();
+    _expandedRounds = {};
     if (wasRecommended) incrementRecBumpCount();
     await refreshSessionCard();
     updateWorkoutTabUI();
@@ -6689,6 +6610,48 @@ function renderSessionCardTime() {
     if (el) el.textContent = formatElapsed(Date.now() - activeSession.startedAt);
 }
 
+// v10.8 — Rounds mode (behavior E). Circuit membership + current round live
+// on activeSession (persisted with it); expanded completed-round state is
+// in-memory only, cleared on session end.
+let _expandedRounds = {};
+function persistActiveSession() {
+    if (activeSession) {
+        try { localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession)); } catch (_) {}
+    }
+}
+async function setSessionRoundsMode(on) {
+    if (!activeSession) return;
+    activeSession.roundsMode = on;
+    if (on && !activeSession.currentRound) activeSession.currentRound = 1;
+    persistActiveSession();
+    await refreshSessionCard();
+}
+function setStraightSetsMode() { return setSessionRoundsMode(false); }
+function setRoundsModeOn() { return setSessionRoundsMode(true); }
+async function awNextRound() {
+    if (!activeSession) return;
+    activeSession.currentRound = (activeSession.currentRound || 1) + 1;
+    persistActiveSession();
+    showSnackbar(`Round ${activeSession.currentRound}`, { duration: 2000 });
+    await refreshSessionCard();
+}
+async function awToggleCircuit(el) {
+    if (!activeSession) return;
+    const name = el?.dataset?.exercise;
+    if (!name) return;
+    if (!Array.isArray(activeSession.circuit)) activeSession.circuit = [];
+    const i = activeSession.circuit.indexOf(name);
+    if (i >= 0) activeSession.circuit.splice(i, 1); else activeSession.circuit.push(name);
+    persistActiveSession();
+    await refreshSessionCard();
+}
+async function awToggleRound(el) {
+    const r = parseInt(el?.dataset?.round, 10);
+    if (!r) return;
+    if (_expandedRounds[r]) delete _expandedRounds[r]; else _expandedRounds[r] = true;
+    await refreshSessionCard();
+}
+
 async function refreshSessionCard() {
     // v9.50 redesign — the green session-card was replaced by the Active
     // Workout view's header (name) + ELAPSED/VOLUME/SETS totals row. The
@@ -6720,9 +6683,14 @@ async function refreshSessionCard() {
     const workSetsInSession = setsInSession.filter(w => !w.warmup);
     const totalVol = workSetsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
     $('session-card-sets').textContent = String(workSetsInSession.length);
-    $('session-card-vol').textContent = totalVol >= 1000
-        ? `${(totalVol / 1000).toFixed(1)}k`
-        : String(Math.round(totalVol));
+    // Full comma-formatted volume ("4,090"), matching the prototype's
+    // totals row — not the abbreviated "4.1k" form used on Home tiles.
+    $('session-card-vol').textContent = Math.round(totalVol).toLocaleString('en-US');
+
+    // v10.8 — reflect Straight sets / Rounds toggle state.
+    const roundsOn = !!activeSession.roundsMode;
+    $('aw-mode-straight')?.classList.toggle('is-active', !roundsOn);
+    $('aw-mode-rounds')?.classList.toggle('is-active', roundsOn);
 
     await renderSessionSets(sessionSets, setsInSession);
 }
@@ -6895,8 +6863,57 @@ async function renderSessionSets(container, sets) {
         .map(([exercise, exSets]) => ({ exercise, exSets, lastId: Math.max(...exSets.map(s => s.id)) }))
         .sort((a, b) => a.lastId - b.lastId);
 
+    // v10.8 — Rounds mode (behavior E). When on, circuit-flagged exercises are
+    // pulled out of the normal card list into a "Round N" card at the top, and
+    // completed rounds render as expandable summaries below.
+    const roundsOn = !!activeSession?.roundsMode;
+    const currentRound = activeSession?.currentRound || 1;
+    const circuitSet = new Set(roundsOn && Array.isArray(activeSession?.circuit) ? activeSession.circuit : []);
+    const muscleOfName = (name) => {
+        const lib = exerciseLibrary.find(ex => ex.name === name);
+        return lib?.muscle || muscleOf(name) || 'core';
+    };
+
     const prs = await performDB('prs', 'getAll');
     const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
+
+    // Round N card + completed rounds (only in rounds mode).
+    let roundCardHtml = '';
+    if (roundsOn) {
+        const circuitGroups = sortedGroups.filter(g => circuitSet.has(g.exercise));
+        let rowsHtml = '';
+        let loggedThisRound = 0;
+        for (const g of circuitGroups) {
+            const setsThis = g.exSets.filter(s => (s.round || 1) === currentRound && !s.warmup);
+            const last = setsThis[setsThis.length - 1];
+            if (last) loggedThisRound++;
+            const mBg = escapeHtml(muscleColor[muscleOfName(g.exercise)] || '#888');
+            const val = last ? `${escapeHtml(String(last.weight))} × ${escapeHtml(String(last.reps))}` : 'Tap to log';
+            rowsHtml += `
+                <div class="aw-round-row">
+                    <span class="aw-round-dot" style="background:${mBg}"></span>
+                    <button type="button" class="aw-round-log" data-action="openQuickAdd" data-exercise="${escapeHtml(g.exercise)}">
+                        <span class="aw-round-name">${escapeHtml(titleCase(g.exercise))}</span>
+                        <span class="aw-round-val tnum${last ? '' : ' is-empty'}">${val}</span>
+                    </button>
+                    <button type="button" class="aw-round-remove" data-action="awToggleCircuit" data-exercise="${escapeHtml(g.exercise)}" aria-label="Remove from round">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+                    </button>
+                </div>`;
+        }
+        const progress = circuitGroups.length ? `${loggedThisRound} / ${circuitGroups.length} logged` : '';
+        const body = circuitGroups.length
+            ? rowsHtml + `<button type="button" class="aw-next-round" data-action="awNextRound">Next round<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`
+            : `<div class="aw-round-empty">No exercises in this round yet. Tap <strong>+ Round</strong> on an exercise below to add it to your circuit.</div>`;
+        roundCardHtml = `
+            <div class="aw-round-card">
+                <div class="aw-round-head">
+                    <span class="aw-round-title">Round ${currentRound}</span>
+                    <span class="aw-round-progress tnum">${escapeHtml(progress)}</span>
+                </div>
+                ${body}
+            </div>`;
+    }
 
     // Planned exercises not yet logged → last-set + max for their prefill cards.
     const plannedPending = planned.filter(q => q && q.name && !groups.has(q.name));
@@ -6914,8 +6931,10 @@ async function renderSessionSets(container, sets) {
         }
     }
 
-    let html = '';
-    for (const { exercise, exSets } of sortedGroups) {
+    let html = roundCardHtml;
+    // In rounds mode, circuit exercises live in the Round card, not the list.
+    const listGroups = roundsOn ? sortedGroups.filter(g => !circuitSet.has(g.exercise)) : sortedGroups;
+    for (const { exercise, exSets } of listGroups) {
         const lib = exerciseLibrary.find(ex => ex.name === exercise);
         const muscle = lib?.muscle || muscleOf(exercise) || 'core';
         const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
@@ -6958,6 +6977,7 @@ async function renderSessionSets(container, sets) {
                         <span class="aw-ex-count tnum">${escapeHtml(headMeta)}</span>
                         <svg class="aw-ex-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
+                    ${roundsOn ? `<button type="button" class="aw-ex-round" data-action="awToggleCircuit" data-exercise="${exName}" aria-label="Add ${exTitle} to round">+ Round</button>` : ''}
                     <button type="button" class="aw-ex-add" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Add a set of ${exTitle}">+</button>
                 </div>
                 ${collapsed ? '' : rows}
@@ -6987,6 +7007,31 @@ async function renderSessionSets(container, sets) {
                 </button>
                 <button type="button" class="aw-log-first" data-action="openQuickAdd" data-exercise="${exName}">${lastLabel}</button>
             </div>`;
+    }
+
+    // v10.8 — completed rounds (rounds mode): expandable summary per past round.
+    if (roundsOn && currentRound > 1) {
+        const circuitGroups = sortedGroups.filter(g => circuitSet.has(g.exercise));
+        for (let r = 1; r < currentRound; r++) {
+            const rows = circuitGroups.map(g => {
+                const st = g.exSets.filter(x => (x.round || 1) === r && !x.warmup);
+                if (!st.length) return null;
+                const mBg = escapeHtml(muscleColor[muscleOfName(g.exercise)] || '#888');
+                const val = st.map(x => `${x.weight}×${x.reps}`).join(', ');
+                return `<div class="aw-cround-row"><span class="aw-cround-dot" style="background:${mBg}"></span><span class="aw-cround-name">${escapeHtml(titleCase(g.exercise))}</span><span class="aw-cround-val tnum">${escapeHtml(val)}</span></div>`;
+            }).filter(Boolean);
+            if (!rows.length) continue;
+            const exp = !!_expandedRounds[r];
+            html += `
+                <div class="aw-cround">
+                    <button type="button" class="aw-cround-head" data-action="awToggleRound" data-round="${r}">
+                        <span class="aw-cround-title">Round ${r}</span>
+                        <span class="aw-cround-summary">${rows.length} ${rows.length === 1 ? 'exercise' : 'exercises'}</span>
+                        <svg class="aw-cround-chev${exp ? ' is-open' : ''}" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    ${exp ? rows.join('') : ''}
+                </div>`;
+        }
     }
 
     // "+ Add exercise" lives in the fixed bottom bar now (v9.51), not in-list.

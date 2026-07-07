@@ -727,36 +727,19 @@
                 <span class="home-resume-cta">Resume</span>
             </button>
 
-            <!-- Load card: weekly-load ring + delta, then STREAK/TODAY/LAST
-                 trio — matching the design handoff (index.dc.html) exactly. -->
+            <!-- Load card: two equal cells (Weekly / Lifetime load) split by
+                 a hairline — matching the design handoff (index.dc.html)
+                 exactly. No ring, no percent, no delta (retired iteration). -->
             <div class="load-card">
-                <div class="load-card-top">
-                    <div class="load-ring">
-                        <svg viewBox="0 0 100 100" width="88" height="88" aria-hidden="true">
-                            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-4)" stroke-width="9"></circle>
-                            <circle class="load-ring-arc" id="load-ring-arc" cx="50" cy="50" r="42" fill="none" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="58" transform="rotate(-90 50 50)"></circle>
-                        </svg>
-                        <div class="load-ring-pct tnum"><span id="load-ring-pct-val">0</span><small>%</small></div>
-                    </div>
-                    <div class="load-card-info">
-                        <div class="load-eyebrow">Weekly load</div>
-                        <div class="load-value tnum" id="load-value">—<span class="load-value-unit"> lb</span></div>
-                        <div class="load-delta" id="load-delta"></div>
-                    </div>
+                <div class="load-cell load-cell--left">
+                    <div class="load-eyebrow">Weekly load</div>
+                    <div class="load-value tnum" id="load-weekly">—<span class="load-value-unit"> lb</span></div>
+                    <div class="load-sub tnum" id="load-weekly-sub"></div>
                 </div>
-                <div class="load-trio">
-                    <div class="load-trio-cell">
-                        <div class="load-trio-label">Streak</div>
-                        <div class="load-trio-value tnum" id="load-streak">—</div>
-                    </div>
-                    <div class="load-trio-cell">
-                        <div class="load-trio-label">Today</div>
-                        <div class="load-trio-value tnum" id="load-today">0</div>
-                    </div>
-                    <div class="load-trio-cell">
-                        <div class="load-trio-label">Last</div>
-                        <div class="load-trio-value" id="load-last">—</div>
-                    </div>
+                <div class="load-cell">
+                    <div class="load-eyebrow">Lifetime load</div>
+                    <div class="load-value tnum" id="load-lifetime">—<span class="load-value-unit"> lb</span></div>
+                    <div class="load-sub tnum" id="load-lifetime-sub"></div>
                 </div>
             </div>
 
@@ -779,6 +762,25 @@
                     </button>
                 </div>
                 <div class="suggested-empty" id="suggested-empty" style="display:none">Log a few sets and I'll suggest your next workout.</div>
+
+                <!-- Month calendar — trained days show the dumbbell glyph;
+                     today gets a gold ring. Prev always enabled; next
+                     disabled at the current month. Matches the prototype. -->
+                <div class="home-cal-nav">
+                    <button type="button" class="home-cal-navbtn" data-action="activityPrevMonth" aria-label="Previous month">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <span class="home-cal-label" id="home-cal-label">—</span>
+                    <button type="button" class="home-cal-navbtn" id="home-cal-next" data-action="activityNextMonth" aria-label="Next month">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+                <div class="home-cal-card">
+                    <div class="home-cal-weekdays">
+                        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+                    </div>
+                    <div class="home-cal-grid" id="home-cal-grid"></div>
+                </div>
             </div>
 
             <!-- First-launch empty hint. Hidden once any data exists. -->
@@ -825,6 +827,14 @@
                 <div class="aw-total-cell"><div class="aw-total-label">Elapsed</div><div class="aw-total-value tnum" id="session-card-time">0:00</div></div>
                 <div class="aw-total-cell"><div class="aw-total-label">Volume</div><div class="aw-total-value tnum" id="session-card-vol">0</div></div>
                 <div class="aw-total-cell"><div class="aw-total-label">Sets</div><div class="aw-total-value tnum" id="session-card-sets">0</div></div>
+            </div>
+
+            <!-- Straight sets / Rounds mode toggle (behavior E). Rounds groups
+                 flagged exercises into circuit rounds; straight sets is the
+                 default per-exercise logging. -->
+            <div class="aw-mode-seg aw-active-only" role="tablist" aria-label="Workout mode">
+                <button type="button" class="aw-mode-btn is-active" id="aw-mode-straight" data-action="setStraightSetsMode" role="tab">Straight sets</button>
+                <button type="button" class="aw-mode-btn" id="aw-mode-rounds" data-action="setRoundsModeOn" role="tab">Rounds</button>
             </div>
 
             <!-- RESTING pill — shown only while a rest countdown is active
