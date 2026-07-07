@@ -701,6 +701,12 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '10.7': {
+        items: [
+            'Home matches the design end-to-end: a weekly-load ring with your progress vs last week, and a Streak / Today / Last trio.',
+            'Cleaner launchpad — the Start workout button and "Suggested for today" card sit right below your load at a glance.',
+        ],
+    },
     '10.0': {
         items: [
             'A full redesign — Home, History, Records, Profile, with a raised mic in the center of the tab bar.',
@@ -2374,11 +2380,43 @@ async function renderHome() {
         deltaEl.textContent = '';
     }
 
-    // --- Lifetime load: all-time work-set tonnage -----------------------
-    const lifetimeEl = $('lifetime-value');
-    if (lifetimeEl) {
-        lifetimeEl.innerHTML =
-            `${volOf(work).toLocaleString('en-US')}<span class="load-value-unit"> lb</span>`;
+    // --- Weekly-load ring: this week vs last week, capped at 100% --------
+    // The prototype ring is decorative (78%); here it tracks a real signal —
+    // how far this week's load has reached toward last week's. circumference
+    // for r=42 is 2π·42 ≈ 264 (matches the SVG dasharray).
+    const ringPct = volPrev > 0
+        ? Math.max(0, Math.min(100, Math.round((vol7 / volPrev) * 100)))
+        : (vol7 > 0 ? 100 : 0);
+    const arc = $('load-ring-arc');
+    if (arc) arc.setAttribute('stroke-dashoffset', String(Math.round(264 * (1 - ringPct / 100))));
+    const ringVal = $('load-ring-pct-val');
+    if (ringVal) ringVal.textContent = String(ringPct);
+
+    // --- STREAK / TODAY / LAST trio -------------------------------------
+    // Distinct trained days (work sets only), newest first.
+    const trainedDays = [...new Set(work.map(w => w.date))].sort().reverse();
+    // Streak: consecutive days back from today (or yesterday if not trained
+    // today yet), counting each day that has a work set.
+    let streak = 0;
+    if (trainedDays.length) {
+        const trained = new Set(trainedDays);
+        let cursor = trained.has(todayStr) ? todayStr : (trained.has(isoForOffset(1)) ? isoForOffset(1) : null);
+        while (cursor && trained.has(cursor)) {
+            streak++;
+            const d = new Date(cursor + 'T00:00:00');
+            d.setDate(d.getDate() - 1);
+            cursor = d.toISOString().slice(0, 10);
+        }
+    }
+    const streakEl = $('load-streak');
+    if (streakEl) streakEl.textContent = streak > 0 ? `${streak}d` : '0d';
+    const todayEl = $('load-today');
+    if (todayEl) todayEl.textContent = String(work.filter(w => w.date === todayStr).length);
+    const lastEl = $('load-last');
+    if (lastEl) {
+        lastEl.textContent = trainedDays.length
+            ? new Date(trainedDays[0] + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+            : '—';
     }
 
     // --- Resume strip vs idle (Start CTA + Suggested) -------------------
@@ -2410,7 +2448,7 @@ async function renderHome() {
         $('suggested-title').textContent = title;
         $('suggested-time').textContent = `~${rec.estimatedMinutes} min`;
         $('suggested-rationale').textContent =
-            `Targets the ${rec.targets.join(' & ')} you've trained least lately.`;
+            `Targets the ${rec.targets.join(' & ')} you skipped this cycle.`;
         $('suggested-tags').innerHTML = rec.targets.map(m =>
             `<span class="suggested-tag"><span class="suggested-tag-dot" style="background:${muscleColor[m] || '#888'}"></span>${escapeHtml(_capWord(m))}</span>`
         ).join('');

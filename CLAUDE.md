@@ -271,12 +271,23 @@ If a request would change one of these, push back and ask explicitly.
 >   Community tab is a name + 10 muscle pills + "Add exercise" + an editable
 >   catalog list (edit sheet). `community/queue.json` + `decisions.json` are
 >   orphaned (delete via R2 if desired). **Worker must be `npx wrangler deploy`d.**
-> - **Home:** wordmark, resume strip, 2-column **Weekly load | Lifetime load**
->   card (no ring/trio), Start CTA, **Suggested for today** (sized to the user's
->   median sets-per-session via `computeMedianSetsPerSession` + median sec/set;
->   never below one exercise per target muscle), and an **Activity calendar**
->   (`#activity-card`, bordered, no state band) — tapping a trained day opens it
->   in History (`openHistoryDate`). The old today/week tiles + Focus card are gone.
+> - **Home (v10.7 — realigned to the prototype exactly):** wordmark, resume
+>   strip, then the **weekly-load ring + STREAK / TODAY / LAST trio** card
+>   (`.load-card` → `.load-card-top` with an 88px SVG ring + `.load-trio`),
+>   Start CTA, and **Suggested for today** (still sized to the user's median
+>   sets-per-session via `computeMedianSetsPerSession` + median sec/set;
+>   rationale copy is "Targets the … you skipped this cycle."). The ring's
+>   percentage is a real signal — this week's tonnage vs last week's, capped at
+>   100% (`load-ring-arc` dashoffset = `264·(1 − pct/100)`); TODAY = today's
+>   work-set count, LAST = weekday of the most recent trained day, STREAK =
+>   consecutive trained days back from today/yesterday. **The v10.0–v10.6
+>   2-column Weekly-load | Lifetime-load card AND the Home Activity calendar
+>   were removed** to match `index.dc.html` (the prototype Home has no lifetime
+>   card and no calendar). `renderActivityCard()` is now a no-op on Home (its
+>   `#activity-card` element is gone; the function early-returns) — the trained-
+>   day dumbbell marker on the **History** week strip is unaffected. Don't
+>   reintroduce the lifetime card, the ring/trio→2-col swap, or the Home
+>   calendar without an explicit request; the prototype is the contract here.
 > - **Templates:** 4 are seeded once (`DEFAULT_TEMPLATES`, flag
 >   `ironSeededDefaultTemplates`), shown with a muscle `sub` in the Training tab
 >   + Start sheet. The builder is the card model (name + selected-exercise cards

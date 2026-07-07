@@ -2619,12 +2619,7 @@ button.activity-cell.is-trained:active { transform: scale(0.94); }
   border-radius: 20px;
   overflow: hidden;
   margin-bottom: 20px;
-  /* Two columns: Weekly load (+ delta) | Lifetime load, split by a hairline. */
-  display: grid;
-  grid-template-columns: 1fr 1fr;
 }
-.load-col { padding: 20px; text-align: center; }
-.load-col + .load-col { border-left: 1px solid var(--hairline); }
 .load-card-top {
   display: flex; gap: 18px; align-items: center;
   padding: 20px;

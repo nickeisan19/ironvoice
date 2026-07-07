@@ -727,16 +727,36 @@
                 <span class="home-resume-cta">Resume</span>
             </button>
 
-            <!-- Load card: Weekly load (+ delta) | Lifetime load, two columns. -->
+            <!-- Load card: weekly-load ring + delta, then STREAK/TODAY/LAST
+                 trio — matching the design handoff (index.dc.html) exactly. -->
             <div class="load-card">
-                <div class="load-col">
-                    <div class="load-eyebrow">Weekly load</div>
-                    <div class="load-value tnum" id="load-value">—<span class="load-value-unit"> lb</span></div>
-                    <div class="load-delta" id="load-delta"></div>
+                <div class="load-card-top">
+                    <div class="load-ring">
+                        <svg viewBox="0 0 100 100" width="88" height="88" aria-hidden="true">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-4)" stroke-width="9"></circle>
+                            <circle class="load-ring-arc" id="load-ring-arc" cx="50" cy="50" r="42" fill="none" stroke="var(--acc)" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="58" transform="rotate(-90 50 50)"></circle>
+                        </svg>
+                        <div class="load-ring-pct tnum"><span id="load-ring-pct-val">0</span><small>%</small></div>
+                    </div>
+                    <div class="load-card-info">
+                        <div class="load-eyebrow">Weekly load</div>
+                        <div class="load-value tnum" id="load-value">—<span class="load-value-unit"> lb</span></div>
+                        <div class="load-delta" id="load-delta"></div>
+                    </div>
                 </div>
-                <div class="load-col">
-                    <div class="load-eyebrow">Lifetime load</div>
-                    <div class="load-value tnum" id="lifetime-value">—<span class="load-value-unit"> lb</span></div>
+                <div class="load-trio">
+                    <div class="load-trio-cell">
+                        <div class="load-trio-label">Streak</div>
+                        <div class="load-trio-value tnum" id="load-streak">—</div>
+                    </div>
+                    <div class="load-trio-cell">
+                        <div class="load-trio-label">Today</div>
+                        <div class="load-trio-value tnum" id="load-today">0</div>
+                    </div>
+                    <div class="load-trio-cell">
+                        <div class="load-trio-label">Last</div>
+                        <div class="load-trio-value" id="load-last">—</div>
+                    </div>
                 </div>
             </div>
 
@@ -759,23 +779,6 @@
                     </button>
                 </div>
                 <div class="suggested-empty" id="suggested-empty" style="display:none">Log a few sets and I'll suggest your next workout.</div>
-            </div>
-
-            <!-- Activity calendar — month grid of trained days; populated by
-                 renderActivityCard(). Hidden until the first work set. Tapping a
-                 trained day opens it in the History tab. -->
-            <div class="activity-card" id="activity-card" style="display:none">
-                <div class="activity-header-row">
-                    <button type="button" class="icon-btn-sm" data-action="activityPrevMonth" aria-label="Previous month">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                    </button>
-                    <h3 id="activity-month-label">—</h3>
-                    <button type="button" class="icon-btn-sm" id="activity-next" data-action="activityNextMonth" aria-label="Next month">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </button>
-                </div>
-                <div class="activity-grid" id="activity-grid"></div>
-                <div class="activity-summary" id="activity-summary"></div>
             </div>
 
             <!-- First-launch empty hint. Hidden once any data exists. -->
