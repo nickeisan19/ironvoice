@@ -8,127 +8,485 @@
 // Synonyms favored: gym-floor names (BSS, RDL, OHP), brand-agnostic equipment ("machine X").
 const exerciseLibrary = [
     // CHEST
-    { name: "bench press",            muscle: "chest", synonyms: ["bench", "barbell bench", "flat bench", "flat barbell bench", "bp"] },
-    { name: "incline press",          muscle: "chest", synonyms: ["incline bench", "incline bench press", "incline barbell"] },
-    { name: "decline bench press",    muscle: "chest", synonyms: ["decline bench", "decline press"] },
-    { name: "dumbbell bench press",   muscle: "chest", synonyms: ["db bench", "dumbbell press", "flat dumbbell press"] },
-    { name: "incline dumbbell press", muscle: "chest", synonyms: ["incline db press", "incline dumbbell bench"] },
-    { name: "decline dumbbell press", muscle: "chest", synonyms: ["decline db press"] },
-    { name: "machine chest press",    muscle: "chest", synonyms: ["chest press machine", "hammer chest press"] },
-    { name: "chest fly",              muscle: "chest", synonyms: ["dumbbell fly", "db fly", "flys", "pec fly", "flat fly"] },
-    { name: "incline fly",            muscle: "chest", synonyms: ["incline dumbbell fly", "incline db fly"] },
-    { name: "cable crossover",        muscle: "chest", synonyms: ["cable fly", "crossover", "cable cross"] },
-    { name: "pec deck",               muscle: "chest", synonyms: ["pec dec", "machine fly", "butterfly"] },
-    { name: "push up",                muscle: "chest", synonyms: ["push ups", "pushup", "press up"] },
-    { name: "floor press",            muscle: "chest", synonyms: ["floor bench"] },
-    { name: "landmine press",         muscle: "chest", synonyms: ["landmine"] },
-    { name: "smith machine bench",    muscle: "chest", synonyms: ["smith bench"] },
+    { name: "assisted dip",                           muscle: "chest", synonyms: [] },
+    { name: "band-assisted bench press",              muscle: "chest", synonyms: ["band assisted bench press"] },
+    { name: "bar dip",                                muscle: "chest", synonyms: [] },
+    { name: "bench press",                            muscle: "chest", synonyms: ["bench", "barbell bench", "flat bench", "flat barbell bench", "bp"] },
+    { name: "bench press against band",               muscle: "chest", synonyms: [] },
+    { name: "board press",                            muscle: "chest", synonyms: [] },
+    { name: "cable chest press",                      muscle: "chest", synonyms: [] },
+    { name: "cable crossover",                        muscle: "chest", synonyms: ["cable fly", "crossover", "cable cross"] },
+    { name: "chest fly",                              muscle: "chest", synonyms: ["dumbbell fly", "db fly", "flys", "pec fly", "flat fly"] },
+    { name: "clap push-up",                           muscle: "chest", synonyms: ["clap push up"] },
+    { name: "close-grip bench press",                 muscle: "chest", synonyms: ["close grip bench press", "close grip bench", "cgbp"] },
+    { name: "close-grip feet-up bench press",         muscle: "chest", synonyms: ["close grip feet up bench press"] },
+    { name: "cobra push-up",                          muscle: "chest", synonyms: ["cobra push up"] },
+    { name: "decline bench press",                    muscle: "chest", synonyms: ["decline bench", "decline press"] },
+    { name: "decline dumbbell press",                 muscle: "chest", synonyms: ["decline db press"] },
+    { name: "decline push-up",                        muscle: "chest", synonyms: ["decline push up"] },
+    { name: "dumbbell bench press",                   muscle: "chest", synonyms: ["db bench", "dumbbell press", "flat dumbbell press"] },
+    { name: "dumbbell chest fly",                     muscle: "chest", synonyms: [] },
+    { name: "dumbbell chest press",                   muscle: "chest", synonyms: [] },
+    { name: "dumbbell decline chest press",           muscle: "chest", synonyms: [] },
+    { name: "dumbbell floor press",                   muscle: "chest", synonyms: [] },
+    { name: "dumbbell pullover",                      muscle: "chest", synonyms: [] },
+    { name: "feet-up bench press",                    muscle: "chest", synonyms: ["feet up bench press"] },
+    { name: "floor press",                            muscle: "chest", synonyms: ["floor bench"] },
+    { name: "incline bench press",                    muscle: "chest", synonyms: [] },
+    { name: "incline dumbbell press",                 muscle: "chest", synonyms: ["incline db press", "incline dumbbell bench"] },
+    { name: "incline fly",                            muscle: "chest", synonyms: ["incline dumbbell fly", "incline db fly"] },
+    { name: "incline press",                          muscle: "chest", synonyms: ["incline bench", "incline barbell"] },
+    { name: "incline push-up",                        muscle: "chest", synonyms: ["incline push up"] },
+    { name: "kettlebell floor press",                 muscle: "chest", synonyms: [] },
+    { name: "kneeling incline push-up",               muscle: "chest", synonyms: ["kneeling incline push up"] },
+    { name: "kneeling push-up",                       muscle: "chest", synonyms: ["kneeling push up"] },
+    { name: "machine chest fly",                      muscle: "chest", synonyms: [] },
+    { name: "machine chest press",                    muscle: "chest", synonyms: ["chest press machine", "hammer chest press"] },
+    { name: "machine incline chest press",            muscle: "chest", synonyms: [] },
+    { name: "medicine ball chest pass",               muscle: "chest", synonyms: [] },
+    { name: "pec deck",                               muscle: "chest", synonyms: ["pec dec", "machine fly", "butterfly"] },
+    { name: "pin bench press",                        muscle: "chest", synonyms: [] },
+    { name: "plank to push-up",                       muscle: "chest", synonyms: ["plank to push up"] },
+    { name: "push-up",                                muscle: "chest", synonyms: ["push up", "push ups", "pushup", "press up"] },
+    { name: "push-up against wall",                   muscle: "chest", synonyms: ["push up against wall"] },
+    { name: "push-ups with feet in rings",            muscle: "chest", synonyms: ["push ups with feet in rings"] },
+    { name: "resistance band chest fly",              muscle: "chest", synonyms: [] },
+    { name: "ring dip",                               muscle: "chest", synonyms: [] },
+    { name: "seated cable chest fly",                 muscle: "chest", synonyms: [] },
+    { name: "smith machine bench",                    muscle: "chest", synonyms: ["smith bench"] },
+    { name: "smith machine bench press",              muscle: "chest", synonyms: [] },
+    { name: "smith machine incline bench press",      muscle: "chest", synonyms: [] },
+    { name: "smith machine reverse grip bench press", muscle: "chest", synonyms: [] },
+    { name: "standing cable chest fly",               muscle: "chest", synonyms: [] },
+    { name: "standing resistance band chest fly",     muscle: "chest", synonyms: [] },
 
     // BACK
-    { name: "deadlift",               muscle: "back", synonyms: ["deads", "deadlifts", "conventional deadlift", "dl"] },
-    { name: "sumo deadlift",          muscle: "back", synonyms: ["sumo dl", "sumo"] },
-    { name: "romanian deadlift",      muscle: "back", synonyms: ["rdl", "rdls", "romanian dl"] },
-    { name: "stiff leg deadlift",     muscle: "back", synonyms: ["sldl", "stiff legged deadlift", "straight leg deadlift"] },
-    { name: "trap bar deadlift",      muscle: "back", synonyms: ["hex bar deadlift", "trap bar", "hex bar"] },
-    { name: "rack pull",              muscle: "back", synonyms: ["rack pulls", "block pull"] },
-    { name: "good morning",           muscle: "back", synonyms: ["good mornings"] },
-    { name: "pull up",                muscle: "back", synonyms: ["pull ups", "pullups", "pullup"] },
-    { name: "chin up",                muscle: "back", synonyms: ["chin ups", "chinups", "chinup"] },
-    { name: "lat pulldown",           muscle: "back", synonyms: ["lat pull", "pulldowns", "pulldown", "wide pulldown"] },
-    { name: "close grip pulldown",    muscle: "back", synonyms: ["close grip lat pulldown", "narrow pulldown"] },
-    { name: "bent over row",          muscle: "back", synonyms: ["barbell row", "bb row", "bent row"] },
-    { name: "pendlay row",            muscle: "back", synonyms: ["pendlay"] },
-    { name: "t bar row",              muscle: "back", synonyms: ["t-bar row", "tbar row", "t bar"] },
-    { name: "seated cable row",       muscle: "back", synonyms: ["cable row", "seated row", "low row"] },
-    { name: "one arm dumbbell row",   muscle: "back", synonyms: ["one arm row", "single arm row", "single arm dumbbell row", "dumbbell row", "db row"] },
-    { name: "chest supported row",    muscle: "back", synonyms: ["chest-supported row", "incline row"] },
-    { name: "meadows row",            muscle: "back", synonyms: [] },
-    { name: "inverted row",           muscle: "back", synonyms: ["bodyweight row", "ring row"] },
-    { name: "face pull",              muscle: "back", synonyms: ["face pulls", "rope face pull"] },
-    { name: "shrug",                  muscle: "back", synonyms: ["shrugs", "barbell shrug", "dumbbell shrug", "trap shrug"] },
-    { name: "back extension",         muscle: "back", synonyms: ["hyperextension", "hyper", "45 degree extension"] },
-    { name: "power clean",            muscle: "back", synonyms: ["clean", "power cleans"] },
-    { name: "snatch",                 muscle: "back", synonyms: ["power snatch", "snatches"] },
-
-    // LEGS — split into quads / hamstrings / glutes / calves (v9.51)
-    { name: "back squat",             muscle: "quads", synonyms: ["squat", "squats", "barbell squat", "high bar squat", "low bar squat"] },
-    { name: "front squat",            muscle: "quads", synonyms: ["front squats"] },
-    { name: "goblet squat",           muscle: "quads", synonyms: ["goblet"] },
-    { name: "box squat",              muscle: "quads", synonyms: ["box squats"] },
-    { name: "hack squat",             muscle: "quads", synonyms: ["machine hack squat"] },
-    { name: "smith machine squat",    muscle: "quads", synonyms: ["smith squat"] },
-    { name: "sumo squat",             muscle: "quads", synonyms: ["sumo squats"] },
-    { name: "bulgarian split squat",  muscle: "quads", synonyms: ["bss", "bulgarians", "split squat", "rear foot elevated split squat", "rfess"] },
-    { name: "leg press",              muscle: "quads", synonyms: ["legpress", "45 leg press"] },
-    { name: "leg extension",          muscle: "quads", synonyms: ["quad extension", "leg ext"] },
-    { name: "leg curl",               muscle: "hamstrings", synonyms: ["hamstring curl", "lying leg curl", "seated leg curl"] },
-    { name: "lunges",                 muscle: "quads", synonyms: ["lunge", "walking lunge", "reverse lunge", "stationary lunge"] },
-    { name: "step up",                muscle: "quads", synonyms: ["step ups", "stepup"] },
-    { name: "hip thrust",             muscle: "glutes", synonyms: ["hip thrusts", "barbell hip thrust"] },
-    { name: "glute bridge",           muscle: "glutes", synonyms: ["bridge", "glute bridges"] },
-    { name: "calf raise",             muscle: "calves", synonyms: ["calves", "standing calf raise", "seated calf raise", "calf"] },
-    { name: "nordic curl",            muscle: "hamstrings", synonyms: ["nordic", "nordic ham curl", "natural glute ham raise"] },
-    { name: "glute kickback",         muscle: "glutes", synonyms: ["cable kickback", "donkey kick"] },
-    { name: "hip abduction",          muscle: "glutes", synonyms: ["abductor", "abductor machine", "hip abductor"] },
-    { name: "hip adduction",          muscle: "quads", synonyms: ["adductor", "adductor machine", "hip adductor"] },
-    { name: "single leg rdl",         muscle: "hamstrings", synonyms: ["single leg deadlift", "single leg romanian deadlift"] },
-    { name: "thruster",               muscle: "quads", synonyms: ["thrusters"] },
+    { name: "assisted chin-up",                    muscle: "back", synonyms: ["assisted chin up"] },
+    { name: "assisted pull-up",                    muscle: "back", synonyms: ["assisted pull up"] },
+    { name: "back extension",                      muscle: "back", synonyms: ["hyperextension", "hyper", "45 degree extension"] },
+    { name: "banded muscle-up",                    muscle: "back", synonyms: ["banded muscle up"] },
+    { name: "barbell row",                         muscle: "back", synonyms: [] },
+    { name: "barbell shrug",                       muscle: "back", synonyms: [] },
+    { name: "bent over row",                       muscle: "back", synonyms: ["bb row", "bent row"] },
+    { name: "block clean",                         muscle: "back", synonyms: [] },
+    { name: "block snatch",                        muscle: "back", synonyms: [] },
+    { name: "cable close grip seated row",         muscle: "back", synonyms: [] },
+    { name: "cable wide grip seated row",          muscle: "back", synonyms: [] },
+    { name: "chest supported row",                 muscle: "back", synonyms: ["chest-supported row", "incline row"] },
+    { name: "chest to bar",                        muscle: "back", synonyms: [] },
+    { name: "chest-supported dumbbell row",        muscle: "back", synonyms: ["chest supported dumbbell row"] },
+    { name: "chin-up",                             muscle: "back", synonyms: ["chin up", "chin ups", "chinups", "chinup"] },
+    { name: "clean",                               muscle: "back", synonyms: [] },
+    { name: "clean and jerk",                      muscle: "back", synonyms: [] },
+    { name: "close grip pulldown",                 muscle: "back", synonyms: ["narrow pulldown"] },
+    { name: "close-grip chin-up",                  muscle: "back", synonyms: ["close grip chin up"] },
+    { name: "close-grip lat pulldown",             muscle: "back", synonyms: ["close grip lat pulldown"] },
+    { name: "deadlift",                            muscle: "back", synonyms: ["deads", "deadlifts", "conventional deadlift", "dl"] },
+    { name: "deficit deadlift",                    muscle: "back", synonyms: [] },
+    { name: "dumbbell deadlift",                   muscle: "back", synonyms: [] },
+    { name: "dumbbell row",                        muscle: "back", synonyms: [] },
+    { name: "dumbbell shrug",                      muscle: "back", synonyms: [] },
+    { name: "floor back extension",                muscle: "back", synonyms: [] },
+    { name: "good morning",                        muscle: "back", synonyms: ["good mornings"] },
+    { name: "gorilla row",                         muscle: "back", synonyms: [] },
+    { name: "hang clean",                          muscle: "back", synonyms: [] },
+    { name: "hang power clean",                    muscle: "back", synonyms: [] },
+    { name: "hang power snatch",                   muscle: "back", synonyms: [] },
+    { name: "hang snatch",                         muscle: "back", synonyms: [] },
+    { name: "inverted row",                        muscle: "back", synonyms: ["bodyweight row"] },
+    { name: "inverted row with underhand grip",    muscle: "back", synonyms: [] },
+    { name: "jefferson curl",                      muscle: "back", synonyms: [] },
+    { name: "jumping muscle-up",                   muscle: "back", synonyms: ["jumping muscle up"] },
+    { name: "kettlebell clean",                    muscle: "back", synonyms: [] },
+    { name: "kettlebell clean and jerk",           muscle: "back", synonyms: [] },
+    { name: "kettlebell clean and press",          muscle: "back", synonyms: [] },
+    { name: "kettlebell row",                      muscle: "back", synonyms: [] },
+    { name: "kettlebell snatch",                   muscle: "back", synonyms: [] },
+    { name: "kettlebell swing",                    muscle: "back", synonyms: [] },
+    { name: "kroc row",                            muscle: "back", synonyms: [] },
+    { name: "lat pulldown",                        muscle: "back", synonyms: ["lat pull", "pulldowns", "pulldown", "wide pulldown"] },
+    { name: "lat pulldown with neutral grip",      muscle: "back", synonyms: [] },
+    { name: "lat pulldown with pronated grip",     muscle: "back", synonyms: [] },
+    { name: "lat pulldown with supinated grip",    muscle: "back", synonyms: [] },
+    { name: "machine lat pulldown",                muscle: "back", synonyms: [] },
+    { name: "machine pullover",                    muscle: "back", synonyms: [] },
+    { name: "meadows row",                         muscle: "back", synonyms: [] },
+    { name: "muscle-up",                           muscle: "back", synonyms: ["muscle up"] },
+    { name: "neutral close-grip lat pulldown",     muscle: "back", synonyms: ["neutral close grip lat pulldown"] },
+    { name: "one arm dumbbell row",                muscle: "back", synonyms: ["one arm row", "single arm row", "single arm dumbbell row", "db row"] },
+    { name: "one-handed cable row",                muscle: "back", synonyms: ["one handed cable row"] },
+    { name: "one-handed kettlebell swing",         muscle: "back", synonyms: ["one handed kettlebell swing"] },
+    { name: "one-handed lat pulldown",             muscle: "back", synonyms: ["one handed lat pulldown"] },
+    { name: "pause deadlift",                      muscle: "back", synonyms: [] },
+    { name: "pendlay row",                         muscle: "back", synonyms: ["pendlay"] },
+    { name: "power clean",                         muscle: "back", synonyms: ["power cleans"] },
+    { name: "power snatch",                        muscle: "back", synonyms: [] },
+    { name: "pull-up",                             muscle: "back", synonyms: ["pull up", "pull ups", "pullups", "pullup"] },
+    { name: "pull-up with a neutral grip",         muscle: "back", synonyms: ["pull up with a neutral grip"] },
+    { name: "rack pull",                           muscle: "back", synonyms: ["rack pulls", "block pull"] },
+    { name: "renegade row",                        muscle: "back", synonyms: [] },
+    { name: "ring pull-up",                        muscle: "back", synonyms: ["ring pull up"] },
+    { name: "ring row",                            muscle: "back", synonyms: [] },
+    { name: "rope pulldown",                       muscle: "back", synonyms: [] },
+    { name: "scap pull-up",                        muscle: "back", synonyms: ["scap pull up"] },
+    { name: "seal row",                            muscle: "back", synonyms: [] },
+    { name: "seated cable row",                    muscle: "back", synonyms: ["cable row", "seated row", "low row"] },
+    { name: "seated machine row",                  muscle: "back", synonyms: [] },
+    { name: "shrug",                               muscle: "back", synonyms: ["shrugs", "trap shrug"] },
+    { name: "single leg deadlift with kettlebell", muscle: "back", synonyms: [] },
+    { name: "smith machine deadlift",              muscle: "back", synonyms: [] },
+    { name: "smith machine one-handed row",        muscle: "back", synonyms: ["smith machine one handed row"] },
+    { name: "snatch",                              muscle: "back", synonyms: ["snatches"] },
+    { name: "snatch grip deadlift",                muscle: "back", synonyms: [] },
+    { name: "stiff leg deadlift",                  muscle: "back", synonyms: ["sldl", "straight leg deadlift"] },
+    { name: "stiff-legged deadlift",               muscle: "back", synonyms: ["stiff legged deadlift"] },
+    { name: "straight arm lat pulldown",           muscle: "back", synonyms: [] },
+    { name: "sumo deadlift",                       muscle: "back", synonyms: ["sumo dl", "sumo"] },
+    { name: "superman raise",                      muscle: "back", synonyms: [] },
+    { name: "t-bar row",                           muscle: "back", synonyms: ["t bar row", "tbar row", "t bar"] },
+    { name: "towel row",                           muscle: "back", synonyms: [] },
+    { name: "trap bar deadlift",                   muscle: "back", synonyms: ["hex bar deadlift", "trap bar", "hex bar"] },
+    { name: "trap bar deadlift with high handles", muscle: "back", synonyms: [] },
+    { name: "trap bar deadlift with low handles",  muscle: "back", synonyms: [] },
 
     // SHOULDERS
-    { name: "overhead press",         muscle: "shoulders", synonyms: ["ohp", "military press", "shoulder press", "standing press", "barbell overhead press"] },
-    { name: "seated overhead press",  muscle: "shoulders", synonyms: ["seated press", "seated military"] },
-    { name: "dumbbell shoulder press",muscle: "shoulders", synonyms: ["db shoulder press", "seated dumbbell press", "db press"] },
-    { name: "arnold press",           muscle: "shoulders", synonyms: ["arnolds"] },
-    { name: "machine shoulder press", muscle: "shoulders", synonyms: ["machine press", "smith shoulder press"] },
-    { name: "lateral raise",          muscle: "shoulders", synonyms: ["side raise", "side raises", "laterals", "lateral raises", "db lateral"] },
-    { name: "cable lateral raise",    muscle: "shoulders", synonyms: ["cable lateral", "cable side raise"] },
-    { name: "front raise",            muscle: "shoulders", synonyms: ["front raises", "front delt raise"] },
-    { name: "rear delt fly",          muscle: "shoulders", synonyms: ["reverse fly", "rear fly", "rear delt", "bent over fly", "rear delt machine"] },
-    { name: "upright row",            muscle: "shoulders", synonyms: ["upright rows"] },
-    { name: "push press",             muscle: "shoulders", synonyms: ["push presses"] },
+    { name: "arnold press",                                   muscle: "shoulders", synonyms: ["arnolds"] },
+    { name: "band external shoulder rotation",                muscle: "shoulders", synonyms: [] },
+    { name: "band internal shoulder rotation",                muscle: "shoulders", synonyms: [] },
+    { name: "band pull-apart",                                muscle: "shoulders", synonyms: ["band pull apart"] },
+    { name: "banded face pull",                               muscle: "shoulders", synonyms: [] },
+    { name: "barbell front raise",                            muscle: "shoulders", synonyms: [] },
+    { name: "barbell rear delt row",                          muscle: "shoulders", synonyms: [] },
+    { name: "barbell upright row",                            muscle: "shoulders", synonyms: [] },
+    { name: "behind the neck press",                          muscle: "shoulders", synonyms: [] },
+    { name: "cable external shoulder rotation",               muscle: "shoulders", synonyms: [] },
+    { name: "cable front raise",                              muscle: "shoulders", synonyms: [] },
+    { name: "cable internal shoulder rotation",               muscle: "shoulders", synonyms: [] },
+    { name: "cable lateral raise",                            muscle: "shoulders", synonyms: ["cable lateral", "cable side raise"] },
+    { name: "cable rear delt row",                            muscle: "shoulders", synonyms: [] },
+    { name: "cuban press",                                    muscle: "shoulders", synonyms: [] },
+    { name: "devils press",                                   muscle: "shoulders", synonyms: [] },
+    { name: "dumbbell front raise",                           muscle: "shoulders", synonyms: [] },
+    { name: "dumbbell horizontal external shoulder rotation", muscle: "shoulders", synonyms: [] },
+    { name: "dumbbell horizontal internal shoulder rotation", muscle: "shoulders", synonyms: [] },
+    { name: "dumbbell lateral raise",                         muscle: "shoulders", synonyms: [] },
+    { name: "dumbbell rear delt row",                         muscle: "shoulders", synonyms: [] },
+    { name: "dumbbell shoulder press",                        muscle: "shoulders", synonyms: ["db shoulder press", "seated dumbbell press", "db press"] },
+    { name: "dumbbell upright row",                           muscle: "shoulders", synonyms: [] },
+    { name: "face pull",                                      muscle: "shoulders", synonyms: ["face pulls", "rope face pull"] },
+    { name: "front hold",                                     muscle: "shoulders", synonyms: [] },
+    { name: "front raise",                                    muscle: "shoulders", synonyms: ["front raises", "front delt raise"] },
+    { name: "handstand push-up",                              muscle: "shoulders", synonyms: ["handstand push up"] },
+    { name: "jerk",                                           muscle: "shoulders", synonyms: [] },
+    { name: "kettlebell halo",                                muscle: "shoulders", synonyms: [] },
+    { name: "kettlebell press",                               muscle: "shoulders", synonyms: [] },
+    { name: "kettlebell push press",                          muscle: "shoulders", synonyms: [] },
+    { name: "landmine press",                                 muscle: "shoulders", synonyms: ["landmine"] },
+    { name: "lateral raise",                                  muscle: "shoulders", synonyms: ["side raise", "side raises", "laterals", "lateral raises", "db lateral"] },
+    { name: "lying dumbbell external shoulder rotation",      muscle: "shoulders", synonyms: [] },
+    { name: "lying dumbbell internal shoulder rotation",      muscle: "shoulders", synonyms: [] },
+    { name: "machine lateral raise",                          muscle: "shoulders", synonyms: [] },
+    { name: "machine shoulder press",                         muscle: "shoulders", synonyms: ["machine press", "smith shoulder press"] },
+    { name: "monkey row",                                     muscle: "shoulders", synonyms: [] },
+    { name: "one-arm landmine press",                         muscle: "shoulders", synonyms: ["one arm landmine press"] },
+    { name: "overhead press",                                 muscle: "shoulders", synonyms: ["ohp", "military press", "shoulder press", "standing press", "barbell overhead press"] },
+    { name: "plate front raise",                              muscle: "shoulders", synonyms: [] },
+    { name: "poliquin raise",                                 muscle: "shoulders", synonyms: [] },
+    { name: "power jerk",                                     muscle: "shoulders", synonyms: [] },
+    { name: "push press",                                     muscle: "shoulders", synonyms: ["push presses"] },
+    { name: "rear delt fly",                                  muscle: "shoulders", synonyms: ["reverse fly", "rear fly", "rear delt", "bent over fly", "rear delt machine"] },
+    { name: "resistance band lateral raise",                  muscle: "shoulders", synonyms: [] },
+    { name: "reverse cable flyes",                            muscle: "shoulders", synonyms: [] },
+    { name: "reverse dumbbell flyes",                         muscle: "shoulders", synonyms: [] },
+    { name: "reverse dumbbell flyes on incline bench",        muscle: "shoulders", synonyms: [] },
+    { name: "reverse machine fly",                            muscle: "shoulders", synonyms: [] },
+    { name: "seated barbell overhead press",                  muscle: "shoulders", synonyms: [] },
+    { name: "seated dumbbell shoulder press",                 muscle: "shoulders", synonyms: [] },
+    { name: "seated kettlebell press",                        muscle: "shoulders", synonyms: [] },
+    { name: "seated overhead press",                          muscle: "shoulders", synonyms: ["seated press", "seated military"] },
+    { name: "seated smith machine shoulder press",            muscle: "shoulders", synonyms: [] },
+    { name: "smith machine landmine press",                   muscle: "shoulders", synonyms: [] },
+    { name: "snatch grip behind the neck press",              muscle: "shoulders", synonyms: [] },
+    { name: "split jerk",                                     muscle: "shoulders", synonyms: [] },
+    { name: "squat jerk",                                     muscle: "shoulders", synonyms: [] },
+    { name: "turkish get-up",                                 muscle: "shoulders", synonyms: ["turkish get up"] },
+    { name: "upright row",                                    muscle: "shoulders", synonyms: ["upright rows"] },
+    { name: "wall walk",                                      muscle: "shoulders", synonyms: [] },
+    { name: "z press",                                        muscle: "shoulders", synonyms: [] },
 
-    // ARMS — split into biceps / triceps (v9.51)
-    { name: "dip",                    muscle: "triceps", synonyms: ["dips", "tricep dips", "tricep dip", "chest dip", "parallel bar dip", "bench dip"] },
-    { name: "bicep curl",             muscle: "biceps", synonyms: ["barbell curl", "bb curl", "curl", "curls", "biceps curl"] },
-    { name: "dumbbell curl",          muscle: "biceps", synonyms: ["db curl", "dumbbell biceps curl"] },
-    { name: "hammer curl",            muscle: "biceps", synonyms: ["hammer curls", "hammers"] },
-    { name: "preacher curl",          muscle: "biceps", synonyms: ["preacher", "preachers"] },
-    { name: "concentration curl",     muscle: "biceps", synonyms: ["concentration"] },
-    { name: "cable curl",             muscle: "biceps", synonyms: ["rope curl", "cable bicep curl"] },
-    { name: "incline dumbbell curl",  muscle: "biceps", synonyms: ["incline curl", "incline db curl"] },
-    { name: "spider curl",            muscle: "biceps", synonyms: ["spider"] },
-    { name: "ez bar curl",            muscle: "biceps", synonyms: ["ez curl"] },
-    { name: "reverse curl",           muscle: "biceps", synonyms: ["reverse grip curl"] },
-    { name: "zottman curl",           muscle: "biceps", synonyms: ["zottman"] },
-    { name: "tricep pushdown",        muscle: "triceps", synonyms: ["pushdown", "rope pushdown", "cable pushdown", "tricep pressdown"] },
-    { name: "skull crusher",          muscle: "triceps", synonyms: ["skullcrusher", "lying tricep extension", "lying triceps extension", "french press"] },
-    { name: "tricep extension",       muscle: "triceps", synonyms: ["overhead tricep extension", "overhead extension", "triceps extension"] },
-    { name: "close grip bench press", muscle: "triceps", synonyms: ["close grip bench", "cgbp"] },
-    { name: "tricep kickback",        muscle: "triceps", synonyms: ["tricep kickbacks", "dumbbell kickback"] },
-    { name: "jm press",               muscle: "triceps", synonyms: ["jm"] },
-    { name: "wrist curl",             muscle: "biceps", synonyms: ["forearm curl", "wrist curls"] },
+    // BICEPS
+    { name: "barbell curl",                    muscle: "biceps", synonyms: [] },
+    { name: "barbell preacher curl",           muscle: "biceps", synonyms: [] },
+    { name: "bayesian curl",                   muscle: "biceps", synonyms: [] },
+    { name: "bicep curl",                      muscle: "biceps", synonyms: ["bb curl", "curl", "curls", "biceps curl"] },
+    { name: "bodyweight curl",                 muscle: "biceps", synonyms: [] },
+    { name: "cable crossover bicep curl",      muscle: "biceps", synonyms: [] },
+    { name: "cable curl",                      muscle: "biceps", synonyms: ["rope curl", "cable bicep curl"] },
+    { name: "cable curl with bar",             muscle: "biceps", synonyms: [] },
+    { name: "cable curl with rope",            muscle: "biceps", synonyms: [] },
+    { name: "concentration curl",              muscle: "biceps", synonyms: ["concentration"] },
+    { name: "drag curl",                       muscle: "biceps", synonyms: [] },
+    { name: "dumbbell curl",                   muscle: "biceps", synonyms: ["db curl", "dumbbell biceps curl"] },
+    { name: "dumbbell preacher curl",          muscle: "biceps", synonyms: [] },
+    { name: "ez bar curl",                     muscle: "biceps", synonyms: [] },
+    { name: "ez curl",                         muscle: "biceps", synonyms: [] },
+    { name: "hammer curl",                     muscle: "biceps", synonyms: ["hammer curls", "hammers"] },
+    { name: "incline dumbbell curl",           muscle: "biceps", synonyms: ["incline curl", "incline db curl"] },
+    { name: "kettlebell curl",                 muscle: "biceps", synonyms: [] },
+    { name: "lying bicep cable curl on bench", muscle: "biceps", synonyms: [] },
+    { name: "lying bicep cable curl on floor", muscle: "biceps", synonyms: [] },
+    { name: "machine bicep curl",              muscle: "biceps", synonyms: [] },
+    { name: "machine preacher curl",           muscle: "biceps", synonyms: [] },
+    { name: "overhead cable curl",             muscle: "biceps", synonyms: [] },
+    { name: "preacher curl",                   muscle: "biceps", synonyms: ["preacher", "preachers"] },
+    { name: "resistance band curl",            muscle: "biceps", synonyms: [] },
+    { name: "reverse barbell curl",            muscle: "biceps", synonyms: [] },
+    { name: "reverse curl",                    muscle: "biceps", synonyms: ["reverse grip curl"] },
+    { name: "reverse dumbbell curl",           muscle: "biceps", synonyms: [] },
+    { name: "spider curl",                     muscle: "biceps", synonyms: ["spider"] },
+    { name: "wrist curl",                      muscle: "biceps", synonyms: ["forearm curl", "wrist curls"] },
+    { name: "zottman curl",                    muscle: "biceps", synonyms: ["zottman"] },
+
+    // TRICEPS
+    { name: "barbell incline triceps extension",   muscle: "triceps", synonyms: [] },
+    { name: "barbell lying triceps extension",     muscle: "triceps", synonyms: [] },
+    { name: "barbell standing triceps extension",  muscle: "triceps", synonyms: [] },
+    { name: "bench dip",                           muscle: "triceps", synonyms: [] },
+    { name: "close-grip push-up",                  muscle: "triceps", synonyms: ["close grip push up"] },
+    { name: "crossbody cable triceps extension",   muscle: "triceps", synonyms: [] },
+    { name: "dip",                                 muscle: "triceps", synonyms: ["dips", "tricep dips", "tricep dip", "chest dip", "parallel bar dip"] },
+    { name: "dumbbell lying triceps extension",    muscle: "triceps", synonyms: [] },
+    { name: "dumbbell standing triceps extension", muscle: "triceps", synonyms: [] },
+    { name: "dumbbell tricep kickback",            muscle: "triceps", synonyms: [] },
+    { name: "ez bar lying triceps extension",      muscle: "triceps", synonyms: [] },
+    { name: "jm press",                            muscle: "triceps", synonyms: ["jm"] },
+    { name: "machine overhead triceps extension",  muscle: "triceps", synonyms: [] },
+    { name: "overhead cable triceps extension",    muscle: "triceps", synonyms: [] },
+    { name: "skull crusher",                       muscle: "triceps", synonyms: ["skullcrusher", "lying tricep extension", "lying triceps extension", "french press"] },
+    { name: "smith machine skull crushers",        muscle: "triceps", synonyms: [] },
+    { name: "tate press",                          muscle: "triceps", synonyms: [] },
+    { name: "tricep bodyweight extension",         muscle: "triceps", synonyms: [] },
+    { name: "tricep extension",                    muscle: "triceps", synonyms: ["overhead tricep extension", "overhead extension", "triceps extension"] },
+    { name: "tricep kickback",                     muscle: "triceps", synonyms: ["tricep kickbacks", "dumbbell kickback"] },
+    { name: "tricep pushdown",                     muscle: "triceps", synonyms: ["pushdown", "rope pushdown", "cable pushdown", "tricep pressdown"] },
+    { name: "tricep pushdown with bar",            muscle: "triceps", synonyms: [] },
+    { name: "tricep pushdown with rope",           muscle: "triceps", synonyms: [] },
+
+    // FOREARM
+    { name: "bar hang",                            muscle: "forearm", synonyms: [] },
+    { name: "barbell wrist curl",                  muscle: "forearm", synonyms: [] },
+    { name: "barbell wrist curl behind the back",  muscle: "forearm", synonyms: [] },
+    { name: "barbell wrist extension",             muscle: "forearm", synonyms: [] },
+    { name: "dumbbell wrist curl",                 muscle: "forearm", synonyms: [] },
+    { name: "dumbbell wrist extension",            muscle: "forearm", synonyms: [] },
+    { name: "farmers walk",                        muscle: "forearm", synonyms: [] },
+    { name: "fat bar deadlift",                    muscle: "forearm", synonyms: [] },
+    { name: "gripper",                             muscle: "forearm", synonyms: [] },
+    { name: "one-handed bar hang",                 muscle: "forearm", synonyms: ["one handed bar hang"] },
+    { name: "plate pinch",                         muscle: "forearm", synonyms: [] },
+    { name: "plate wrist curl",                    muscle: "forearm", synonyms: [] },
+    { name: "single-arm dumbbell wrist curl",      muscle: "forearm", synonyms: ["single arm dumbbell wrist curl"] },
+    { name: "single-arm dumbbell wrist extension", muscle: "forearm", synonyms: ["single arm dumbbell wrist extension"] },
+    { name: "single-arm farmers walk",             muscle: "forearm", synonyms: ["single arm farmers walk"] },
+    { name: "single-arm gripper",                  muscle: "forearm", synonyms: ["single arm gripper"] },
+    { name: "single-arm plate pinch",              muscle: "forearm", synonyms: ["single arm plate pinch"] },
+    { name: "single-arm plate wrist curl",         muscle: "forearm", synonyms: ["single arm plate wrist curl"] },
+    { name: "towel pull-up",                       muscle: "forearm", synonyms: ["towel pull up"] },
+    { name: "wrist roller",                        muscle: "forearm", synonyms: [] },
+
+    // QUADS
+    { name: "air squat",                           muscle: "quads", synonyms: [] },
+    { name: "back squat",                          muscle: "quads", synonyms: ["squat", "squats", "barbell squat", "high bar squat", "low bar squat"] },
+    { name: "barbell hack squat",                  muscle: "quads", synonyms: [] },
+    { name: "barbell lunge",                       muscle: "quads", synonyms: [] },
+    { name: "barbell walking lunge",               muscle: "quads", synonyms: [] },
+    { name: "belt squat",                          muscle: "quads", synonyms: [] },
+    { name: "body weight lunge",                   muscle: "quads", synonyms: [] },
+    { name: "box jump",                            muscle: "quads", synonyms: [] },
+    { name: "box squat",                           muscle: "quads", synonyms: ["box squats"] },
+    { name: "bulgarian split squat",               muscle: "quads", synonyms: ["bss", "bulgarians", "split squat", "rear foot elevated split squat", "rfess"] },
+    { name: "chair squat",                         muscle: "quads", synonyms: [] },
+    { name: "depth jump",                          muscle: "quads", synonyms: [] },
+    { name: "dumbbell bulgarian split squat",      muscle: "quads", synonyms: [] },
+    { name: "dumbbell front squat",                muscle: "quads", synonyms: [] },
+    { name: "dumbbell lunge",                      muscle: "quads", synonyms: [] },
+    { name: "dumbbell squat",                      muscle: "quads", synonyms: [] },
+    { name: "dumbbell step-up",                    muscle: "quads", synonyms: ["dumbbell step up"] },
+    { name: "dumbbell thruster",                   muscle: "quads", synonyms: [] },
+    { name: "dumbbell walking lunge",              muscle: "quads", synonyms: [] },
+    { name: "front squat",                         muscle: "quads", synonyms: ["front squats"] },
+    { name: "goblet squat",                        muscle: "quads", synonyms: ["goblet"] },
+    { name: "ground to overhead",                  muscle: "quads", synonyms: [] },
+    { name: "hack squat",                          muscle: "quads", synonyms: ["machine hack squat"] },
+    { name: "hack squat machine",                  muscle: "quads", synonyms: [] },
+    { name: "half air squat",                      muscle: "quads", synonyms: [] },
+    { name: "hip adduction",                       muscle: "quads", synonyms: ["adductor", "adductor machine", "hip adductor"] },
+    { name: "jump squat",                          muscle: "quads", synonyms: [] },
+    { name: "jumping lunge",                       muscle: "quads", synonyms: [] },
+    { name: "kettlebell front squat",              muscle: "quads", synonyms: [] },
+    { name: "kettlebell thrusters",                muscle: "quads", synonyms: [] },
+    { name: "landmine hack squat",                 muscle: "quads", synonyms: [] },
+    { name: "landmine squat",                      muscle: "quads", synonyms: [] },
+    { name: "lateral bound",                       muscle: "quads", synonyms: [] },
+    { name: "leg extension",                       muscle: "quads", synonyms: ["quad extension", "leg ext"] },
+    { name: "leg press",                           muscle: "quads", synonyms: ["legpress", "45 leg press"] },
+    { name: "lunges",                              muscle: "quads", synonyms: ["lunge", "walking lunge", "reverse lunge", "stationary lunge"] },
+    { name: "one-legged leg extension",            muscle: "quads", synonyms: ["one legged leg extension"] },
+    { name: "pause squat",                         muscle: "quads", synonyms: [] },
+    { name: "pendulum squat",                      muscle: "quads", synonyms: [] },
+    { name: "pin squat",                           muscle: "quads", synonyms: [] },
+    { name: "pistol squat",                        muscle: "quads", synonyms: [] },
+    { name: "poliquin step-up",                    muscle: "quads", synonyms: ["poliquin step up"] },
+    { name: "prisoner get up",                     muscle: "quads", synonyms: [] },
+    { name: "reverse barbell lunge",               muscle: "quads", synonyms: [] },
+    { name: "reverse body weight lunge",           muscle: "quads", synonyms: [] },
+    { name: "reverse dumbbell lunge",              muscle: "quads", synonyms: [] },
+    { name: "reverse nordic",                      muscle: "quads", synonyms: [] },
+    { name: "safety bar squat",                    muscle: "quads", synonyms: [] },
+    { name: "shallow body weight lunge",           muscle: "quads", synonyms: [] },
+    { name: "side lunges",                         muscle: "quads", synonyms: [] },
+    { name: "smith machine bulgarian split squat", muscle: "quads", synonyms: [] },
+    { name: "smith machine front squat",           muscle: "quads", synonyms: [] },
+    { name: "smith machine lunge",                 muscle: "quads", synonyms: [] },
+    { name: "smith machine squat",                 muscle: "quads", synonyms: ["smith squat"] },
+    { name: "standing cable leg extension",        muscle: "quads", synonyms: [] },
+    { name: "standing hip flexor raise",           muscle: "quads", synonyms: [] },
+    { name: "step up",                             muscle: "quads", synonyms: ["step ups", "stepup"] },
+    { name: "sumo squat",                          muscle: "quads", synonyms: ["sumo squats"] },
+    { name: "thruster",                            muscle: "quads", synonyms: ["thrusters"] },
+    { name: "vertical leg press",                  muscle: "quads", synonyms: [] },
+    { name: "zercher squat",                       muscle: "quads", synonyms: [] },
+    { name: "zombie squat",                        muscle: "quads", synonyms: [] },
+
+    // HAMSTRINGS
+    { name: "bodyweight leg curl",             muscle: "hamstrings", synonyms: [] },
+    { name: "glute ham raise",                 muscle: "hamstrings", synonyms: [] },
+    { name: "leg curl",                        muscle: "hamstrings", synonyms: ["hamstring curl"] },
+    { name: "leg curl on ball",                muscle: "hamstrings", synonyms: [] },
+    { name: "lying leg curl",                  muscle: "hamstrings", synonyms: [] },
+    { name: "nordic curl",                     muscle: "hamstrings", synonyms: ["nordic", "nordic ham curl", "natural glute ham raise"] },
+    { name: "nordic hamstring eccentric",      muscle: "hamstrings", synonyms: [] },
+    { name: "one-legged lying leg curl",       muscle: "hamstrings", synonyms: ["one legged lying leg curl"] },
+    { name: "one-legged seated leg curl",      muscle: "hamstrings", synonyms: ["one legged seated leg curl"] },
+    { name: "romanian deadlift",               muscle: "hamstrings", synonyms: ["rdl", "rdls", "romanian dl"] },
+    { name: "seated leg curl",                 muscle: "hamstrings", synonyms: [] },
+    { name: "single leg rdl",                  muscle: "hamstrings", synonyms: ["single leg deadlift"] },
+    { name: "smith machine romanian deadlift", muscle: "hamstrings", synonyms: [] },
+    { name: "standing leg curl",               muscle: "hamstrings", synonyms: [] },
+
+    // GLUTES
+    { name: "banded hip march",                    muscle: "glutes", synonyms: [] },
+    { name: "banded side kicks",                   muscle: "glutes", synonyms: [] },
+    { name: "cable glute kickback",                muscle: "glutes", synonyms: [] },
+    { name: "cable machine hip abduction",         muscle: "glutes", synonyms: [] },
+    { name: "cable machine hip adduction",         muscle: "glutes", synonyms: [] },
+    { name: "cable pull through",                  muscle: "glutes", synonyms: [] },
+    { name: "clamshells",                          muscle: "glutes", synonyms: [] },
+    { name: "cossack squat",                       muscle: "glutes", synonyms: [] },
+    { name: "curtsy lunge",                        muscle: "glutes", synonyms: [] },
+    { name: "death march with dumbbells",          muscle: "glutes", synonyms: [] },
+    { name: "donkey kicks",                        muscle: "glutes", synonyms: [] },
+    { name: "dumbbell frog pumps",                 muscle: "glutes", synonyms: [] },
+    { name: "dumbbell glute bridge",               muscle: "glutes", synonyms: [] },
+    { name: "dumbbell hip thrust",                 muscle: "glutes", synonyms: [] },
+    { name: "dumbbell romanian deadlift",          muscle: "glutes", synonyms: [] },
+    { name: "fire hydrants",                       muscle: "glutes", synonyms: [] },
+    { name: "frog pumps",                          muscle: "glutes", synonyms: [] },
+    { name: "glute bridge",                        muscle: "glutes", synonyms: ["bridge", "glute bridges"] },
+    { name: "glute kickback",                      muscle: "glutes", synonyms: ["cable kickback", "donkey kick"] },
+    { name: "hip abduction",                       muscle: "glutes", synonyms: ["abductor", "abductor machine", "hip abductor"] },
+    { name: "hip abduction against band",          muscle: "glutes", synonyms: [] },
+    { name: "hip abduction machine",               muscle: "glutes", synonyms: [] },
+    { name: "hip adduction against band",          muscle: "glutes", synonyms: [] },
+    { name: "hip adduction machine",               muscle: "glutes", synonyms: [] },
+    { name: "hip thrust",                          muscle: "glutes", synonyms: ["hip thrusts", "barbell hip thrust"] },
+    { name: "hip thrust machine",                  muscle: "glutes", synonyms: [] },
+    { name: "hip thrust with band around knees",   muscle: "glutes", synonyms: [] },
+    { name: "kettlebell windmill",                 muscle: "glutes", synonyms: [] },
+    { name: "lateral walk with band",              muscle: "glutes", synonyms: [] },
+    { name: "machine glute kickbacks",             muscle: "glutes", synonyms: [] },
+    { name: "one-legged glute bridge",             muscle: "glutes", synonyms: ["one legged glute bridge"] },
+    { name: "one-legged hip thrust",               muscle: "glutes", synonyms: ["one legged hip thrust"] },
+    { name: "reverse hyperextension",              muscle: "glutes", synonyms: [] },
+    { name: "single leg romanian deadlift",        muscle: "glutes", synonyms: [] },
+    { name: "smith machine hip thrust",            muscle: "glutes", synonyms: [] },
+    { name: "standing glute kickback in machine",  muscle: "glutes", synonyms: [] },
+    { name: "standing glute push down",            muscle: "glutes", synonyms: [] },
+    { name: "standing hip abduction against band", muscle: "glutes", synonyms: [] },
+
+    // CALVES
+    { name: "barbell seated calf raise",      muscle: "calves", synonyms: [] },
+    { name: "barbell standing calf raise",    muscle: "calves", synonyms: [] },
+    { name: "calf raise",                     muscle: "calves", synonyms: ["calves", "calf"] },
+    { name: "calf raise in leg press",        muscle: "calves", synonyms: [] },
+    { name: "donkey calf raise",              muscle: "calves", synonyms: [] },
+    { name: "dumbbell calf raise",            muscle: "calves", synonyms: [] },
+    { name: "dumbbell single-leg calf raise", muscle: "calves", synonyms: ["dumbbell single leg calf raise"] },
+    { name: "eccentric heel drop",            muscle: "calves", synonyms: [] },
+    { name: "heel raise",                     muscle: "calves", synonyms: [] },
+    { name: "heel walk",                      muscle: "calves", synonyms: [] },
+    { name: "kettlebell tibialis raise",      muscle: "calves", synonyms: [] },
+    { name: "machine calf raise",             muscle: "calves", synonyms: [] },
+    { name: "seated calf raise",              muscle: "calves", synonyms: [] },
+    { name: "standing calf raise",            muscle: "calves", synonyms: [] },
+    { name: "tibialis band pull",             muscle: "calves", synonyms: [] },
+    { name: "tibialis raise",                 muscle: "calves", synonyms: [] },
 
     // CORE
-    { name: "plank",                  muscle: "core", synonyms: ["planks", "front plank"] },
-    { name: "side plank",             muscle: "core", synonyms: ["side planks"] },
-    { name: "crunch",                 muscle: "core", synonyms: ["crunches", "ab crunch"] },
-    { name: "sit up",                 muscle: "core", synonyms: ["sit ups", "situp", "situps"] },
-    { name: "decline sit up",         muscle: "core", synonyms: ["decline situp"] },
-    { name: "russian twist",          muscle: "core", synonyms: ["russian twists"] },
-    { name: "hanging leg raise",      muscle: "core", synonyms: ["leg raise", "hanging knee raise", "knee raise", "leg raises"] },
-    { name: "cable crunch",           muscle: "core", synonyms: ["rope crunch", "kneeling cable crunch"] },
-    { name: "ab wheel rollout",       muscle: "core", synonyms: ["ab wheel", "rollout", "ab roller"] },
-    { name: "mountain climber",       muscle: "core", synonyms: ["mountain climbers"] },
-    { name: "bicycle crunch",         muscle: "core", synonyms: ["bicycle crunches", "bicycles"] },
-    { name: "v up",                   muscle: "core", synonyms: ["v ups", "v-up", "vup"] },
-    { name: "wood chop",              muscle: "core", synonyms: ["woodchopper", "cable woodchop", "chop"] },
-    { name: "pallof press",           muscle: "core", synonyms: ["pallof"] },
-    { name: "dead bug",               muscle: "core", synonyms: ["deadbug"] },
-    { name: "bird dog",               muscle: "core", synonyms: ["birddog"] },
-    { name: "hollow hold",            muscle: "core", synonyms: ["hollow body"] },
-    { name: "dragon flag",            muscle: "core", synonyms: ["dragon flags"] },
-    { name: "l sit",                  muscle: "core", synonyms: ["l-sit"] },
-];
+    { name: "ab wheel rollout",                       muscle: "core", synonyms: ["ab wheel", "rollout", "ab roller"] },
+    { name: "ball slams",                             muscle: "core", synonyms: [] },
+    { name: "bicycle crunch",                         muscle: "core", synonyms: ["bicycle crunches", "bicycles"] },
+    { name: "bird dog",                               muscle: "core", synonyms: ["birddog"] },
+    { name: "cable crunch",                           muscle: "core", synonyms: ["rope crunch", "kneeling cable crunch"] },
+    { name: "captain's chair knee raise",             muscle: "core", synonyms: ["captains chair knee raise"] },
+    { name: "captain's chair leg raise",              muscle: "core", synonyms: ["captains chair leg raise"] },
+    { name: "copenhagen plank",                       muscle: "core", synonyms: [] },
+    { name: "core twist",                             muscle: "core", synonyms: [] },
+    { name: "crunch",                                 muscle: "core", synonyms: ["crunches", "ab crunch"] },
+    { name: "dead bug",                               muscle: "core", synonyms: ["deadbug"] },
+    { name: "dead bug with dumbbells",                muscle: "core", synonyms: [] },
+    { name: "decline sit up",                         muscle: "core", synonyms: ["decline situp"] },
+    { name: "dragon flag",                            muscle: "core", synonyms: ["dragon flags"] },
+    { name: "dumbbell side bend",                     muscle: "core", synonyms: [] },
+    { name: "dynamic side plank",                     muscle: "core", synonyms: [] },
+    { name: "hanging knee raise",                     muscle: "core", synonyms: [] },
+    { name: "hanging leg raise",                      muscle: "core", synonyms: ["leg raise", "knee raise", "leg raises"] },
+    { name: "hanging sit-up",                         muscle: "core", synonyms: ["hanging sit up"] },
+    { name: "hanging windshield wiper",               muscle: "core", synonyms: [] },
+    { name: "high to low wood chop with band",        muscle: "core", synonyms: [] },
+    { name: "high to low wood chop with cable",       muscle: "core", synonyms: [] },
+    { name: "hollow body crunch",                     muscle: "core", synonyms: [] },
+    { name: "hollow hold",                            muscle: "core", synonyms: ["hollow body"] },
+    { name: "horizontal wood chop with band",         muscle: "core", synonyms: [] },
+    { name: "horizontal wood chop with cable",        muscle: "core", synonyms: [] },
+    { name: "jackknife sit-up",                       muscle: "core", synonyms: ["jackknife sit up"] },
+    { name: "kettlebell plank pull through",          muscle: "core", synonyms: [] },
+    { name: "kneeling ab wheel roll-out",             muscle: "core", synonyms: ["kneeling ab wheel roll out"] },
+    { name: "kneeling plank",                         muscle: "core", synonyms: [] },
+    { name: "kneeling side plank",                    muscle: "core", synonyms: [] },
+    { name: "l-sit",                                  muscle: "core", synonyms: ["l sit"] },
+    { name: "landmine rotation",                      muscle: "core", synonyms: [] },
+    { name: "low to high wood chop with band",        muscle: "core", synonyms: [] },
+    { name: "low to high wood chop with cable",       muscle: "core", synonyms: [] },
+    { name: "lying leg raise",                        muscle: "core", synonyms: [] },
+    { name: "lying windshield wiper",                 muscle: "core", synonyms: [] },
+    { name: "lying windshield wiper with bent knees", muscle: "core", synonyms: [] },
+    { name: "machine crunch",                         muscle: "core", synonyms: [] },
+    { name: "mountain climber",                       muscle: "core", synonyms: [] },
+    { name: "mountain climbers",                      muscle: "core", synonyms: [] },
+    { name: "oblique crunch",                         muscle: "core", synonyms: [] },
+    { name: "oblique sit-up",                         muscle: "core", synonyms: ["oblique sit up"] },
+    { name: "pallof press",                           muscle: "core", synonyms: ["pallof"] },
+    { name: "plank",                                  muscle: "core", synonyms: ["planks", "front plank"] },
+    { name: "plank with leg lifts",                   muscle: "core", synonyms: [] },
+    { name: "plank with shoulder taps",               muscle: "core", synonyms: [] },
+    { name: "russian twist",                          muscle: "core", synonyms: ["russian twists"] },
+    { name: "side plank",                             muscle: "core", synonyms: ["side planks"] },
+    { name: "sit-up",                                 muscle: "core", synonyms: ["sit up", "sit ups", "situp", "situps"] },
+    { name: "v up",                                   muscle: "core", synonyms: ["v ups", "v-up", "vup"] },
+    { name: "weighted plank",                         muscle: "core", synonyms: [] },
+    { name: "wood chop",                              muscle: "core", synonyms: ["woodchopper", "cable woodchop", "chop"] },
+];;
 
 const muscleColor = {
     chest: 'var(--m-chest)',
@@ -140,6 +498,7 @@ const muscleColor = {
     shoulders: 'var(--m-shoulders)',
     biceps: 'var(--m-biceps)',
     triceps: 'var(--m-triceps)',
+    forearm: 'var(--m-forearm)',
     core: 'var(--m-core)',
     // Legacy 6-muscle values kept so pre-v9.51 custom/community exercises and
     // any un-migrated data still render a color.
@@ -150,7 +509,7 @@ const muscleColor = {
 // v9.51 — expanded to the 10-muscle taxonomy (legs split into quads/
 // hamstrings/glutes/calves; arms into biceps/triceps). Drives Focus cards,
 // the recommender, the PR muscle filter, and the community muscle pills.
-const MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'core'];
+const MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'forearm', 'core'];
 
 // Map the retired 6-muscle values onto a granular bucket so legacy data still
 // counts toward coverage/trend/focus instead of dropping out (NaN).
@@ -260,9 +619,6 @@ let restTimerHandle = null;
 let restCompleteTimeout = null;
 let theme = _prefs.theme || 'dark';
 let workoutMode = !!_prefs.voiceWorkoutMode;
-// v10.9 — default logging style for new workouts (behavior E). 'straight' |
-// 'rounds'; fixed at session start (there is no in-workout toggle anymore).
-let roundsDefault = (_prefs.roundsDefault === 'rounds') ? 'rounds' : 'straight';
 
 // ---------------------------------------------------------------------------
 // Weight units (design behavior F). Data is ALWAYS stored in pounds; the unit
@@ -747,6 +1103,14 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '10.10': {
+        items: [
+            'Hundreds of new exercises — the library jumped from a couple dozen to 458, covering every muscle group plus dumbbell, machine, and single-arm/single-leg variants.',
+            'New Forearm muscle group — wrist curls and grip work now categorize correctly.',
+            'Simpler workouts — Rounds / circuit mode has been removed. Every workout is straight sets now.',
+            'Your history is safe — all your existing exercises, PRs, and voice shortcuts still work exactly as before.',
+        ],
+    },
     '10.9': {
         items: [
             'Choose your units — Pounds or Kilograms — in Profile → Preferences. Every weight and volume across the app converts instantly (your data still stores in pounds).',
@@ -1005,18 +1369,6 @@ function initSegmented() {
         setUnits(btn.dataset.val);
         haptic(8);
         await rerenderForUnitChange();
-    });
-
-    // v10.9 — Default logging style (Straight sets / Rounds). Fixes the mode
-    // for the *next* workout; the in-workout toggle was removed (behavior E).
-    $('logstyle-segment')?.addEventListener('click', e => {
-        const btn = e.target.closest('button[data-val]');
-        if (!btn) return;
-        setSegmentedActive($('logstyle-segment'), b => b === btn);
-        roundsDefault = (btn.dataset.val === 'rounds') ? 'rounds' : 'straight';
-        _prefs.roundsDefault = roundsDefault;
-        persistPrefs();
-        haptic(8);
     });
 
     // Item 10: Workout mode (continuous voice)
@@ -1437,36 +1789,8 @@ async function handleManualEntry() {
     haptic(15);
 }
 
-// Rounds mode (behavior E): membership + which round each exercise belongs to
-// lives on activeSession.circuit as [{ name, round }]. In rounds mode every
-// exercise you log auto-joins the current round (no in-workout toggle, no
-// "+ Round" button). Idempotent; returns the round the exercise sits in.
-function ensureInCurrentRound(exercise) {
-    if (!activeSession?.roundsMode) return undefined;
-    if (!Array.isArray(activeSession.circuit)) activeSession.circuit = [];
-    let entry = activeSession.circuit.find(c => c.name === exercise);
-    if (!entry) {
-        entry = { name: exercise, round: activeSession.currentRound || 1 };
-        activeSession.circuit.push(entry);
-        persistActiveSession();
-    }
-    return entry.round;
-}
-function circuitRoundOf(exercise) {
-    if (!activeSession?.roundsMode || !Array.isArray(activeSession.circuit)) return undefined;
-    const entry = activeSession.circuit.find(c => c.name === exercise);
-    return entry ? entry.round : undefined;
-}
-
 function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
     const id = Date.now();
-    // In rounds mode, auto-add the exercise to the current round (membership)
-    // and stamp the set with the current round (matches index.dc.html addSet).
-    let round;
-    if (activeSession?.roundsMode) {
-        ensureInCurrentRound(exercise);
-        round = activeSession.currentRound || 1;
-    }
     return {
         id,
         exercise, weight, reps,
@@ -1476,9 +1800,6 @@ function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
         // v6: tag this set with the active session if any. Untagged sets
         // are fine (they pre-date sessions or were logged outside one).
         sessionId: activeSession?.id ?? null,
-        // v10.9 — round number, stamped only in Rounds mode (behavior E).
-        // Undefined otherwise, so straight-sets logging is unchanged.
-        round,
         // Scheduled rest after this set, captured at log time so later
         // preference changes don't corrupt rollups for older sets. 0 means
         // rest was Off. Used by the History rollups (Total / Workout / Rest)
@@ -2629,8 +2950,7 @@ async function startTemplateWorkout(el) {
     const id = Number(el?.dataset.id);
     const t = (await getActiveTemplates()).find(x => x.id === id);
     closeStartSheet();
-    const circuit = !!(t && t.circuit);
-    if (t && !circuit) {
+    if (t) {
         activeTemplate = t;
         // v9.51: pre-load every template exercise as a ready-to-log planned
         // card so the user can document the workout quickly (prefilled).
@@ -2639,23 +2959,9 @@ async function startTemplateWorkout(el) {
             muscle: muscleOf(e.name),
             sets: e.sets || e.targetSets || 3,
         })));
-    } else if (t) {
-        activeTemplate = t;
     }
     showScreen('workout');
     if (!activeSession) await startWorkoutSession();
-    // Circuit templates (behavior E) start in rounds mode with each exercise
-    // seeded into the round its rounds[] entry maps to (the Round card takes
-    // the place of the planned-queue cards).
-    if (t && circuit && activeSession) {
-        activeSession.roundsMode = true;
-        activeSession.currentRound = 1;
-        activeSession.circuit = (t.exercises || []).map((e, i) => ({
-            name: e.name,
-            round: (t.rounds && t.rounds[i]) || e.round || 1,
-        }));
-        persistActiveSession();
-    }
     await refreshSessionCard();
 }
 
@@ -2737,17 +3043,13 @@ async function pickExercise(el) {
     // (which stays open underneath) instead of starting a workout set.
     if (forTpl) {
         if (editingTemplate && !editingTemplate.exercises.some(e => e.name === name)) {
-            editingTemplate.exercises.push({ name, round: editingTemplate.circuit ? (_builderTargetRound || 1) : 1 });
+            editingTemplate.exercises.push({ name });
             await renderTemplateEditor();
         }
         haptic(8);
         return;
     }
     if (!activeSession) { showScreen('workout'); await startWorkoutSession(); }
-    // Rounds mode (behavior E): a picked exercise auto-joins the current round
-    // so it shows as "Tap to log" in the Round card immediately, before the
-    // quick-add sheet is even confirmed.
-    if (activeSession?.roundsMode) { ensureInCurrentRound(name); await refreshSessionCard(); }
     await openQuickAdd({ dataset: { exercise: name } });
 }
 
@@ -3259,8 +3561,6 @@ function initActionDispatcher() {
         exportJSON, handleManualEntry, logoutFromSettings, nativeShare,
         newCustomExercise, newTemplate, openPlate, openSettings,
         addExerciseToTemplate, removeTemplateExercise,
-        // v10.9: template-builder rounds (behavior E).
-        toggleTemplateCircuit, templateAddToRound, templateNewRound,
         restoreFromNAS, saveCustomExercise, saveProfile, saveTemplate,
         sharePR, savePRImage, syncToNAS, testConnection, testVoice, toggleListening,
         wipeFromSettings,
@@ -3332,9 +3632,6 @@ function initActionDispatcher() {
         submitCommunity, editCommunity, closeCommunityEdit, saveCommunityEdit,
         // v9.49: Home Activity card — month navigation.
         activityPrevMonth, activityNextMonth, openHistoryDate,
-        // v10.9: Active-workout rounds (behavior E) — mode is prefs-only now,
-        // so no in-workout Straight/Rounds toggle handlers.
-        awNextRound, awToggleCircuit, awToggleRound,
         // v9.50: workout reminder sheet — start (→ Workout) or dismiss.
         startReminderWorkout, dismissWorkoutReminder,
         // v9.50: History editing — delete a whole exercise from a day.
@@ -4354,7 +4651,6 @@ function renderProfileScreen() {
     setSegmentedActive($('theme-segment'), b => b.dataset.val === theme);
     setSegmentedActive($('workout-mode-segment'), b => b.dataset.val === (workoutMode ? 'on' : 'off'));
     setSegmentedActive($('units-segment'), b => b.dataset.val === displayUnit);
-    setSegmentedActive($('logstyle-segment'), b => b.dataset.val === roundsDefault);
     populateVoicePicker();
     if ($('voice-rate')) {
         $('voice-rate').value = voiceRate;
@@ -4620,17 +4916,11 @@ async function renderTemplatesList() {
     });
 }
 
-// The round each exercise is added to (behavior E). The picker's next pick
-// lands in this round when the builder is in circuit mode.
-let _builderTargetRound = 1;
-
 function newTemplate() {
-    editingTemplate = { id: Date.now(), name: '', exercises: [], circuit: false };
-    _builderTargetRound = 1;
+    editingTemplate = { id: Date.now(), name: '', exercises: [] };
     if ($('tpl-title')) $('tpl-title').textContent = 'New template';
     $('tpl-name').value = '';
     $('tpl-delete-wrap').style.display = 'none';
-    updateTemplateBuilderMode();
     renderTemplateEditor();
     $('tpl-overlay').classList.add('active');
     setTimeout(() => $('tpl-name').focus(), 350);
@@ -4638,47 +4928,14 @@ function newTemplate() {
 
 function editTemplate(t) {
     editingTemplate = JSON.parse(JSON.stringify(t));
-    editingTemplate.circuit = !!t.circuit;
-    // Rehydrate each exercise's round from the parallel rounds[] array.
-    (editingTemplate.exercises || []).forEach((e, i) => {
-        e.round = (t.rounds && t.rounds[i]) || e.round || 1;
-    });
-    _builderTargetRound = Math.max(1, ...(editingTemplate.exercises || []).map(e => e.round || 1));
     if ($('tpl-title')) $('tpl-title').textContent = 'Edit template';
     $('tpl-name').value = t.name;
     $('tpl-delete-wrap').style.display = '';
-    updateTemplateBuilderMode();
     renderTemplateEditor();
     $('tpl-overlay').classList.add('active');
 }
 
-// Reflect circuit on/off across the toggle knob and which add-buttons show.
-function updateTemplateBuilderMode() {
-    const on = !!editingTemplate?.circuit;
-    const toggle = $('tpl-circuit-toggle');
-    if (toggle) { toggle.classList.toggle('is-on', on); toggle.setAttribute('aria-checked', on ? 'true' : 'false'); }
-    const addBtn = $('tpl-add-ex-btn');
-    const newRoundBtn = $('tpl-new-round-btn');
-    if (addBtn) addBtn.style.display = on ? 'none' : '';
-    if (newRoundBtn) newRoundBtn.style.display = on ? '' : 'none';
-}
-
-function toggleTemplateCircuit() {
-    if (!editingTemplate) return;
-    editingTemplate.circuit = !editingTemplate.circuit;
-    if (!editingTemplate.circuit) {
-        // Turning rounds off flattens everyone back to round 1.
-        (editingTemplate.exercises || []).forEach(e => { e.round = 1; });
-        _builderTargetRound = 1;
-    }
-    updateTemplateBuilderMode();
-    renderTemplateEditor();
-    haptic(8);
-}
-
-// v10.9 — design's card model. Straight mode: a flat list of exercise rows.
-// Circuit mode: exercises grouped into "ROUND N" cards, each with "+ Add to
-// this round"; a "Start a new round" button opens a fresh group.
+// The design's card model — a flat list of exercise rows (rounds removed).
 async function renderTemplateEditor() {
     const list = $('tpl-exercises-list');
     if (!list || !editingTemplate) return;
@@ -4701,25 +4958,9 @@ async function renderTemplateEditor() {
         </div>`;
     };
 
-    if (!editingTemplate.circuit) {
-        list.innerHTML = exs.length
-            ? exs.map((ex, idx) => rowHtml(ex, idx)).join('')
-            : `<div class="tpl-empty">No exercises yet. Add a few below.</div>`;
-        return;
-    }
-
-    // Circuit mode — group by round.
-    const maxRound = Math.max(1, _builderTargetRound, ...exs.map(e => e.round || 1));
-    let html = '';
-    for (let r = 1; r <= maxRound; r++) {
-        const inRound = exs.map((ex, idx) => ({ ex, idx })).filter(x => (x.ex.round || 1) === r);
-        html += `<div class="tpl-round-card">
-            <div class="tpl-round-head">Round ${r}</div>
-            ${inRound.length ? inRound.map(x => rowHtml(x.ex, x.idx)).join('') : `<div class="tpl-round-empty">No exercises in this round yet.</div>`}
-            <button type="button" class="tpl-round-add" data-action="templateAddToRound" data-round="${r}">+ Add to this round</button>
-        </div>`;
-    }
-    list.innerHTML = html;
+    list.innerHTML = exs.length
+        ? exs.map((ex, idx) => rowHtml(ex, idx)).join('')
+        : `<div class="tpl-empty">No exercises yet. Add a few below.</div>`;
 }
 
 function removeTemplateExercise(el) {
@@ -4736,20 +4977,6 @@ function removeTemplateExercise(el) {
 let _exPickerForTemplate = false;
 function addExerciseToTemplate() {
     _exPickerForTemplate = true;
-    _builderTargetRound = 1;
-    openExPicker();
-}
-// Circuit builder: "+ Add to this round" and "Start a new round".
-function templateAddToRound(el) {
-    _exPickerForTemplate = true;
-    _builderTargetRound = Number(el?.dataset.round) || 1;
-    openExPicker();
-}
-function templateNewRound() {
-    if (!editingTemplate) return;
-    const maxRound = Math.max(1, ...(editingTemplate.exercises || []).map(e => e.round || 1));
-    _exPickerForTemplate = true;
-    _builderTargetRound = maxRound + 1;
     openExPicker();
 }
 
@@ -4765,9 +4992,6 @@ async function saveTemplate() {
     if (!name) { $('tpl-name').focus(); haptic([20,50,20]); return; }
     if (!editingTemplate.exercises.length) { haptic([20,50,20]); return; }
     editingTemplate.name = name;
-    editingTemplate.circuit = !!editingTemplate.circuit;
-    // Persist the round layout as a parallel rounds[] array (behavior E).
-    editingTemplate.rounds = editingTemplate.exercises.map(e => (editingTemplate.circuit ? (e.round || 1) : 1));
     editingTemplate.modifiedAt = Date.now();
     await performDB('templates', 'put', editingTemplate);
     markUnsynced();   // v8
@@ -6600,13 +6824,6 @@ async function startWorkoutSession({ silent = false } = {}) {
         endedAt: null,
         durationMs: 0,
         modifiedAt: id,
-        // v10.8 — Rounds mode (behavior E). Default comes from the profile
-        // preference; templates flagged circuit start in rounds (set by the
-        // caller after startWorkoutSession returns). circuit = exercise names
-        // in the current circuit; expanded rounds are in-memory only.
-        roundsMode: _prefs.roundsDefault === 'rounds',
-        currentRound: 1,
-        circuit: [],
     };
     localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession));
     await performDB('sessions', 'put', activeSession);
@@ -6709,7 +6926,6 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     // workout doesn't inherit the last recommendation's chips.
     clearSuggestedQueue();
     _collapsedExercises.clear();
-    _expandedRounds = {};
     if (wasRecommended) incrementRecBumpCount();
     await refreshSessionCard();
     updateWorkoutTabUI();
@@ -6862,42 +7078,10 @@ function renderSessionCardTime() {
     if (el) el.textContent = formatElapsed(Date.now() - activeSession.startedAt);
 }
 
-// v10.8 — Rounds mode (behavior E). Circuit membership + current round live
-// on activeSession (persisted with it); expanded completed-round state is
-// in-memory only, cleared on session end.
-let _expandedRounds = {};
 function persistActiveSession() {
     if (activeSession) {
         try { localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession)); } catch (_) {}
     }
-}
-// Rounds mode is fixed at session start from _prefs.roundsDefault (or a
-// circuit template) — there is no in-workout Straight/Rounds toggle anymore
-// (behavior E). "Next round" advances the circuit; removing an exercise from
-// the round drops it out of the circuit membership.
-async function awNextRound() {
-    if (!activeSession) return;
-    activeSession.currentRound = (activeSession.currentRound || 1) + 1;
-    persistActiveSession();
-    showSnackbar(`Round ${activeSession.currentRound}`, { duration: 2000 });
-    await refreshSessionCard();
-}
-async function awToggleCircuit(el) {
-    if (!activeSession) return;
-    const name = el?.dataset?.exercise;
-    if (!name) return;
-    if (!Array.isArray(activeSession.circuit)) activeSession.circuit = [];
-    const i = activeSession.circuit.findIndex(c => c.name === name);
-    if (i >= 0) activeSession.circuit.splice(i, 1);
-    else activeSession.circuit.push({ name, round: activeSession.currentRound || 1 });
-    persistActiveSession();
-    await refreshSessionCard();
-}
-async function awToggleRound(el) {
-    const r = parseInt(el?.dataset?.round, 10);
-    if (!r) return;
-    if (_expandedRounds[r]) delete _expandedRounds[r]; else _expandedRounds[r] = true;
-    await refreshSessionCard();
 }
 
 async function refreshSessionCard() {
@@ -7082,12 +7266,7 @@ async function renderSessionSets(container, sets) {
     // v9.51 — "planned" exercises (from a template / recommendation) render as
     // ready-to-log empty cards so a template workout pre-loads every lift.
     const planned = readSuggestedQueue() || [];
-    // Rounds mode (behavior E): the "Round N" card takes the place of the empty
-    // state, so it shows even before the first set is logged. Empty text is
-    // straight-mode only — the two are mutually exclusive.
-    const roundsActive = !!activeSession?.roundsMode;
-    const circuitMembers = roundsActive && Array.isArray(activeSession?.circuit) ? activeSession.circuit : [];
-    if (!sets.length && !planned.length && !(roundsActive && circuitMembers.length)) {
+    if (!sets.length && !planned.length) {
         container.style.display = '';
         container.innerHTML = `
             <div class="aw-empty">
@@ -7105,69 +7284,14 @@ async function renderSessionSets(container, sets) {
         if (!groups.has(set.exercise)) groups.set(set.exercise, []);
         groups.get(set.exercise).push(set);
     }
-    // Rotation-aware ordering (kept) — the exercise last touched drops to the
-    // bottom so the next-up in a circuit stays on top.
+    // Rotation-aware ordering — the exercise last touched drops to the bottom
+    // so the next-up in a rotation/superset stays on top.
     const sortedGroups = [...groups.entries()]
         .map(([exercise, exSets]) => ({ exercise, exSets, lastId: Math.max(...exSets.map(s => s.id)) }))
         .sort((a, b) => a.lastId - b.lastId);
 
-    // v10.9 — Rounds mode (behavior E). When on, exercises are grouped into
-    // numbered rounds by their `roundAdded` (membership on activeSession.circuit
-    // as [{name, round}]), pulled out of the normal card list into a "Round N"
-    // card, with completed rounds as expandable summaries below. There is no
-    // in-workout toggle and no "+ Round" button — every added exercise
-    // auto-joins the current round.
-    const roundsOn = !!activeSession?.roundsMode;
-    const currentRound = activeSession?.currentRound || 1;
-    const circuit = roundsOn && Array.isArray(activeSession?.circuit) ? activeSession.circuit : [];
-    const circuitNames = new Set(circuit.map(c => c.name));
-    const muscleOfName = (name) => {
-        const lib = exerciseLibrary.find(ex => ex.name === name);
-        return lib?.muscle || muscleOf(name) || 'core';
-    };
-    const setsOf = (name) => (groups.get(name) || []).filter(s => !s.warmup).sort((a, b) => a.id - b.id);
-
     const prs = await performDB('prs', 'getAll');
     const prMap = Object.fromEntries(prs.map(p => [p.exercise, p.achievedAt]));
-
-    // Round N card + completed rounds (only in rounds mode). Grouping is by the
-    // round each exercise was *added* to, not per-set.
-    let roundCardHtml = '';
-    if (roundsOn) {
-        const curMembers = circuit.filter(c => (c.round || 1) === currentRound);
-        let rowsHtml = '';
-        let loggedThisRound = 0;
-        for (const c of curMembers) {
-            const setsThis = setsOf(c.name);
-            const last = setsThis[setsThis.length - 1];
-            if (last) loggedThisRound++;
-            const mBg = escapeHtml(muscleColor[muscleOfName(c.name)] || '#888');
-            const val = last ? `${escapeHtml(fmtW(last.weight))} × ${escapeHtml(String(last.reps))}` : 'Tap to log';
-            rowsHtml += `
-                <div class="aw-round-row">
-                    <span class="aw-round-dot" style="background:${mBg}"></span>
-                    <button type="button" class="aw-round-log" data-action="openQuickAdd" data-exercise="${escapeHtml(c.name)}">
-                        <span class="aw-round-name">${escapeHtml(titleCase(c.name))}</span>
-                        <span class="aw-round-val tnum${last ? '' : ' is-empty'}">${val}</span>
-                    </button>
-                    <button type="button" class="aw-round-remove" data-action="awToggleCircuit" data-exercise="${escapeHtml(c.name)}" aria-label="Remove from round">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-                    </button>
-                </div>`;
-        }
-        const progress = curMembers.length ? `${loggedThisRound} / ${curMembers.length} logged` : '';
-        const body = curMembers.length
-            ? rowsHtml + `<button type="button" class="aw-next-round" data-action="awNextRound">Next round<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`
-            : `<div class="aw-round-empty">No exercises in this round yet. Tap <strong>Add exercise</strong> below — it drops straight into this round.</div>`;
-        roundCardHtml = `
-            <div class="aw-round-card">
-                <div class="aw-round-head">
-                    <span class="aw-round-title">Round ${currentRound}</span>
-                    <span class="aw-round-progress tnum">${escapeHtml(progress)}</span>
-                </div>
-                ${body}
-            </div>`;
-    }
 
     // Planned exercises not yet logged → last-set + max for their prefill cards.
     const plannedPending = planned.filter(q => q && q.name && !groups.has(q.name));
@@ -7185,10 +7309,8 @@ async function renderSessionSets(container, sets) {
         }
     }
 
-    let html = roundCardHtml;
-    // In rounds mode, circuit exercises live in the Round card, not the list.
-    const listGroups = roundsOn ? sortedGroups.filter(g => !circuitNames.has(g.exercise)) : sortedGroups;
-    for (const { exercise, exSets } of listGroups) {
+    let html = '';
+    for (const { exercise, exSets } of sortedGroups) {
         const lib = exerciseLibrary.find(ex => ex.name === exercise);
         const muscle = lib?.muscle || muscleOf(exercise) || 'core';
         const muscleBg = escapeHtml(muscleColor[muscle] || '#888');
@@ -7262,31 +7384,6 @@ async function renderSessionSets(container, sets) {
             </div>`;
     }
 
-    // v10.9 — completed rounds (rounds mode): expandable summary per past round,
-    // grouped by each exercise's roundAdded (membership on activeSession.circuit).
-    if (roundsOn && currentRound > 1) {
-        for (let r = 1; r < currentRound; r++) {
-            const rows = circuit.filter(c => (c.round || 1) === r).map(c => {
-                const st = setsOf(c.name);
-                if (!st.length) return null;
-                const mBg = escapeHtml(muscleColor[muscleOfName(c.name)] || '#888');
-                const val = st.map(x => `${fmtW(x.weight)}×${x.reps}`).join(', ');
-                return `<div class="aw-cround-row"><span class="aw-cround-dot" style="background:${mBg}"></span><span class="aw-cround-name">${escapeHtml(titleCase(c.name))}</span><span class="aw-cround-val tnum">${escapeHtml(val)}</span></div>`;
-            }).filter(Boolean);
-            if (!rows.length) continue;
-            const exp = !!_expandedRounds[r];
-            html += `
-                <div class="aw-cround">
-                    <button type="button" class="aw-cround-head" data-action="awToggleRound" data-round="${r}">
-                        <span class="aw-cround-title">Round ${r}</span>
-                        <span class="aw-cround-summary">${rows.length} ${rows.length === 1 ? 'exercise' : 'exercises'}</span>
-                        <svg class="aw-cround-chev${exp ? ' is-open' : ''}" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                    </button>
-                    ${exp ? rows.join('') : ''}
-                </div>`;
-        }
-    }
-
     // "+ Add exercise" lives in the fixed bottom bar now (v9.51), not in-list.
     container.innerHTML = html;
 }
@@ -7318,13 +7415,6 @@ async function resumeOrPromptSession() {
     let stored;
     try { stored = JSON.parse(raw); } catch (_) { localStorage.removeItem(ACTIVE_SESSION_KEY); return; }
     if (!stored?.id) { localStorage.removeItem(ACTIVE_SESSION_KEY); return; }
-    // v10.9 — migrate a pre-refactor circuit (array of exercise-name strings)
-    // to the new [{ name, round }] membership shape so a session in progress
-    // across the upgrade keeps rendering.
-    if (Array.isArray(stored.circuit) && stored.circuit.some(c => typeof c === 'string')) {
-        stored.circuit = stored.circuit.map(c => typeof c === 'string'
-            ? { name: c, round: stored.currentRound || 1 } : c);
-    }
 
     // Find this session's most recent set timestamp.
     const setsInSession = (await performDB('workouts', 'getAll'))

@@ -117,6 +117,7 @@
                             <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="shoulders">Shoulders</button>
                             <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="biceps">Biceps</button>
                             <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="triceps">Triceps</button>
+                            <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="forearm">Forearm</button>
                             <button type="button" class="muscle-pill" role="tab" aria-selected="false" data-val="core">Core</button>
                         </div>
                     </div>
@@ -142,19 +143,9 @@
             <div class="tpl-body scr">
                 <div class="section-label">Template name</div>
                 <input type="text" id="tpl-name" class="tpl-name-input" placeholder="e.g. Upper Body A" enterkeyhint="done" autocomplete="off" aria-label="Template name">
-                <!-- Circuit / rounds toggle (behavior E): when on, exercises are
-                     grouped into rounds and the template starts in rounds mode. -->
-                <div class="tpl-circuit-row">
-                    <span class="tpl-circuit-text">
-                        <span class="tpl-circuit-title">Circuit / rounds</span>
-                        <span class="tpl-circuit-sub">Start this template in rounds mode</span>
-                    </span>
-                    <button type="button" class="tpl-toggle" id="tpl-circuit-toggle" role="switch" aria-checked="false" data-action="toggleTemplateCircuit" aria-label="Circuit / rounds"><span class="tpl-toggle-knob"></span></button>
-                </div>
                 <div class="section-label" style="margin-top:20px">Exercises</div>
                 <div id="tpl-exercises-list"></div>
                 <button type="button" class="tpl-add-ex" id="tpl-add-ex-btn" data-action="addExerciseToTemplate">+ Add exercise</button>
-                <button type="button" class="tpl-new-round" id="tpl-new-round-btn" data-action="templateNewRound" style="display:none"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Start a new round</button>
                 <div id="tpl-delete-wrap" style="display:none;margin-top:18px">
                     <button type="button" class="he-delete" data-action="deleteTemplate">Delete template</button>
                 </div>
@@ -859,10 +850,6 @@
                 <div class="aw-total-cell"><div class="aw-total-label">Sets</div><div class="aw-total-value tnum" id="session-card-sets">0</div></div>
             </div>
 
-            <!-- Rounds mode is set in Profile → Preferences (behavior E); there
-                 is no in-workout toggle. When on, the "Round N" card is injected
-                 into #session-sets by renderSessionSets. -->
-
             <!-- RESTING pill — shown only while a rest countdown is active
                  (.active toggled by startRestTimer). IDs preserved so the
                  timer functions keep working. -->
@@ -1036,19 +1023,6 @@
                     <div class="section-foot">Applies to every weight and volume shown across the app. Data stays stored in pounds.</div>
                 </div>
 
-                <div class="settings-section" data-ppanel="preferences">
-                    <div class="section-label">Set style</div>
-                    <div class="grouped-list">
-                        <div class="row-segmented">
-                            <span id="logstyle-segment-label">Default logging style</span>
-                            <div class="segmented" id="logstyle-segment" role="tablist" aria-labelledby="logstyle-segment-label">
-                                <button role="tab" aria-selected="false" data-val="straight">Straight sets</button>
-                                <button role="tab" aria-selected="false" data-val="rounds">Rounds</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="section-foot">Rounds groups exercises into a circuit — log one set of each, then tap Next round. Applies to every new workout.</div>
-                </div>
 
                 <div class="settings-section" data-ppanel="preferences">
                     <div class="section-label">Rest timer</div>

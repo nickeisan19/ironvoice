@@ -46,6 +46,7 @@
   --m-calves: #009688;
   --m-biceps: #9c27b0;
   --m-triceps: #ba68c8;
+  --m-forearm: #b07d4e;
 
   --pr-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
   --gold-grad: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%);
@@ -711,49 +712,6 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; touch-
   color: var(--acc); font-size: 14.5px; font-weight: 700; cursor: pointer; margin-top: 4px;
   -webkit-tap-highlight-color: transparent;
 }
-/* Circuit / rounds toggle + round grouping in the template builder (E). */
-.tpl-circuit-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 16px; border: 1px solid var(--hairline-strong);
-  border-radius: 12px; margin-top: 20px;
-}
-.tpl-circuit-text { flex: 1; }
-.tpl-circuit-title { display: block; font-size: 15px; font-weight: 600; color: var(--label); }
-.tpl-circuit-sub { display: block; font-size: 12.5px; color: var(--label-secondary); margin-top: 2px; }
-.tpl-toggle {
-  width: 52px; height: 31px; border-radius: 100px; border: none; cursor: pointer;
-  background: var(--surface-4); position: relative; flex: 0 0 auto;
-  transition: background 0.2s ease; -webkit-tap-highlight-color: transparent;
-}
-.tpl-toggle.is-on { background: var(--acc); }
-.tpl-toggle-knob {
-  position: absolute; top: 3px; left: 3px; width: 25px; height: 25px;
-  border-radius: 50%; background: #fff; transition: left 0.2s ease;
-}
-.tpl-toggle.is-on .tpl-toggle-knob { left: 24px; }
-.tpl-round-card {
-  border: 1px solid var(--acc); border-radius: 14px; overflow: hidden;
-  margin-bottom: 12px; background: rgba(255, 193, 7, 0.04);
-}
-.tpl-round-head {
-  padding: 11px 14px; background: rgba(255, 193, 7, 0.10);
-  font-size: 11.5px; font-weight: 800; letter-spacing: 0.09em;
-  text-transform: uppercase; color: var(--acc);
-}
-.tpl-round-card .tpl-ex-card { border: none; border-top: 1px solid var(--hairline); border-radius: 0; margin: 0; }
-.tpl-round-empty { padding: 14px; font-size: 13px; color: var(--label-tertiary); border-top: 1px solid var(--hairline); }
-.tpl-round-add {
-  width: 100%; padding: 12px 14px; border: none; border-top: 1px solid var(--hairline);
-  background: none; color: var(--acc); font-size: 14px; font-weight: 700;
-  cursor: pointer; text-align: center; -webkit-tap-highlight-color: transparent;
-}
-.tpl-new-round {
-  width: 100%; padding: 13px; border-radius: 12px; background: transparent;
-  border: 1px dashed var(--acc); color: var(--acc); font-size: 14.5px; font-weight: 700;
-  cursor: pointer; margin-top: 4px; display: flex; align-items: center;
-  justify-content: center; gap: 8px; -webkit-tap-highlight-color: transparent;
-}
-
 .tpl-footer {
   flex: 0 0 auto;
   padding: 12px 22px calc(28px + env(safe-area-inset-bottom));
@@ -2864,77 +2822,6 @@ body:not(.session-running) .aw-active-only { display: none !important; }
 }
 .aw-total-value { font-size: 19px; font-weight: 800; color: var(--label); margin-top: 2px; }
 
-
-/* Rounds mode — the active "Round N" card (index.dc.html exact). */
-.aw-round-card {
-  border: 1px solid var(--acc); border-radius: 16px; overflow: hidden;
-  margin-bottom: 12px; background: rgba(255, 193, 7, 0.05);
-}
-.aw-round-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 13px 16px; background: rgba(255, 193, 7, 0.10);
-}
-.aw-round-title {
-  font-size: 12px; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--acc);
-}
-.aw-round-progress { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--label-secondary); }
-.aw-round-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px; border-top: 1px solid var(--hairline);
-}
-.aw-round-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
-.aw-round-log {
-  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
-  background: none; border: none; cursor: pointer; text-align: left; padding: 0;
-}
-.aw-round-name {
-  flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--label);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.aw-round-val { font-size: 16px; font-weight: 800; color: var(--label); }
-.aw-round-val.is-empty { color: var(--label-tertiary); }
-.aw-round-remove {
-  width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto;
-  background: var(--surface-3); border: 1px solid var(--hairline);
-  color: var(--label-tertiary); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.aw-next-round {
-  width: 100%; padding: 14px 16px; border: none; border-top: 1px solid var(--hairline);
-  background: none; color: var(--acc); font-size: 15px; font-weight: 800; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.aw-round-empty {
-  padding: 16px; font-size: 13.5px; color: var(--label-secondary);
-  line-height: 1.45; border-top: 1px solid var(--hairline);
-}
-.aw-round-empty strong { color: var(--acc); font-weight: 700; }
-
-
-/* Completed rounds — expandable summaries. */
-.aw-cround { border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
-.aw-cround-head {
-  width: 100%; display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px; background: var(--surface-1); border: none; cursor: pointer; text-align: left;
-}
-.aw-cround-title {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--label-tertiary);
-}
-.aw-cround-summary { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--label-tertiary); }
-.aw-cround-chev { flex: 0 0 auto; transition: transform 0.2s ease; transform: rotate(-90deg); color: var(--label-tertiary); }
-.aw-cround-chev.is-open { transform: rotate(0deg); }
-.aw-cround-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 11px 16px; border-top: 1px solid var(--hairline);
-}
-.aw-cround-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
-.aw-cround-name {
-  flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--label-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.aw-cround-val { font-size: 14px; font-weight: 700; color: var(--label); }
 
 /* RESTING pill — green, shown only while a rest countdown is active. */
 #rest-timer.aw-rest {

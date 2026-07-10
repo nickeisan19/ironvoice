@@ -240,6 +240,49 @@ The full spec lives in `brand.md`. Key rules Claude must follow:
 These have been discussed in past sessions and have a definitive answer.
 If a request would change one of these, push back and ask explicitly.
 
+> **⚠️ Exercise-catalog expansion + Rounds removal + Forearm (2026-07-10).
+> READ THIS FIRST — supersedes the v10.8 rounds note below.** Implemented
+> from the `design_handoff_ironvoice_updates` handoff (Downloads bundle).
+> Three changes:
+>
+> - **Rounds / circuit mode removed end-to-end.** Deleted across `app.js`,
+>   `index.html`, `style.css`: the Profile "Set style" (Straight sets /
+>   Rounds) control, the Active-workout "Round N" card + completed-round
+>   summaries, the template-builder "Circuit / rounds" toggle + per-round
+>   grouping, and all state/handlers (`roundsMode`, `currentRound`,
+>   `circuit[]`, `roundsDefault`, `_expandedRounds`, `_builderTargetRound`,
+>   `ensureInCurrentRound`, `circuitRoundOf`, `awNextRound`, `awToggleCircuit`,
+>   `awToggleRound`, `toggleTemplateCircuit`, `templateAddToRound`,
+>   `templateNewRound`, `updateTemplateBuilderMode`). `buildEntry` no longer
+>   stamps a `round` field; templates carry no `circuit`/`rounds` metadata.
+>   Workouts are **straight-sets only**. Don't reintroduce it.
+> - **New `forearm` muscle group** (11-muscle taxonomy now: chest, back,
+>   shoulders, biceps, triceps, quads, hamstrings, glutes, calves, **forearm**,
+>   core). Wired via `MUSCLES` at [app.js](app.js) (so `canonMuscle` /
+>   `zeroMuscleCounts` inherit it), `muscleColor.forearm`, the
+>   `--m-forearm: #b07d4e` token in the theme-independent `:root` block of
+>   [style.css](style.css), and a **Forearm** pill added to all three muscle
+>   pickers in [index.html](index.html) (custom editor + community add + community
+>   edit). `LOWER_MUSCLES` correctly excludes it.
+> - **`exerciseLibrary` expanded ~23 → 459.** Built from the handoff's 414-entry
+>   `CATALOG` (names lowercased to the app's canonical convention, `syn` →
+>   `synonyms`) **merged** with the old library so **no existing voice synonym or
+>   history/PR muscle-tag regressed**: exact-name matches union the old curated
+>   synonyms; 7 hyphen/spacing twins (`push up`→`push-up`, etc.) fold in as
+>   synonyms of the new entry (no duplicate row); 45 old-only names (`bicep
+>   curl`, `dip`, `preacher curl`, `chest fly`, …) are kept as standalone entries
+>   so Nick's existing data keeps resolving. `muscleOf` matches by **exact name
+>   only** — that constraint drove the merge strategy. There may be minor
+>   *conceptual* overlap among the 45 kept old-names and their new-dataset
+>   equivalents (e.g. `bicep curl` vs `dumbbell curl`); frequency-ranked search
+>   surfaces what Nick actually uses. Curate later if it bothers you; don't just
+>   bulk-delete the old names (that's what fragments history).
+>
+> **Not yet done from this handoff** (scoped out — the "three steps" were
+> rounds/forearm/catalog): Change 2 persistent tab-bar-during-workout, Change 3
+> community auto-merge+persistence, Change 5b standalone Exercise Library screen.
+> The `--m-legs`/`--m-arms` legacy tokens stay for un-migrated data.
+
 > **⚠️ v10.8 — Design Update v2 (2026-07-07). READ THIS FIRST — supersedes
 > the v10.7 Home note below.** Nick uploaded a new handoff (root
 > `index.dc.html` / `index.standalone.html` / `screenshots/`) and asked to
@@ -260,20 +303,11 @@ If a request would change one of these, push back and ask explicitly.
 >   disabled at the current month). This is the explicit request that the
 >   v10.7 "don't reintroduce the lifetime card / calendar" note warned
 >   against — it's now the contract. Don't swap back to the ring/trio.
-> - **Rounds / circuit mode on Active Workout (behavior E).** A
->   `Straight sets` / `Rounds` gold segmented control (`.aw-mode-seg`) sits
->   below the ELAPSED/VOLUME/SETS totals. `activeSession` carries
->   `roundsMode` / `currentRound` / `circuit[]` (persisted in
->   `ironActiveSession`); default mode from `_prefs.roundsDefault`
->   (`'straight'`|`'rounds'`). In rounds mode, circuit-flagged exercises pull
->   out of the normal card list into a gold "Round N" card (circuit rows +
->   "Next round"), each remaining card gets a `+ Round` button
->   (`awToggleCircuit`), and past rounds render as expandable
->   `.aw-cround` summaries (`_expandedRounds`, in-memory, cleared on end).
->   Sets logged for a circuit exercise while in rounds mode carry a `round`
->   field (stamped in `buildEntry`). Handlers: `setStraightSetsMode`,
->   `setRoundsModeOn`, `awNextRound`, `awToggleCircuit`, `awToggleRound`.
->   Straight sets is unchanged from before — rounds is fully opt-in.
+> - **Rounds / circuit mode was REMOVED (see the newer update note at the top
+>   of this section).** The `Straight sets` / `Rounds` control, the "Round N"
+>   card, the template circuit toggle, and all their state/handlers are gone.
+>   Workouts are straight-sets only. Don't reintroduce rounds without an
+>   explicit request.
 > - **Active-workout VOLUME shows the full comma number** (`4,090`), not the
 >   abbreviated `4.1k` (that abbreviation stays on the Home tiles only).
 > - Reminder sheet (behavior A) and auto-named workouts (behavior B) were
@@ -299,12 +333,13 @@ If a request would change one of these, push back and ask explicitly.
 >   12px top padding, 28px radius, 38px grabber, **2px backdrop blur**, and a
 >   circular ✕ close (`.sheet-close-x`) on single-close sheets. Screen gutter
 >   is **22px**.
-> - **10-muscle taxonomy** (`MUSCLES` = chest, back, quads, hamstrings, glutes,
->   calves, shoulders, biceps, triceps, core). `legs`/`arms` kept as legacy
->   aliases (`muscleColor` has all 12; `canonMuscle()` maps legacy → granular;
->   `zeroMuscleCounts()` / `LOWER_MUSCLES`). The built-in `exerciseLibrary` was
->   re-tagged granularly, so historical logged sets re-categorize automatically.
->   Custom-exercise + community pickers offer the 10 as pills.
+> - **Muscle taxonomy** (`MUSCLES` = chest, back, quads, hamstrings, glutes,
+>   calves, shoulders, biceps, triceps, core — **`forearm` added 2026-07-10, now
+>   11**; see the top note). `legs`/`arms` kept as legacy aliases (`canonMuscle()`
+>   maps legacy → granular; `zeroMuscleCounts()` / `LOWER_MUSCLES`). The built-in
+>   `exerciseLibrary` was re-tagged granularly, so historical logged sets
+>   re-categorize automatically. Custom-exercise + community pickers offer the
+>   muscles as pills.
 > - **Community is direct-write, no review.** The v9.42–v9.48 review queue /
 >   admin / auto-rejection are **removed**. Worker actions: `getCommunity`,
 >   `addCommunityExercise`, `editCommunityExercise` (etag-conditional writes to
@@ -2146,6 +2181,82 @@ was removed so the gold buttons now show dark text per
 Don't put buttons back inside the outer `<label>` — the label-
 forwarding bug is what drove the fix. Don't re-add `color: white`
 to `.qa-step` — gold-on-gold-text-style is the brand contract.
+
+---
+
+## Design handoff intake ("design-sync") — repeatable playbook
+
+When Nick drops a Claude-generated design handoff (a `design_handoff_*`
+folder / `Shared design system*.zip`, typically in `Downloads`) and asks
+for "the steps to update the app" or "sync this design" (or invokes a
+`/design-sync`-style command), follow this instead of re-deriving the
+process each time. This exists to save tokens and keep the approach
+consistent.
+
+**Step 0 — Read, don't assume.** Read the handoff's `README.md` first. It
+lists the discrete changes and a **Design Tokens** block. ⚠️ These handoffs
+describe the app as "React + strict-CSP PWA" — **that's wrong**. IronVoice
+is **vanilla JS, no build step, no React** (see top of this file). The
+portable artifacts are the **exercise dataset (`CATALOG`)**, the **design
+tokens/colors**, and the **screenshots**. Do **not** port the prototype's
+HTML or its `Component` runtime — reimplement in the existing `app.js` /
+`index.html` / `style.css` idiom.
+
+**Step 1 — Map the change to the four anchor areas** (stable across
+handoffs):
+- **Exercise catalog** → `const exerciseLibrary` at [app.js](app.js) top
+  (built-in defaults, shipped to every user, offline). Separate from the
+  per-user `customExercises` IndexedDB store and the shared-but-opt-in
+  `community/exercises.json` (Worker `getCommunity`).
+- **State** → `_prefs` / `persistPrefs()`, `activeSession`, `performDB()`,
+  the `localStorage` `iron*` keys (all near the top of [app.js](app.js)).
+- **Tab bar** → `<nav class="tab-bar">` in [index.html](index.html),
+  `.tab-bar` rules in [style.css](style.css).
+- **Workout screen** → `<section data-screen="workout">` in
+  [index.html](index.html); `renderSessionSets()` / `refreshSessionCard()` in
+  [app.js](app.js); full-screen `body.workout-view`.
+
+**Step 2 — Dataset changes: script it, then MERGE (never blind-replace).**
+- Extract the `CATALOG` with a throwaway **Node script** (`eval` the array
+  literal out of `index.dc.html`); never hand-copy hundreds of entries.
+- Transform: **lowercase every `name` and synonym** (the app stores lowercase
+  canonical names, title-cases at render), rename `syn` → `synonyms`, coerce
+  muscles to the `MUSCLES` enum.
+- **`muscleOf` matches by exact name only.** So merge with the current
+  `exerciseLibrary` rather than replacing: (a) exact-name matches → **union**
+  the old hand-curated synonyms (they carry gym-floor voice terms like `ohp`,
+  `rdl` the prototype lacks); (b) hyphen/spacing **twins** (`push up` ↔
+  `push-up`) → fold the old name in as a **synonym** of the new entry (no
+  duplicate row); (c) old names **absent** from the new set → keep as
+  standalone entries so history/PRs/templates keep resolving. Ask Nick only if
+  the merge policy itself is in question (he chose "preserve all, dedupe
+  twins" on 2026-07-10).
+- Verify: `node --check app.js`; re-`eval` the array and print the count +
+  per-muscle breakdown against the README's table.
+
+**Step 3 — New muscle group** (if any): add to the `MUSCLES` array (this
+alone wires `canonMuscle` / `zeroMuscleCounts`), add `muscleColor.<name>`,
+add the `--m-<name>: <hex>` token to the **theme-independent `:root` block**
+of [style.css](style.css) (the granular tints live there once, not per-theme),
+add a pill to **all three** muscle pickers in [index.html](index.html) (custom
+editor + community add + community edit), and check `LOWER_MUSCLES`
+membership.
+
+**Step 4 — Removals** (features the handoff cuts): grep the **specific
+identifiers** (not generic words — `roundsMode`/`circuit`, not `round`, which
+hits `Math.round`) across all files, remove UI markup + CSS + state +
+handlers + dispatcher registrations together, then `node --check` and grep
+again for orphaned call sites and dead `data-action` names.
+
+**Step 5 — Verify + ship.** `node --check app.js`; grep for stragglers; then
+the normal ship flow — bump `version.js` MINOR + `APP_BUILD_DATE`, add a
+`WHATS_NEW` entry if user-visible, commit per Nick's style, push (and
+`npx wrangler deploy` if `worker.js` changed).
+
+**Scope discipline:** do exactly the changes asked for. These handoffs
+often bundle 5+ changes; confirm which are in scope before starting, and
+record what was scoped **out** in the settled-decisions note so the next
+session doesn't assume it shipped.
 
 ---
 
