@@ -486,6 +486,20 @@ const exerciseLibrary = [
     { name: "v up",                                   muscle: "core", synonyms: ["v ups", "v-up", "vup"] },
     { name: "weighted plank",                         muscle: "core", synonyms: [] },
     { name: "wood chop",                              muscle: "core", synonyms: ["woodchopper", "cable woodchop", "chop"] },
+    // v11 — cardio group. Tracking type resolves to `endurance` via trackFor
+    // (muscle === 'cardio'); the three TIME_ONLY names log duration only
+    // (distanceCapable() hides the distance field for them).
+    { name: "treadmill run",                          muscle: "cardio", synonyms: ["treadmill"] },
+    { name: "outdoor run",                            muscle: "cardio", synonyms: ["run", "running"] },
+    { name: "incline treadmill walk",                 muscle: "cardio", synonyms: ["incline walk"] },
+    { name: "rowing machine",                         muscle: "cardio", synonyms: ["erg", "rower"] },
+    { name: "stationary bike",                        muscle: "cardio", synonyms: ["exercise bike", "bike"] },
+    { name: "assault bike",                           muscle: "cardio", synonyms: ["air bike"] },
+    { name: "elliptical",                             muscle: "cardio", synonyms: ["cross trainer"] },
+    { name: "stair climber",                          muscle: "cardio", synonyms: ["stairmaster"] },
+    { name: "jump rope",                              muscle: "cardio", synonyms: ["skipping"] },
+    { name: "battle ropes",                           muscle: "cardio", synonyms: ["battle rope"] },
+    { name: "swimming",                               muscle: "cardio", synonyms: ["swim"] },
 ];;
 
 const muscleColor = {
@@ -500,6 +514,7 @@ const muscleColor = {
     triceps: 'var(--m-triceps)',
     forearm: 'var(--m-forearm)',
     core: 'var(--m-core)',
+    cardio: 'var(--m-cardio)',
     // Legacy 6-muscle values kept so pre-v9.51 custom/community exercises and
     // any un-migrated data still render a color.
     legs: 'var(--m-legs)',
@@ -509,15 +524,69 @@ const muscleColor = {
 // v9.51 — expanded to the 10-muscle taxonomy (legs split into quads/
 // hamstrings/glutes/calves; arms into biceps/triceps). Drives Focus cards,
 // the recommender, the PR muscle filter, and the community muscle pills.
-const MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'forearm', 'core'];
+// v11 — cardio added (12th group). Tracking type belongs to the exercise, not
+// the muscle (see trackFor below); cardio is the one muscle that forces its
+// type (endurance). Excluded from LOWER_MUSCLES and from the strength
+// recommender's target pool — a run isn't a substitute for a leg day.
+const MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'forearm', 'core', 'cardio'];
 
 // Map the retired 6-muscle values onto a granular bucket so legacy data still
 // counts toward coverage/trend/focus instead of dropping out (NaN).
 const LEGACY_MUSCLE_MAP = { legs: 'quads', arms: 'biceps' };
 const canonMuscle = m => (MUSCLES.includes(m) ? m : (LEGACY_MUSCLE_MAP[m] || 'core'));
+// v11 — the strength recommender never prescribes cardio (a run isn't a
+// substitute for an under-trained muscle). Focus bars still show cardio.
+const STRENGTH_MUSCLES = MUSCLES.filter(m => m !== 'cardio');
 const zeroMuscleCounts = () => Object.fromEntries(MUSCLES.map(m => [m, 0]));
 
 const muscleOf = name => exerciseLibrary.find(e => e.name === name)?.muscle ?? 'core';
+
+// ---- v11 · how an exercise is logged (tracking type) ----
+// Tracking type belongs to the EXERCISE, not the muscle: a plank is a `hold`,
+// a sit-up is `reps`, a cable crunch is `load` (weight × reps) — all "core".
+// A stored `t` on the record always wins; otherwise resolve from the catalog
+// entry's `track`, then cardio→endurance, then name patterns, else `load`.
+// Records logged before v11 have no `t` and default to `load`, so all existing
+// data behaves exactly as before.
+const TRACK_HOLD = /plank|dead ?hang|wall sit|l-?sit|hollow hold|superman|isometric|farmer|carry/i;
+const TRACK_FORCE_LOAD = /cable|machine|barbell|dumbbell|smith|landmine|kettlebell|plate|ez.?bar|trap ?bar|goblet|sled|hack/i;
+const TRACK_REPS = /push-?up|pull-?up|chin-?up|\bdip\b|sit-?up|crunch|leg raise|knee raise|mountain climber|burpee|inverted row|pistol squat|nordic|back extension|hyperextension|air squat|jumping jack|muscle-?up|toes to bar|hanging|bodyweight|pike|handstand/i;
+// Some cardio has no distance to speak of — a jump-rope set is a duration, full stop.
+const TIME_ONLY = /jump rope|battle rope|stair climber|stairmaster|jumping jack|shadow box/i;
+
+function trackFor(name, muscle) {
+    const n = String(name || '');
+    const entry = exerciseLibrary.find(x => x.name === n);
+    if (entry && entry.track) return entry.track;
+    let m = muscle;
+    if (!m) m = entry ? entry.muscle : null;
+    if (m === 'cardio') return 'endurance';
+    if (TRACK_HOLD.test(n)) return 'hold';
+    if (TRACK_FORCE_LOAD.test(n)) return 'load';
+    if (TRACK_REPS.test(n)) return 'reps';
+    return 'load';
+}
+// reps and hold accept an optional added-weight field; load always has weight.
+const allowsLoad = track => track === 'reps' || track === 'hold';
+const distanceCapable = name => !TIME_ONLY.test(String(name || ''));
+
+// The tracking type of a stored set record (falsy `t` === legacy load).
+const trackOf = s => (s && s.t) || 'load';
+const isLoadSet = s => trackOf(s) === 'load';
+// Only `load` sets contribute lb volume. Hold/endurance/reps contribute time or
+// count, never pounds — faking pounds for cardio corrupts the headline metric
+// the whole app is built on. Guards NaN when weight/reps are absent.
+const setVolume = s => (isLoadSet(s) ? (Number(s.weight) || 0) * (Number(s.reps) || 0) : 0);
+
+// seconds → m:ss (or h:mm:ss past an hour). Distinct from formatElapsed
+// (h:mm:ss live clock) — this is the compact duration shown in typed pills.
+function fmtDur(sec) {
+    const t = Math.max(0, Math.round(sec || 0));
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), ss = t % 60;
+    if (h) return h + ':' + String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+    return m + ':' + String(ss).padStart(2, '0');
+}
+const distDisp = d => (Math.round((d || 0) * 100) / 100) + '';
 
 // Sort longest-first so "incline press" wins over "incline".
 // Mutated (not reassigned) by rebuildMatchOrder() when custom exercises load.
@@ -1789,12 +1858,18 @@ async function handleManualEntry() {
     haptic(15);
 }
 
-function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
+function buildEntry(exercise, weight, reps, { warmup = false, t, sec, dist, du } = {}) {
     const id = Date.now();
-    return {
+    // v11 — tracking type. `t` is only stamped when non-load, so every existing
+    // load write stays byte-identical (absent t === load). sec/dist/du are only
+    // carried for the types that use them. oneRM is meaningless off the bar for
+    // reps/hold/endurance, so it's 0 there.
+    const track = t || 'load';
+    const w = Number(weight) || 0, r = Number(reps) || 0;
+    const entry = {
         id,
-        exercise, weight, reps,
-        oneRM: epley(weight, reps),
+        exercise, weight: w, reps: r,
+        oneRM: track === 'load' ? epley(w, r) : 0,
         date: todayISO(),
         modifiedAt: id,
         // v6: tag this set with the active session if any. Untagged sets
@@ -1811,6 +1886,13 @@ function buildEntry(exercise, weight, reps, { warmup = false } = {}) {
         // means existing data behaves exactly as before.
         warmup: !!warmup,
     };
+    // v11 — stamp typed fields only when the set isn't plain load, so load
+    // records are unchanged from pre-v11.
+    if (track !== 'load') entry.t = track;
+    if (sec != null) entry.sec = Number(sec) || 0;
+    if (dist != null) entry.dist = Number(dist) || 0;
+    if (du) entry.du = du;
+    return entry;
 }
 
 async function saveAndSyncUI(entry) {
@@ -1834,8 +1916,12 @@ async function saveAndSyncUI(entry) {
         // v9.26 — warmups can never be PRs. They're light prep work, not
         // peak lifts; counting them would mean a 95-lb warmup overwrites
         // a real 225 record the moment the user toggles the flag.
-        const isWeightPR = !entry.warmup && (!oldPR || entry.weight > (oldPR.maxWeight ?? 0));
-        const is1RMPR    = !entry.warmup && (!oldPR || entry.oneRM  > (oldPR.max1RM    ?? 0));
+        // v11 — weight/1RM PRs are load-only. reps/hold/endurance PRs are per-type
+        // and handled by the Records screen (Phase 4); a cardio set must never
+        // write a weight PR of 0.
+        const loadType   = isLoadSet(entry);
+        const isWeightPR = loadType && !entry.warmup && (!oldPR || entry.weight > (oldPR.maxWeight ?? 0));
+        const is1RMPR    = loadType && !entry.warmup && (!oldPR || entry.oneRM  > (oldPR.max1RM    ?? 0));
         const isNewPR    = isWeightPR || is1RMPR;
         if (isNewPR) {
             const prevMaxWeight     = oldPR?.maxWeight     ?? 0;
@@ -2390,7 +2476,7 @@ async function executeIntent(intent) {
             // v9.26 — work sets only; warmups don't count toward tonnage.
             const w = await getActiveWorkSets();
             const cutoff = isoForOffset(7);
-            const total = w.filter(e => e.date >= cutoff).reduce((s, e) => s + e.weight * e.reps, 0);
+            const total = w.filter(e => e.date >= cutoff).reduce((s, e) => s + setVolume(e), 0);
             speak(total > 0 ? `${loadDisp(total)} ${unitWord()} over the last seven days.` : "No volume in the last week.");
             break;
         }
@@ -2710,7 +2796,7 @@ async function renderTodayCard() {
 
     if (activeSession) {
         const setsInSession = all.filter(w => w.sessionId === activeSession.id);
-        const vol = setsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
+        const vol = setsInSession.reduce((s, w) => s + setVolume(w), 0);
         const m = Math.max(0, Math.floor((Date.now() - activeSession.startedAt) / 60000));
         labelEl.textContent = 'In progress';
         valueEl.innerHTML = `
@@ -2723,7 +2809,7 @@ async function renderTodayCard() {
     const todayStr = todayISO();
     const todaySets = all.filter(w => w.date === todayStr);
     if (todaySets.length) {
-        const vol = todaySets.reduce((s, w) => s + w.weight * w.reps, 0);
+        const vol = todaySets.reduce((s, w) => s + setVolume(w), 0);
         const top = todaySets.slice().sort((a, b) => b.weight - a.weight)[0];
         labelEl.textContent = 'Today';
         valueEl.innerHTML = `
@@ -2772,7 +2858,7 @@ async function renderWeekCard() {
         return;
     }
 
-    const vol7 = last7.reduce((s, w) => s + w.weight * w.reps, 0);
+    const vol7 = last7.reduce((s, w) => s + setVolume(w), 0);
     const sets7 = last7.length;
     const days7 = new Set(last7.map(w => w.date)).size;
 
@@ -2782,7 +2868,7 @@ async function renderWeekCard() {
     `;
 
     if (deltaEl) {
-        const volPrev = prev7.reduce((s, w) => s + w.weight * w.reps, 0);
+        const volPrev = prev7.reduce((s, w) => s + setVolume(w), 0);
         if (volPrev > 0) {
             const pct = Math.round(((vol7 - volPrev) / volPrev) * 100);
             const sign = pct >= 0 ? '+' : '';
@@ -2828,7 +2914,7 @@ async function renderHome() {
     lastMonday.setDate(monday.getDate() - 7);
     const lastMondayIso = isoForLocalDate(lastMonday);
 
-    const volOf = (sets) => sets.reduce((s, w) => s + w.weight * w.reps, 0);
+    const volOf = (sets) => sets.reduce((s, w) => s + setVolume(w), 0);
     const u = unitLabel();
     const thisWeekSets = work.filter(w => w.date >= mondayIso);
     const lastWeekSetsArr = work.filter(w => w.date >= lastMondayIso && w.date < mondayIso);
@@ -3987,7 +4073,7 @@ async function generateRecommendedWorkout() {
     let weekdayLock = null;
     if (weekdayProfile.sessions >= 3 && wTotal > 0) {
         let bestM = null, bestShare = 0;
-        for (const m of MUSCLES) {
+        for (const m of STRENGTH_MUSCLES) {
             const share = weekdayProfile.counts[m] / wTotal;
             if (share > bestShare) { bestShare = share; bestM = m; }
         }
@@ -3996,7 +4082,7 @@ async function generateRecommendedWorkout() {
 
     // Combined per-muscle score = (1 − normalized recency) + decline trend.
     // Deterministic alpha tie-break so repeated calls don't flip-flop.
-    const scored = MUSCLES.map(m => ({
+    const scored = STRENGTH_MUSCLES.map(m => ({
         muscle: m,
         score: (1 - coverage[m] / maxCoverage) + Math.max(0, -trend[m]),
     })).sort((a, b) => b.score - a.score || a.muscle.localeCompare(b.muscle));
@@ -4456,7 +4542,7 @@ async function renderStrain() {
 
     // Volume over windows
     const w = workouts;
-    const sum = (since) => w.filter(x => x.date >= since).reduce((s, x) => s + x.weight * x.reps, 0);
+    const sum = (since) => w.filter(x => x.date >= since).reduce((s, x) => s + setVolume(x), 0);
     const last7 = sum(isoForOffset(6));
     const prev7 = sum(isoForOffset(13)) - last7;
 
@@ -4529,8 +4615,11 @@ async function deleteEntry(id, silent = false) {
 async function recomputePR(exercise) {
     // Warmups are excluded — they're tracked but never count toward the
     // record. Same rule the Worker's recomputePRs enforces server-side.
+    // v11 — the prs store holds only weight/1RM records, which are load-only.
+    // reps/hold/endurance PRs are derived on the Records screen straight from
+    // the workout log (Phase 4), so a cardio-only exercise has no prs row.
     const all = (await performDB('workouts', 'getAll'))
-        .filter(w => !w.deleted && !w.warmup && w.exercise === exercise);
+        .filter(w => !w.deleted && !w.warmup && w.exercise === exercise && isLoadSet(w));
     if (!all.length) { await performDB('prs', 'delete', exercise); return; }
     // Two independent winners — heaviest weight ever lifted, and best
     // estimated 1RM. They may be the same set (combo PR) or different
@@ -4810,7 +4899,7 @@ async function exportHealthCSV() {
             w.weight,
             w.reps,
             Math.round(w.oneRM),
-            Math.round(w.weight * w.reps),
+            Math.round(setVolume(w)),
         ].join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -6485,7 +6574,7 @@ async function openExercise(exerciseName) {
     const pr = await getCurrentPR(exerciseName);
     const workSets = all.filter(w => !w.warmup);
     const sessions = new Set(all.map(w => w.date)).size;
-    const totalVolume = workSets.reduce((s, w) => s + w.weight * w.reps, 0);
+    const totalVolume = workSets.reduce((s, w) => s + setVolume(w), 0);
 
     $('ex-stats').innerHTML = `
         <div class="ex-stat is-1rm"><div class="v tnum">${pr ? fmtW(pr.max1RM) : '—'}</div><div class="l">1RM ${unitLabel()}</div></div>
@@ -7113,7 +7202,7 @@ async function refreshSessionCard() {
     // v9.26 — totals read work sets only. The set list below still shows
     // warmups; the totals are the load-bearing tally.
     const workSetsInSession = setsInSession.filter(w => !w.warmup);
-    const totalVol = workSetsInSession.reduce((s, w) => s + w.weight * w.reps, 0);
+    const totalVol = workSetsInSession.reduce((s, w) => s + setVolume(w), 0);
     $('session-card-sets').textContent = String(workSetsInSession.length);
     // Full comma-formatted volume ("4,090") in the display unit, matching the
     // prototype's totals row — not the abbreviated "4.1k" form used on Home.
@@ -7171,7 +7260,7 @@ async function renderLastWorkoutCard() {
     // v9.26 — last-workout summary numbers are work sets only; the "top"
     // lift skips warmups so it never highlights a 95-lb prep set.
     const workSets = sets.filter(w => !w.warmup);
-    const totalVol = workSets.reduce((s, w) => s + w.weight * w.reps, 0);
+    const totalVol = workSets.reduce((s, w) => s + setVolume(w), 0);
     const mins = Math.max(1, Math.round(last.durationMs / 60000));
     const dateLabel = formatDate(new Date(last.endedAt).toISOString().slice(0, 10));
     // Surface the heaviest single work set as the "headline" lift.
@@ -7848,7 +7937,7 @@ function renderHistoryWeekRollup(sessions, allWorkouts, weekDateSet, prs) {
     let upperVol = 0, lowerVol = 0, setCount = 0, totalMs = 0;
     for (const w of allWorkouts) {
         if (!w.sessionId || !sessionIds.has(w.sessionId) || w.deleted || w.warmup) continue;
-        const vol = (w.weight || 0) * (w.reps || 0);
+        const vol = setVolume(w);
         if (LOWER_MUSCLES.has(muscleOf(w.exercise))) lowerVol += vol; else upperVol += vol;
         setCount += 1;
     }
