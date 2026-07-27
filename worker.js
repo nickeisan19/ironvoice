@@ -38,7 +38,9 @@ const COMMUNITY_EXERCISES_KEY = 'community/exercises.json';
 // v9.51 — community submissions write straight into exercises.json (no review
 // queue). 10-muscle taxonomy; legacy legs/arms still accepted so editing an
 // older catalog entry never fails validation.
-const VALID_MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'core', 'legs', 'arms'];
+const VALID_MUSCLES = ['chest', 'back', 'quads', 'hamstrings', 'glutes', 'calves', 'shoulders', 'biceps', 'triceps', 'forearm', 'core', 'cardio', 'legs', 'arms'];
+// v11 — tracking type of a community exercise (how it's logged). Absent → load.
+const VALID_TRACKS = ['load', 'reps', 'hold', 'endurance'];
 
 export default {
     async fetch(request, env, ctx) {
@@ -166,7 +168,7 @@ export default {
                 if (catalog.exercises.some(e => e && e.name === entry.name)) {
                     return jsonResponse({ ok: true, added: false, alreadyInCatalog: true }, 200, env);
                 }
-                catalog.exercises.push({ name: entry.name, muscle: entry.muscle, synonyms: entry.synonyms });
+                catalog.exercises.push({ name: entry.name, muscle: entry.muscle, synonyms: entry.synonyms, track: entry.track });
                 catalog.updatedAt = Date.now();
                 const putOpts = { httpMetadata: { contentType: 'application/json' } };
                 if (existing) putOpts.onlyIf = { etagMatches: existing.etag };
@@ -213,7 +215,7 @@ export default {
                     catalog.exercises.some((e, i) => i !== idx && e && e.name === entry.name)) {
                     return jsonResponse({ ok: false, error: 'An exercise with that name already exists.' }, 200, env);
                 }
-                catalog.exercises[idx] = { name: entry.name, muscle: entry.muscle, synonyms: entry.synonyms };
+                catalog.exercises[idx] = { name: entry.name, muscle: entry.muscle, synonyms: entry.synonyms, track: entry.track };
                 catalog.updatedAt = Date.now();
                 const putOpts = { httpMetadata: { contentType: 'application/json' } };
                 if (existing) putOpts.onlyIf = { etagMatches: existing.etag };
@@ -474,7 +476,11 @@ export function validateCommunityExercise(raw) {
         }
     }
 
-    return { ok: true, entry: { name: nameRaw, muscle, synonyms } };
+    // v11 — optional tracking type. Absent or unknown normalizes to 'load' so
+    // old clients (which never send `track`) keep producing valid load entries.
+    const track = VALID_TRACKS.includes(raw.track) ? raw.track : 'load';
+
+    return { ok: true, entry: { name: nameRaw, muscle, synonyms, track } };
 }
 
 // Hash an email + salt to a directory-safe slug, matching the PHP version's
