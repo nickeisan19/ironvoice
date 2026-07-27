@@ -1549,8 +1549,12 @@ function initDB() {
             navigator.storage.persist().catch(() => {});
         }
         renderAll();
-        // First-run voice tip — needs the store available.
-        maybeShowVoiceTip();
+        // v11 — first-run onboarding for brand-new users (zero workouts).
+        // Established users get the flag set silently and never see it.
+        const onbShown = await maybeShowOnboarding();
+        // First-run voice tip — needs the store available. Suppressed while
+        // onboarding is up so two first-run surfaces don't stack.
+        if (!onbShown) maybeShowVoiceTip();
         // v9.32 — What's New sheet for upgrades that have content defined.
         // Delayed so the home screen renders first and the sheet feels
         // like a follow-up to the app appearing, not an intercept on
@@ -4045,6 +4049,8 @@ function initActionDispatcher() {
         tapSupersetLink, unlinkSupersetFromCard,
         // v11: nudges — continuous-mic prompt + stalled-progress card.
         enableContinuousFromNudge, dismissContinuousNudge, dismissStalledNudge,
+        // v11: first-run onboarding.
+        onbBack, onbSkip, onbSelect, onbFinish,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker, onQuickAddPace };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -5307,6 +5313,122 @@ async function seedDefaultTemplates() {
     } catch {
         // Non-fatal — templates just won't be pre-seeded this launch.
     }
+}
+
+// ============================================================================
+// v11 — first-run onboarding (units / experience / split / summary)
+//
+// Shown only to brand-new users (zero logged workouts). Established users
+// (Nick, existing testers) get the flag set silently on first v11 boot so the
+// flow never appears. Sets the display unit + default rest, and seeds the
+// chosen split's templates (deduped by name against the v9.51 defaults).
+// ============================================================================
+const ONB_SPLITS = {
+    ppl: { label: 'Push · Pull · Legs', sub: 'Three sessions a week', templates: [
+        { name: 'Push Day', sub: 'Chest · Shoulders · Triceps', exercises: ['bench press', 'overhead press', 'incline dumbbell press', 'lateral raise', 'tricep pushdown'] },
+        { name: 'Pull Day', sub: 'Back · Biceps', exercises: ['bent over row', 'lat pulldown', 'pull up', 'bicep curl'] },
+        { name: 'Leg Day', sub: 'Legs · Core', exercises: ['back squat', 'romanian deadlift', 'leg press', 'calf raise', 'plank'] },
+    ] },
+    ul: { label: 'Upper · Lower', sub: 'Four sessions a week', templates: [
+        { name: 'Upper Body', sub: 'Chest · Back · Arms', exercises: ['bench press', 'bent over row', 'overhead press', 'lat pulldown', 'bicep curl'] },
+        { name: 'Lower Body', sub: 'Legs · Core', exercises: ['back squat', 'romanian deadlift', 'leg press', 'calf raise'] },
+    ] },
+    full: { label: 'Full body', sub: 'Two or three sessions a week', templates: [
+        { name: 'Full Body A', sub: 'Squat focus', exercises: ['back squat', 'bench press', 'bent over row'] },
+        { name: 'Full Body B', sub: 'Hinge focus', exercises: ['romanian deadlift', 'overhead press', 'lat pulldown'] },
+    ] },
+    own: { label: "I'll build my own", sub: 'Start from an empty slate', templates: [] },
+};
+const ONB_EXP = {
+    new: { label: 'New to lifting', sub: '60s rest between sets', rest: 60 },
+    returning: { label: 'Getting back into it', sub: '90s rest', rest: 90 },
+    experienced: { label: 'Experienced', sub: '2 min rest', rest: 120 },
+};
+let _onbStep = 0, _onbUnits = 'lb', _onbExp = 'returning', _onbSplit = 'ppl';
+
+async function maybeShowOnboarding() {
+    if (localStorage.getItem('ironV11Onboarded')) return false;
+    const hasWorkouts = (await performDB('workouts', 'getAll')).some(w => !w.deleted);
+    if (hasWorkouts) { localStorage.setItem('ironV11Onboarded', '1'); return false; }
+    _onbStep = 0; _onbUnits = displayUnit; _onbExp = 'returning'; _onbSplit = 'ppl';
+    renderOnboarding();
+    const ov = $('onboarding-overlay');
+    ov.classList.add('active');
+    ov.setAttribute('aria-hidden', 'false');
+    return true;
+}
+
+function renderOnboarding() {
+    const dots = $('onb-dots');
+    if (dots) dots.innerHTML = [0, 1, 2, 3].map(i => `<span class="onb-dot${i === _onbStep ? ' is-active' : ''}"></span>`).join('');
+    const back = $('onb-back'); if (back) back.hidden = _onbStep === 0;
+    const opt = (key, val, active, title, sub) =>
+        `<button type="button" class="onb-opt${active ? ' is-active' : ''}" data-action="onbSelect" data-onb-key="${key}" data-onb-val="${val}">
+            <span class="onb-opt-title">${escapeHtml(title)}</span>${sub ? `<span class="onb-opt-sub">${escapeHtml(sub)}</span>` : ''}
+        </button>`;
+    const body = $('onb-body');
+    if (!body) return;
+    if (_onbStep === 0) {
+        body.innerHTML = `<div class="onb-eyebrow">Units</div><h2 class="onb-h2">How do you measure weight?</h2>
+            <div class="onb-opts">${opt('units', 'lb', _onbUnits === 'lb', 'Pounds', 'lb')}${opt('units', 'kg', _onbUnits === 'kg', 'Kilograms', 'kg')}</div>`;
+    } else if (_onbStep === 1) {
+        body.innerHTML = `<div class="onb-eyebrow">Experience</div><h2 class="onb-h2">How long have you been lifting?</h2>
+            <div class="onb-opts">${Object.entries(ONB_EXP).map(([k, v]) => opt('exp', k, _onbExp === k, v.label, v.sub)).join('')}</div>`;
+    } else if (_onbStep === 2) {
+        body.innerHTML = `<div class="onb-eyebrow">Your split</div><h2 class="onb-h2">Pick a starting split</h2>
+            <div class="onb-opts">${Object.entries(ONB_SPLITS).map(([k, v]) => opt('split', k, _onbSplit === k, v.label, v.sub)).join('')}</div>`;
+    } else {
+        const sp = ONB_SPLITS[_onbSplit];
+        body.innerHTML = `<div class="onb-eyebrow">All set</div><h2 class="onb-h2">You're ready to lift</h2>
+            <div class="onb-summary">
+                <div class="onb-sum-row"><span>Units</span><span>${escapeHtml(_onbUnits)}</span></div>
+                <div class="onb-sum-row"><span>Rest</span><span>${ONB_EXP[_onbExp].rest}s</span></div>
+                <div class="onb-sum-row"><span>Split</span><span>${escapeHtml(sp.label)}</span></div>
+            </div>
+            <div class="onb-sum-note">${sp.templates.length ? `Seeds ${sp.templates.length} template${sp.templates.length === 1 ? '' : 's'}: ${escapeHtml(sp.templates.map(t => t.name).join(', '))}` : 'Start from an empty slate.'}</div>
+            <button type="button" class="onb-finish" data-action="onbFinish">Get started</button>`;
+    }
+}
+
+function onbBack() { if (_onbStep > 0) { _onbStep--; renderOnboarding(); haptic(6); } }
+async function onbSkip() { await finishOnboarding(false); }
+function onbSelect(el) {
+    const key = el?.dataset?.onbKey, val = el?.dataset?.onbVal;
+    if (key === 'units') _onbUnits = val;
+    else if (key === 'exp') _onbExp = val;
+    else if (key === 'split') _onbSplit = val;
+    haptic(8);
+    if (_onbStep < 3) _onbStep++;
+    renderOnboarding();
+}
+async function onbFinish() { await finishOnboarding(true); }
+
+async function finishOnboarding(apply) {
+    const ov = $('onboarding-overlay');
+    if (ov) { ov.classList.remove('active'); ov.setAttribute('aria-hidden', 'true'); }
+    localStorage.setItem('ironV11Onboarded', '1');
+    if (apply) {
+        setUnits(_onbUnits);
+        restDuration = ONB_EXP[_onbExp].rest;
+        _prefs.restDefault = restDuration;
+        persistPrefs();
+        try {
+            const existing = await performDB('templates', 'getAll');
+            const have = new Set(existing.filter(t => !t.deleted).map(t => (t.name || '').toLowerCase()));
+            let i = 0;
+            for (const def of ONB_SPLITS[_onbSplit].templates) {
+                if (have.has(def.name.toLowerCase())) continue;
+                await performDB('templates', 'put', {
+                    id: Date.now() + (i++), name: def.name, sub: def.sub,
+                    exercises: def.exercises.map(name => ({ name })),
+                    modifiedAt: Date.now(), deleted: false,
+                });
+            }
+        } catch { /* non-fatal */ }
+    }
+    haptic(12);
+    await renderAll();
+    showScreen('home');
 }
 
 async function renderTemplatesList() {

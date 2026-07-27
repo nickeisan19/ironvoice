@@ -2969,6 +2969,37 @@ button.aw-ex-head {
 .aw-ex-add:active { background: var(--surface-2); }
 .aw-ex-plus { color: var(--acc); font-size: 19px; font-weight: 700; line-height: 1; margin-left: 4px; flex: 0 0 auto; }
 
+/* v11 — first-run onboarding overlay. */
+.onb-overlay {
+  position: fixed; inset: 0; z-index: 70; display: none;
+  background: var(--bg); padding: env(safe-area-inset-top) 0 0;
+}
+.onb-overlay.active { display: flex; align-items: stretch; justify-content: center; }
+.onb-card { width: 100%; max-width: 440px; display: flex; flex-direction: column; padding: 20px 22px 28px; }
+.onb-top { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.onb-back { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--hairline-strong); background: none; color: var(--label); font-size: 22px; line-height: 1; cursor: pointer; }
+.onb-dots { flex: 1; display: flex; align-items: center; gap: 6px; }
+.onb-dot { width: 6px; height: 6px; border-radius: 3px; background: var(--label-quaternary); transition: width 0.22s ease, background 0.22s ease; }
+.onb-dot.is-active { width: 20px; background: var(--acc); }
+.onb-skip { background: none; border: none; color: var(--label-secondary); font-size: 15px; font-weight: 600; cursor: pointer; }
+.onb-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
+.onb-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--acc); margin-bottom: 10px; }
+.onb-h2 { font-size: 27px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.12; color: var(--label); margin: 0 0 24px; }
+.onb-opts { display: flex; flex-direction: column; gap: 10px; }
+.onb-opt { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--hairline-strong); background: var(--surface-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.onb-opt.is-active { border-color: var(--acc); }
+.onb-opt-title { font-size: 16.5px; font-weight: 700; color: var(--label); }
+.onb-opt.is-active .onb-opt-title { color: var(--acc); }
+.onb-opt-sub { font-size: 13px; color: var(--label-secondary); }
+.onb-summary { display: flex; flex-direction: column; gap: 2px; border-radius: 14px; border: 1px solid var(--hairline-strong); background: var(--surface-1); padding: 6px 16px; margin-bottom: 14px; }
+.onb-sum-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--hairline); font-size: 15px; }
+.onb-sum-row:last-child { border-bottom: none; }
+.onb-sum-row span:first-child { color: var(--label-secondary); }
+.onb-sum-row span:last-child { font-weight: 700; color: var(--label); text-transform: capitalize; }
+.onb-sum-note { font-size: 13px; color: var(--label-secondary); margin-bottom: 22px; }
+.onb-finish { width: 100%; height: 54px; border-radius: 14px; background: var(--acc); border: none; color: var(--acc-ink); font-size: 16px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.onb-finish:active { background: #e6ad00; }
+
 /* v11 — nudge cards (continuous-mic prompt, stalled-progress). */
 .nudge-card {
   display: flex; align-items: center; gap: 12px;

@@ -186,6 +186,19 @@
          Triggered from the "+ Add set" pill in the session set list. Save calls
          buildEntry(exercise, w, r) → saveAndSyncUI(entry), so it goes through
          the same PR/sync/UI pipeline as voice and manual entry. -->
+    <!-- v11 — first-run onboarding (4 cards). Body is rendered by
+         renderOnboarding(); shown only to users with zero logged workouts. -->
+    <div id="onboarding-overlay" class="onb-overlay" aria-hidden="true">
+        <div class="onb-card" role="dialog" aria-modal="true" aria-label="Set up IronVoice">
+            <div class="onb-top">
+                <button type="button" class="onb-back" id="onb-back" data-action="onbBack" aria-label="Back" hidden>‹</button>
+                <div class="onb-dots" id="onb-dots" aria-hidden="true"></div>
+                <button type="button" class="onb-skip" data-action="onbSkip">Skip</button>
+            </div>
+            <div class="onb-body" id="onb-body"></div>
+        </div>
+    </div>
+
     <div id="quick-add-overlay" class="overlay" aria-hidden="true">
         <div class="modal sheet qa-sheet" role="dialog" aria-modal="true" aria-labelledby="quick-add-name">
             <div class="qa-head">
