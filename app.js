@@ -2384,6 +2384,22 @@ function toggleListening() {
 const startListening = toggleListening;
 
 // ---- Pure intent parser. Returns { type, ...params } or null. ----
+// v11 — pull a duration in seconds from spoken text: "90 seconds", "2 minutes",
+// "24 min", "1:30". Used by hold/endurance voice logging.
+function parseDurationSec(str) {
+    if (!str) return 0;
+    str = String(str).toLowerCase();
+    const colon = str.match(/(\d+):(\d{2})/);
+    if (colon) return parseInt(colon[1], 10) * 60 + parseInt(colon[2], 10);
+    let sec = 0, hit = false;
+    const min = str.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|min|m)\b/);
+    if (min) { sec += parseFloat(min[1]) * 60; hit = true; }
+    const s = str.match(/(\d+)\s*(?:seconds?|secs?|sec|s)\b/);
+    if (s) { sec += parseInt(s[1], 10); hit = true; }
+    if (!hit) { const bare = str.match(/(\d+(?:\.\d+)?)/); if (bare) sec = parseFloat(bare[1]); }
+    return Math.round(sec);
+}
+
 function parseIntent(rawText) {
     const text = normalizeSpokenNumbers(rawText.trim());
 
@@ -2448,6 +2464,41 @@ function parseIntent(rawText) {
             if (weight > 0 && reps > 0) {
                 return { type: 'log', exercise: exMatch.name, weight, reps, warmup: true };
             }
+        }
+    }
+
+    // v11 — typed logging for non-load exercises, parsed in their natural
+    // grammar. Runs before the generic weight×reps path so "plank 90 seconds"
+    // isn't misread as a load set.
+    //   hold:      "plank 90 seconds" / "wall sit 2 minutes"
+    //   reps:      "pull ups 12" / "pull ups 25 for 8" (added weight + reps)
+    //   endurance: "treadmill 3 miles in 24 minutes" / "jump rope 2 minutes"
+    const typedEx = matchOrder.find(m => text.includes(m.term));
+    if (typedEx) {
+        const track = trackFor(typedEx.name);
+        const after = text.slice(text.indexOf(typedEx.term) + typedEx.term.length);
+        if (track === 'hold') {
+            const sec = parseDurationSec(after);
+            if (sec > 0) return { type: 'log', exercise: typedEx.name, t: 'hold', sec };
+        } else if (track === 'endurance') {
+            const [distPart, timePart] = after.split(/\bin\b/);
+            let dist = 0, du = cardioUnit();
+            if (distanceCapable(typedEx.name)) {
+                const dm = distPart.match(/(\d+(?:\.\d+)?)\s*(miles?|mi|kilometers?|kilometres?|km|meters?|metres?|k|m)\b/);
+                if (dm) {
+                    dist = parseFloat(dm[1]);
+                    const u = dm[2];
+                    du = u.startsWith('mi') ? 'mi'
+                        : (u === 'k' || u.startsWith('kil') || u === 'km') ? 'km' : 'm';
+                }
+            }
+            const sec = parseDurationSec(timePart != null ? timePart : (dist > 0 ? '' : distPart));
+            if (dist > 0 || sec > 0) return { type: 'log', exercise: typedEx.name, t: 'endurance', dist, du, sec };
+        } else if (track === 'reps') {
+            const forM = after.match(/(\d+(?:\.\d+)?)\s+(?:for|x|times)\s+(\d+)/);
+            if (forM) return { type: 'log', exercise: typedEx.name, t: 'reps', weight: parseFloat(forM[1]), reps: parseInt(forM[2], 10) };
+            const one = after.match(/\b(\d+)\b/);
+            if (one) return { type: 'log', exercise: typedEx.name, t: 'reps', reps: parseInt(one[1], 10) };
         }
     }
 
@@ -2529,12 +2580,26 @@ async function executeIntent(intent) {
         }
         case 'log': {
             // Voice numbers are spoken in the display unit; store in lb.
-            const w = Math.round(toLb(intent.weight) * 10) / 10;
-            const entry = buildEntry(intent.exercise, w, intent.reps, { warmup: !!intent.warmup });
+            const warmup = !!intent.warmup;
+            const addedLb = intent.weight ? Math.round(toLb(intent.weight) * 10) / 10 : 0;
+            let entry, msg;
+            if (intent.t === 'endurance') {
+                entry = buildEntry(intent.exercise, 0, 0, { warmup, t: 'endurance', sec: intent.sec || 0, dist: intent.dist || 0, du: intent.du });
+                msg = `Logged ${setText(entry)}.`;
+            } else if (intent.t === 'hold') {
+                entry = buildEntry(intent.exercise, addedLb, 0, { warmup, t: 'hold', sec: intent.sec || 0 });
+                msg = `Logged ${fmtDur(entry.sec)} hold.`;
+            } else if (intent.t === 'reps') {
+                entry = buildEntry(intent.exercise, addedLb, intent.reps, { warmup, t: 'reps' });
+                msg = `Logged ${entry.reps} reps.`;
+            } else {
+                const w = Math.round(toLb(intent.weight) * 10) / 10;
+                entry = buildEntry(intent.exercise, w, intent.reps, { warmup });
+                msg = warmup ? `Warmup logged. ${fmtW(entry.weight)} for ${entry.reps}.`
+                    : `Logged ${fmtW(entry.weight)} for ${entry.reps}.`;
+            }
             await saveAndSyncUI(entry);
-            speak(entry.warmup
-                ? `Warmup logged. ${fmtW(entry.weight)} for ${entry.reps}.`
-                : `Logged ${fmtW(entry.weight)} for ${entry.reps}.`);
+            speak(msg);
             break;
         }
     }
