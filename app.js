@@ -8032,6 +8032,14 @@ async function refreshSessionCard() {
     // Full comma-formatted volume ("4,090") in the display unit, matching the
     // prototype's totals row — not the abbreviated "4.1k" form used on Home.
     $('session-card-vol').textContent = loadDisp(totalVol);
+    // v11 — a "Time" cell appears only when the session has hold/endurance
+    // work (total logged seconds), so a cardio-only session isn't all zeros.
+    const timedSec = workSetsInSession.reduce((s, w) => s + (trackOf(w) === 'load' ? 0 : (w.sec || 0)), 0);
+    const timeCell = $('session-card-time-cell');
+    if (timeCell) {
+        timeCell.hidden = timedSec <= 0;
+        if (timedSec > 0) $('session-card-timed').textContent = fmtDur(timedSec);
+    }
 
     await renderSessionSets(sessionSets, setsInSession);
     await maybeShowContinuousNudge();
