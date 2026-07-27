@@ -1210,7 +1210,7 @@ const WHATS_NEW = {
             'Log it all by voice: "treadmill 3 miles in 24 minutes", "plank 90 seconds", "pull ups 25 for 8". Timed work gets a stopwatch and mi/km/m units, and there’s a new Cardio group (run, row, bike, swim, jump rope…).',
             'Cardio shows up everywhere — a Cardio lens in Records (furthest distance, best pace, and race Best Times), a weekly cardio summary in History, and a Cardio card on Home. Every record type gets a shareable PR card.',
             'Supersets: link two lifts by saying "superset bench and row" or tapping the link icon — the rest timer waits until you finish the last one.',
-            'The exercise picker is browsable now — Recent, your templates, and collapsible muscle groups instead of one long list.',
+            'The exercise picker is browsable now — Recent, your templates, and collapsible muscle groups instead of one long list. Adding your own exercise? You pick how it’s logged (weight, reps, hold, or distance).',
             'Your lifting numbers are untouched. Cardio and holds never count toward pound-volume or weight PRs, so the strength stats you already have stay exactly the same.',
         ],
     },
