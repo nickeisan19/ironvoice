@@ -7047,6 +7047,32 @@ document.addEventListener('DOMContentLoaded', () => {
 // Per-exercise sheet (1RM trend chart)
 // ============================================================================
 
+// v11 — standard race benchmarks. A logged run counts toward one only within
+// 3% of its distance (we have set totals, not GPS splits).
+const BENCHMARKS_MI = [{ label: '1 mile', d: 1 }, { label: '5K', d: 3.107 }, { label: '10K', d: 6.214 }, { label: 'Half', d: 13.109 }, { label: 'Marathon', d: 26.219 }];
+const BENCHMARKS_KM = [{ label: '1 km', d: 1 }, { label: '5K', d: 5 }, { label: '10K', d: 10 }, { label: 'Half', d: 21.098 }, { label: 'Marathon', d: 42.195 }];
+function cardioBenchmarks(sets) {
+    const unit = cardioUnit();
+    const marks = unit === 'km' ? BENCHMARKS_KM : BENCHMARKS_MI;
+    const runs = sets.filter(s => !s.warmup && trackOf(s) === 'endurance' && s.dist > 0 && s.sec > 0)
+        .map(s => ({ dist: toCardioUnit(s.dist, s.du || 'mi'), sec: s.sec, date: s.date }));
+    const out = [];
+    for (const m of marks) {
+        const hits = runs.filter(r => Math.abs(r.dist - m.d) / m.d <= 0.03);
+        if (!hits.length) continue;
+        const best = hits.reduce((a, b) => (b.sec < a.sec ? b : a));
+        out.push({ label: m.label, value: fmtDur(best.sec), sub: `${fmtDur(best.sec / best.dist)} / ${unit}`, date: best.date });
+    }
+    return out;
+}
+// The metric that ranks "best" for a set of a given type (for PR tagging + chart).
+function typeMetric(track, s) {
+    if (track === 'endurance') return s.dist ? toCardioUnit(s.dist, s.du || 'mi') : (s.sec || 0);
+    if (track === 'hold') return s.sec || 0;
+    if (track === 'reps') return s.reps || 0;
+    return s.oneRM || 0;
+}
+
 async function openExercise(exerciseName) {
     const all = (await performDB('workouts', 'getAll'))
         .filter(w => !w.deleted && w.exercise === exerciseName)
@@ -7059,40 +7085,85 @@ async function openExercise(exerciseName) {
     const dot = $('ex-dot');
     if (dot) dot.style.background = muscleColor[muscleOf(exerciseName)] || 'var(--label-tertiary)';
 
-    // Stats — volume tally excludes warmups so the headline number on the
-    // exercise sheet matches every other surface that uses work-set tonnage.
-    const pr = await getCurrentPR(exerciseName);
     const workSets = all.filter(w => !w.warmup);
     const sessions = new Set(all.map(w => w.date)).size;
-    const totalVolume = workSets.reduce((s, w) => s + setVolume(w), 0);
+    // v11 — the sheet adapts to the exercise's tracking type.
+    const track = trackOf(workSets[0] || all[0]) === 'load'
+        ? trackFor(exerciseName) : trackOf(workSets[0] || all[0]);
+    const cu = cardioUnit();
 
-    $('ex-stats').innerHTML = `
-        <div class="ex-stat is-1rm"><div class="v tnum">${pr ? fmtW(pr.max1RM) : '—'}</div><div class="l">1RM ${unitLabel()}</div></div>
-        <div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>
-        <div class="ex-stat"><div class="v tnum">${loadDisp(totalVolume)}</div><div class="l">Volume</div></div>
-    `;
+    // Stats trio — type-appropriate headline numbers.
+    let stats;
+    if (track === 'endurance') {
+        const furthest = Math.max(0, ...workSets.map(w => w.dist ? toCardioUnit(w.dist, w.du || 'mi') : 0));
+        let bestPace = Infinity;
+        workSets.forEach(w => { const d = w.dist ? toCardioUnit(w.dist, w.du || 'mi') : 0; if (d > 0 && w.sec > 0) bestPace = Math.min(bestPace, w.sec / d); });
+        stats = [
+            `<div class="ex-stat is-1rm"><div class="v tnum">${furthest > 0 ? distDisp(furthest) : '—'}</div><div class="l">Furthest ${cu}</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${isFinite(bestPace) ? fmtDur(bestPace) : '—'}</div><div class="l">Best /${cu}</div></div>`,
+        ];
+    } else if (track === 'hold') {
+        const longest = Math.max(0, ...workSets.map(w => w.sec || 0));
+        stats = [
+            `<div class="ex-stat is-1rm"><div class="v tnum">${longest ? fmtDur(longest) : '—'}</div><div class="l">Longest</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${fmtDur(workSets.reduce((s, w) => s + (w.sec || 0), 0))}</div><div class="l">Total time</div></div>`,
+        ];
+    } else if (track === 'reps') {
+        const mostReps = Math.max(0, ...workSets.map(w => w.reps || 0));
+        const bestAdded = Math.max(0, ...workSets.map(w => w.weight || 0));
+        stats = [
+            `<div class="ex-stat is-1rm"><div class="v tnum">${mostReps || '—'}</div><div class="l">Most reps</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${bestAdded ? '+' + fmtW(bestAdded) : '—'}</div><div class="l">Best added</div></div>`,
+        ];
+    } else {
+        const pr = await getCurrentPR(exerciseName);
+        const totalVolume = workSets.reduce((s, w) => s + setVolume(w), 0);
+        stats = [
+            `<div class="ex-stat is-1rm"><div class="v tnum">${pr ? fmtW(pr.max1RM) : '—'}</div><div class="l">1RM ${unitLabel()}</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${sessions}</div><div class="l">Sessions</div></div>`,
+            `<div class="ex-stat"><div class="v tnum">${loadDisp(totalVolume)}</div><div class="l">Volume</div></div>`,
+        ];
+    }
+    $('ex-stats').innerHTML = stats.join('');
 
-    renderTrendChart(all);
+    renderTrendChart(all, track);
 
-    // Recent sets — newest first, with a PR tag on the best-1RM work set.
-    const bestOneRM = workSets.reduce((m, w) => Math.max(m, w.oneRM || 0), 0);
+    // Recent sets — newest first, type-aware value, PR tag on the best.
+    const best = Math.max(0, ...workSets.map(w => typeMetric(track, w)));
     let prTagged = false;
     const recent = all.slice(-12).reverse();
-    $('ex-sets').innerHTML = recent.map(w => {
-        const isPR = !w.warmup && !prTagged && bestOneRM > 0 && (w.oneRM || 0) >= bestOneRM - 0.01;
+    let setsHtml = recent.map(w => {
+        const isPR = !w.warmup && !prTagged && best > 0 && typeMetric(track, w) >= best - 0.001;
         if (isPR) prTagged = true;
-        // Design shows the full date with year (e.g. "Mon, Jun 22, 2026"),
-        // keeping "Today"/"Yesterday" for the most recent.
         const when = (w.date === todayISO()) ? 'Today'
             : (w.date === isoForOffset(1)) ? 'Yesterday'
             : new Date(w.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
         return `<div class="ex-set-row">
             <span class="ex-set-when">${escapeHtml(when)}</span>
             ${w.warmup ? '<span class="warmup-tag">W</span>' : ''}
-            <span class="ex-set-val tnum">${fmtW(w.weight)} <small>× ${w.reps}</small></span>
+            <span class="ex-set-val tnum">${escapeHtml(setText(w))}</span>
             ${isPR ? '<span class="ex-set-pr">PR</span>' : ''}
         </div>`;
     }).join('');
+
+    // v11 — BEST TIMES benchmark table for endurance records.
+    if (track === 'endurance') {
+        const bms = cardioBenchmarks(all);
+        if (bms.length) {
+            setsHtml = `<div class="ex-benchmarks">
+                <div class="ex-benchmarks-head">Best times</div>
+                ${bms.map(b => `<div class="ex-bm-row">
+                    <span class="ex-bm-label">${escapeHtml(b.label)}</span>
+                    <span class="ex-bm-value tnum">${escapeHtml(b.value)}</span>
+                    <span class="ex-bm-sub tnum">${escapeHtml(b.sub)}</span>
+                </div>`).join('')}
+            </div>` + setsHtml;
+        }
+    }
+    $('ex-sets').innerHTML = setsHtml;
 
     $('ex-overlay').classList.add('active');
 }
@@ -7102,24 +7173,34 @@ function closeExercise() {
     currentExerciseSheet = null;
 }
 
-// Vertical bar chart of best work-set 1RM per session (prototype PR-detail).
-function renderTrendChart(sets) {
+// Vertical bar chart of the best per-session metric (v11 — type-aware:
+// 1RM for load, distance for endurance, hold time for hold, reps for reps).
+function renderTrendChart(sets, track = 'load') {
     const container = $('ex-trend');
     const eyebrow = $('ex-trend-meta');
     const deltaEl = $('ex-trend-delta');
     if (!container) return;
 
-    // Best work-set 1RM per session date; most recent 16 sessions.
+    // value formatter + eyebrow label by type.
+    const cu = cardioUnit();
+    const fmt = track === 'endurance' ? (v => `${distDisp(v)} ${cu}`)
+        : track === 'hold' ? (v => fmtDur(v))
+        : track === 'reps' ? (v => String(Math.round(v)))
+        : (v => fmtW(v));
+    const eyebrowLabel = track === 'endurance' ? 'Furthest distance'
+        : track === 'hold' ? 'Longest hold' : track === 'reps' ? 'Most reps' : 'Estimated 1RM';
+
+    // Best metric per session date; most recent 16 sessions.
     const byDate = {};
     sets.filter(w => !w.warmup).forEach(w => {
-        byDate[w.date] = Math.max(byDate[w.date] || 0, w.oneRM || 0);
+        byDate[w.date] = Math.max(byDate[w.date] || 0, typeMetric(track, w));
     });
     const points = Object.entries(byDate)
         .filter(([, v]) => v > 0)
         .sort((a, b) => a[0].localeCompare(b[0]))
         .slice(-16);
 
-    if (eyebrow) eyebrow.textContent = `Estimated 1RM · ${points.length} session${points.length === 1 ? '' : 's'}`;
+    if (eyebrow) eyebrow.textContent = `${eyebrowLabel} · ${points.length} session${points.length === 1 ? '' : 's'}`;
 
     if (points.length < 2) {
         container.innerHTML = `<div class="ex-chart-empty">Need 2+ sessions for a trend</div>`;
@@ -7143,7 +7224,7 @@ function renderTrendChart(sets) {
         const lbl = isNow ? 'Now' : new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         return `<div class="ex-bar${isNow ? ' is-max' : ''}">
             <div class="ex-bar-top">
-                <span class="ex-bar-val tnum">${fmtW(v)}</span>
+                <span class="ex-bar-val tnum">${escapeHtml(fmt(v))}</span>
                 <div class="ex-bar-fill" style="height:${h}px"></div>
             </div>
             <span class="ex-bar-label">${escapeHtml(lbl)}</span>
