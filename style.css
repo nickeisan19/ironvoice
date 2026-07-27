@@ -3049,6 +3049,15 @@ button.aw-ex-head {
 .hist-wk-cell { background: var(--surface-3); border-radius: 12px; padding: 12px; text-align: center; }
 .hist-wk-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--label-tertiary); }
 .hist-wk-value { font-size: 18px; font-weight: 800; color: var(--label); margin-top: 2px; }
+/* v11 — cardio week row (spans the grid, shown only when the week has cardio). */
+.hist-cardio-row {
+  grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+  background: var(--surface-3); border-radius: 12px; padding: 12px 14px;
+}
+.hist-cardio-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.hist-cardio-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--label-tertiary); }
+.hist-cardio-main { font-size: 15px; font-weight: 800; color: var(--label); }
+.hist-cardio-sub { flex: 1 1 100%; font-size: 12.5px; font-weight: 600; color: var(--label-secondary); }
 
 .screen-header {
   display: flex;

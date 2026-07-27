@@ -7981,35 +7981,58 @@ function goPRs() { showScreen('prs'); }
 // ============================================================================
 
 async function computePRTiles() {
-    // Warmups never count toward the PR shelf — same rule as recomputePR.
+    // v11 — type-aware records. Every non-warmup exercise gets a row whose
+    // value is computed for its tracking type (weight / reps / hold / cardio),
+    // read straight from the workout log. The Records lens then filters
+    // cardio vs non-cardio and picks which value to show.
     const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup);
     if (!all.length) return [];
 
-    // Bucket by exercise.
     const byEx = {};
-    for (const w of all) {
-        (byEx[w.exercise] ||= []).push(w);
-    }
+    for (const w of all) (byEx[w.exercise] ||= []).push(w);
 
     const tiles = [];
     for (const [ex, sets] of Object.entries(byEx)) {
-        // Tab 1 anchor: the max weight ever lifted (any reps).
-        const maxWeight = Math.max(...sets.map(s => s.weight));
-        // Tab 2: at that exact max weight, the highest rep count.
-        const repsAtMax = Math.max(
-            ...sets.filter(s => s.weight === maxWeight).map(s => s.reps)
-        );
-        tiles.push({
-            exercise: ex,
-            muscle: muscleOf(ex),
-            maxWeight,
-            repsAtMax,
-        });
+        const track = trackOf(sets.find(s => trackOf(s) !== 'load') || sets[0]);
+        const tile = { exercise: ex, muscle: muscleOf(ex), track };
+        if (track === 'endurance') {
+            // Distances normalise to the user's cardio unit; pace is derived.
+            let maxDist = 0, bestPace = Infinity, longest = 0;
+            for (const s of sets) {
+                const d = s.dist ? toCardioUnit(s.dist, s.du || 'mi') : 0;
+                if (d > maxDist) maxDist = d;
+                if (d > 0 && s.sec > 0) bestPace = Math.min(bestPace, s.sec / d);
+                if (s.sec > longest) longest = s.sec;
+            }
+            tile.maxDist = maxDist;
+            tile.bestPace = isFinite(bestPace) ? bestPace : 0;
+            tile.maxSec = longest;
+        } else if (track === 'hold') {
+            tile.maxSec = Math.max(...sets.map(s => s.sec || 0));
+        } else if (track === 'reps') {
+            tile.maxReps = Math.max(...sets.map(s => s.reps || 0));
+            tile.bestAddedW = Math.max(...sets.map(s => s.weight || 0));
+        } else {
+            tile.maxWeight = Math.max(...sets.map(s => s.weight || 0));
+            tile.repsAtMax = Math.max(...sets.filter(s => s.weight === tile.maxWeight).map(s => s.reps || 0));
+        }
+        tiles.push(tile);
     }
-    // Order: alphabetical A→Z by exercise name. Row layout (v9.25) made
-    // weight-order useless for scanning — you look things up by name now.
     tiles.sort((a, b) => a.exercise.localeCompare(b.exercise));
     return tiles;
+}
+
+// The per-type value + sub shown on a Records row for the active lens.
+function prRowValue(t) {
+    if (t.track === 'endurance') {
+        const main = `${distDisp(t.maxDist)} ${cardioUnit()}`;
+        const sub = t.bestPace ? `${fmtDur(t.bestPace)}/${cardioUnit()}` : (t.maxSec ? fmtDur(t.maxSec) : '');
+        return { main, sub };
+    }
+    if (t.track === 'hold') return { main: fmtDur(t.maxSec), sub: 'hold' };
+    if (t.track === 'reps') return { main: String(t.maxReps), sub: t.bestAddedW ? `+${fmtW(t.bestAddedW)} best` : 'reps' };
+    if (prTab === 'weight-reps') return { main: `${fmtW(t.maxWeight)} × ${t.repsAtMax}`, sub: unitLabel() };
+    return { main: fmtW(t.maxWeight), sub: `× ${t.repsAtMax}` };
 }
 
 async function renderPRsScreen() {
@@ -8019,8 +8042,11 @@ async function renderPRsScreen() {
 
     const allTiles = await computePRTiles();
     // v9.50 — Records search (by name) + muscle filter.
+    // v11 — the Cardio lens shows endurance records only; the weight lenses
+    // show everything else, so a run never appears under a weight lens.
     const q = (_prSearchQuery || '').trim().toLowerCase();
     const tiles = allTiles.filter(t =>
+        (prTab === 'cardio' ? t.track === 'endurance' : t.track !== 'endurance') &&
         (!q || t.exercise.toLowerCase().includes(q)) &&
         (_prMuscleFilter.length === 0 || _prMuscleFilter.includes(t.muscle)));
 
@@ -8045,15 +8071,11 @@ async function renderPRsScreen() {
         const bg = escapeHtml(muscleColor[t.muscle] || '#888');
         const exAttr = escapeHtml(t.exercise);
         const name = escapeHtml(titleCase(t.exercise));
-        // Prototype: big main figure + a small "× reps" sub.
-        const valueMain = (prTab === 'weight-reps')
-            ? `${escapeHtml(fmtW(t.maxWeight))} × ${escapeHtml(String(t.repsAtMax))}`
-            : `${escapeHtml(fmtW(t.maxWeight))}`;
-        const valueSub = (prTab === 'weight-reps') ? unitLabel() : `× ${escapeHtml(String(t.repsAtMax))}`;
-        const ariaSuffix = (prTab === 'weight-reps')
-            ? `${fmtW(t.maxWeight)} ${unitLabel()} for ${t.repsAtMax} rep${t.repsAtMax === 1 ? '' : 's'}`
-            : `${fmtW(t.maxWeight)} ${unitLabel()}`;
-        const ariaLabel = escapeHtml(`${titleCase(t.exercise)}, ${ariaSuffix}. Open history.`);
+        // v11 — per-type value + sub for the active lens.
+        const pv = prRowValue(t);
+        const valueMain = escapeHtml(pv.main);
+        const valueSub = escapeHtml(pv.sub);
+        const ariaLabel = escapeHtml(`${titleCase(t.exercise)}, ${pv.main} ${pv.sub}. Open history.`);
         const shareAria = escapeHtml(`Share ${titleCase(t.exercise)} PR card`);
         return `
             <div class="pr-row" data-exercise="${exAttr}">
@@ -8063,15 +8085,15 @@ async function renderPRsScreen() {
                     <span class="pr-row-value tnum">${valueMain}</span>
                     <span class="pr-row-sub tnum">${valueSub}</span>
                 </button>
-                <button type="button" class="pr-row-share" data-action="sharePRFromRow" data-exercise="${exAttr}" aria-label="${shareAria}">
+                ${t.track === 'load' ? `<button type="button" class="pr-row-share" data-action="sharePRFromRow" data-exercise="${exAttr}" aria-label="${shareAria}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                </button>
+                </button>` : ''}
             </div>`;
     }).join('');
 }
 
 function setPRTab(tab) {
-    if (tab !== 'weight' && tab !== 'weight-reps') return;
+    if (tab !== 'weight' && tab !== 'weight-reps' && tab !== 'cardio') return;
     prTab = tab;
     setSegmentedActive($('pr-tab-segment'), b => b.dataset.val === tab);
     renderPRsScreen();
@@ -8264,6 +8286,28 @@ function renderHistoryWeekRollup(sessions, allWorkouts, weekDateSet, prs) {
     el.innerHTML = cells.map(([l, v]) =>
         `<div class="hist-wk-cell"><div class="hist-wk-label">${escapeHtml(l)}</div><div class="hist-wk-value tnum">${escapeHtml(v)}</div></div>`
     ).join('');
+
+    // v11 — cardio row, only when the week contains endurance work: total
+    // distance, total time, session count and derived average pace.
+    let cDist = 0, cSec = 0; const cSessions = new Set();
+    for (const w of allWorkouts) {
+        if (!w.sessionId || !sessionIds.has(w.sessionId) || w.deleted || w.warmup) continue;
+        if (trackOf(w) !== 'endurance') continue;
+        if (w.dist) cDist += toCardioUnit(w.dist, w.du || 'mi');
+        if (w.sec) cSec += w.sec;
+        cSessions.add(w.sessionId);
+    }
+    if (cDist > 0 || cSec > 0) {
+        const pace = cDist > 0 && cSec > 0 ? `${fmtDur(cSec / cDist)} / ${cardioUnit()}` : '—';
+        const distStr = cDist > 0 ? `${distDisp(cDist)} ${cardioUnit()}` : '—';
+        el.insertAdjacentHTML('beforeend', `
+            <div class="hist-cardio-row">
+                <span class="hist-cardio-dot" style="background:${muscleColor.cardio}"></span>
+                <span class="hist-cardio-label">CARDIO</span>
+                <span class="hist-cardio-main tnum">${escapeHtml(distStr)} · ${escapeHtml(formatDurationCompact(cSec * 1000))}</span>
+                <span class="hist-cardio-sub tnum">${cSessions.size} session${cSessions.size === 1 ? '' : 's'} · ${escapeHtml(pace)}</span>
+            </div>`);
+    }
 }
 
 // Builds the {totalMs, restMs, workoutMs} sum across a list of sessions
@@ -8295,7 +8339,7 @@ function renderRollupTotals(elId, sessions, allWorkouts) {
         // toward the time rollups (you actually spent that minute on them).
         for (const w of sets) {
             if (w.warmup) continue;
-            volume += (w.weight || 0) * (w.reps || 0);
+            volume += setVolume(w);
             setCount += 1;
         }
     }
