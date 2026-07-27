@@ -7409,9 +7409,42 @@ async function drawPRCanvas(canvasId, exerciseName) {
     const ctx = c.getContext('2d');
     const W = c.width, H = c.height;
 
-    const pr = await getCurrentPR(exerciseName);
-    if (!pr) return;
     const m = muscleOf(exerciseName);
+    const track = trackFor(exerciseName);
+    // v11 — resolve a type-appropriate headline / tag / secondary. Load reads
+    // the prs store; typed records derive straight from the workout log.
+    const uUpper = unitLabel().toUpperCase(), uLower = unitLabel(), cu = cardioUnit();
+    let headline, tagLine, secondary, achievedAt = Date.now();
+    if (track === 'load') {
+        const pr = await getCurrentPR(exerciseName);
+        if (!pr) return;
+        achievedAt = pr.achievedAt || achievedAt;
+        const prType = pr.prType === 'weight' ? 'weight' : '1rm';
+        headline = String(prType === 'weight' ? fmtW(pr.maxWeight) : fmtW(Number(pr.max1RMWeight) || pr.maxWeight));
+        tagLine = prType === 'weight' ? `${uUpper} · NEW MAX WEIGHT` : `${uUpper} · NEW REP PR`;
+        const reps = prType === 'weight' ? (Number(pr.maxWeightReps) || 0) : (Number(pr.max1RMReps) || 0);
+        const oneRM = fmtW(pr.max1RM);
+        secondary = reps > 0 ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} ${uLower} 1RM` : `est. ${oneRM} ${uLower} 1RM`;
+    } else {
+        const sets = (await performDB('workouts', 'getAll')).filter(w => !w.deleted && !w.warmup && w.exercise === exerciseName);
+        if (!sets.length) return;
+        achievedAt = Math.max(...sets.map(s => s.id));
+        if (track === 'endurance') {
+            let furthest = 0, bestPace = Infinity;
+            sets.forEach(s => { const d = s.dist ? toCardioUnit(s.dist, s.du || 'mi') : 0; if (d > furthest) furthest = d; if (d > 0 && s.sec > 0) bestPace = Math.min(bestPace, s.sec / d); });
+            headline = furthest > 0 ? distDisp(furthest) : fmtDur(Math.max(...sets.map(s => s.sec || 0)));
+            tagLine = furthest > 0 ? `${cu.toUpperCase()} · FURTHEST DISTANCE` : 'LONGEST TIME';
+            secondary = isFinite(bestPace) ? `best pace ${fmtDur(bestPace)} / ${cu}` : '';
+        } else if (track === 'hold') {
+            headline = fmtDur(Math.max(...sets.map(s => s.sec || 0)));
+            tagLine = 'LONGEST HOLD'; secondary = '';
+        } else {
+            const most = Math.max(...sets.map(s => s.reps || 0));
+            const bestAdded = Math.max(...sets.map(s => s.weight || 0));
+            headline = String(most); tagLine = 'MOST REPS';
+            secondary = bestAdded ? `best +${fmtW(bestAdded)} ${uLower} added` : '';
+        }
+    }
 
     // Background gradient
     const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -7452,15 +7485,11 @@ async function drawPRCanvas(canvasId, exerciseName) {
     // rep-PR variant shows the bar weight on the PR-earning set, with the
     // estimated 1RM demoted to the secondary line. Legacy records (pre-v9.9)
     // lack max1RMWeight; fall through to maxWeight.
-    const prType = pr.prType === 'weight' ? 'weight' : '1rm';
-    // Units (behavior F): the card shows the display unit; the tag reads
-    // "KG · NEW MAX WEIGHT" in kg mode.
-    const uUpper = unitLabel().toUpperCase();
-    const uLower = unitLabel();
-    const headline = prType === 'weight'
-        ? fmtW(pr.maxWeight)
-        : fmtW(Number(pr.max1RMWeight) || pr.maxWeight);
-    ctx.font = '800 360px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif';
+    // Headline — the milestone number/time. Font scales down for longer
+    // strings (times like "1:30", cardio counts) so they never overflow.
+    const hlLen = String(headline).length;
+    const hlSize = hlLen > 5 ? 200 : hlLen > 3 ? 280 : 360;
+    ctx.font = `800 ${hlSize}px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif`;
     const goldGrad = ctx.createLinearGradient(0, H * 0.4, 0, H * 0.7);
     goldGrad.addColorStop(0, '#ffd60a');
     goldGrad.addColorStop(1, '#ff9f0a');
@@ -7470,26 +7499,19 @@ async function drawPRCanvas(canvasId, exerciseName) {
     // Tag below headline
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '500 56px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.fillText(prType === 'weight' ? `${uUpper} · NEW MAX WEIGHT` : `${uUpper} · NEW REP PR`, W / 2, H * 0.66);
+    ctx.fillText(tagLine, W / 2, H * 0.66);
 
-    // Secondary line — supporting context for the headline. Both variants
-    // share the same structure (`for N reps · est. M lb 1RM`) so the cards
-    // read as parallel milestones differentiated only by the tag line.
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '600 64px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    const reps = prType === 'weight'
-        ? Number(pr.maxWeightReps) || 0
-        : Number(pr.max1RMReps)    || 0;
-    const oneRM = fmtW(pr.max1RM);
-    const secondary = reps > 0
-        ? `for ${reps} rep${reps === 1 ? '' : 's'} · est. ${oneRM} ${uLower} 1RM`
-        : `est. ${oneRM} ${uLower} 1RM`;
-    ctx.fillText(secondary, W / 2, H * 0.78);
+    // Secondary line — supporting context (empty for holds).
+    if (secondary) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 64px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
+        ctx.fillText(secondary, W / 2, H * 0.78);
+    }
 
     // Date
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.font = '500 38px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-    ctx.fillText(new Date(pr.achievedAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }), W / 2, H * 0.84);
+    ctx.fillText(new Date(achievedAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }), W / 2, H * 0.84);
 
     // Decorative bar near bottom (muscle color)
     ctx.fillStyle = accentColor;
@@ -8462,9 +8484,9 @@ async function renderPRsScreen() {
                     <span class="pr-row-value tnum">${valueMain}</span>
                     <span class="pr-row-sub tnum">${valueSub}</span>
                 </button>
-                ${t.track === 'load' ? `<button type="button" class="pr-row-share" data-action="sharePRFromRow" data-exercise="${exAttr}" aria-label="${shareAria}">
+                <button type="button" class="pr-row-share" data-action="sharePRFromRow" data-exercise="${exAttr}" aria-label="${shareAria}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                </button>` : ''}
+                </button>
             </div>`;
     }).join('');
 }
