@@ -65,7 +65,7 @@ const exerciseLibrary = [
     { name: "assisted pull-up",                    muscle: "back", synonyms: ["assisted pull up"] },
     { name: "back extension",                      muscle: "back", synonyms: ["hyperextension", "hyper", "45 degree extension"] },
     { name: "banded muscle-up",                    muscle: "back", synonyms: ["banded muscle up"] },
-    { name: "barbell row",                         muscle: "back", synonyms: [] },
+    { name: "barbell row",                         muscle: "back", synonyms: ["row", "rows", "bent over row", "bent-over row", "barbell rows"] },
     { name: "barbell shrug",                       muscle: "back", synonyms: [] },
     { name: "bent over row",                       muscle: "back", synonyms: ["bb row", "bent row"] },
     { name: "block clean",                         muscle: "back", synonyms: [] },
@@ -486,6 +486,9 @@ const exerciseLibrary = [
     { name: "v up",                                   muscle: "core", synonyms: ["v ups", "v-up", "vup"] },
     { name: "weighted plank",                         muscle: "core", synonyms: [] },
     { name: "wood chop",                              muscle: "core", synonyms: ["woodchopper", "cable woodchop", "chop"] },
+    // v11 — isometric hold that was missing (voice "wall sit ..." previously
+    // mis-matched the "l sit" synonym of l-sit). trackFor → hold via TRACK_HOLD.
+    { name: "wall sit",                               muscle: "quads", synonyms: ["wall sits", "wall squat hold"] },
     // v11 — cardio group. Tracking type resolves to `endurance` via trackFor
     // (muscle === 'cardio'); the three TIME_ONLY names log duration only
     // (distanceCapable() hides the distance field for them).
@@ -2004,7 +2007,11 @@ async function saveAndSyncUI(entry) {
         // v9.18: refresh the suggested-queue chips so completed exercises
         // tick over from incomplete to done as the user logs sets.
         await renderSuggestedQueue();
-        if (restDuration > 0) startRestTimer(restDuration);
+        // v11 — in a superset, rest fires only after the last exercise in the
+        // bracket, so back-to-back exercises don't each trigger a rest timer.
+        const br = bracketOf(entry.exercise);
+        const restsNow = !br || br[br.length - 1] === entry.exercise;
+        if (restDuration > 0 && restsNow) startRestTimer(restDuration);
     } catch (err) {
         console.error('Save failed:', err);
         setStatus('Save failed', 'error');
@@ -2423,6 +2430,16 @@ function parseIntent(rawText) {
         return { type: 'endWorkout' };
     }
 
+    // v11 — Superset: "superset bench and row" brackets two exercises so rest
+    // fires only after the second. Runs before logging so the exercise names
+    // aren't parsed as a set.
+    const ssMatch = text.match(/^(?:super ?set|superset)\s+(.+?)\s+(?:and|with|\+|plus)\s+(.+)$/);
+    if (ssMatch) {
+        const a = matchOrder.find(m => ssMatch[1].includes(m.term));
+        const b = matchOrder.find(m => ssMatch[2].includes(m.term));
+        if (a && b && a.name !== b.name) return { type: 'superset', a: a.name, b: b.name };
+    }
+
     // Rest timer
     const restMatch = text.match(/^(?:start )?rest(?:\s+(\d+))?(?:\s*(?:seconds?|second|s|minutes?|min|m))?$/);
     if (restMatch) {
@@ -2528,6 +2545,7 @@ function parseIntent(rawText) {
 
 // ---- Side-effecting dispatcher. ----
 async function executeIntent(intent) {
+    if (!intent) return;
     switch (intent.type) {
         case 'startWorkout':
             if (activeSession) {
@@ -2553,6 +2571,11 @@ async function executeIntent(intent) {
         case 'rest':
             startRestTimer(intent.secs);
             speak(`Resting ${intent.secs} seconds.`);
+            break;
+        case 'superset':
+            linkSuperset(intent.a, intent.b);
+            await refreshSessionCard();
+            speak(`Superset: ${titleCase(intent.a)} and ${titleCase(intent.b)}.`);
             break;
         case 'plates': {
             const breakdown = computePlates(intent.target, 45);
@@ -3959,6 +3982,8 @@ function initActionDispatcher() {
         setQuickAddUnit, toggleQuickAddStopwatch, resetQuickAddStopwatch,
         // v11: sectioned exercise picker — collapsible muscle groups.
         toggleExPickerMuscle,
+        // v11: supersets — two-tap link + unlink on the active-workout cards.
+        tapSupersetLink, unlinkSupersetFromCard,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker, onQuickAddPace };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -6686,6 +6711,65 @@ let _swapSourceName = null;
 // NOT honor this set (collapse is workout-screen only).
 let _collapsedExercises = new Set();
 
+// v11 — supersets. Brackets of exercise names logged back-to-back; rest fires
+// only after the last exercise in the bracket. Session-scoped state persisted
+// in localStorage (cleared on session end alongside the suggested queue).
+// _supersetLinkPending drives the two-tap link gesture on the workout screen.
+const SUPERSETS_KEY = 'ironSupersets';
+let _supersetLinkPending = null;
+function readSupersets() {
+    try {
+        const a = JSON.parse(localStorage.getItem(SUPERSETS_KEY) || '[]');
+        return Array.isArray(a) ? a.filter(b => Array.isArray(b) && b.length >= 2) : [];
+    } catch { return []; }
+}
+function writeSupersets(list) {
+    const clean = (list || []).filter(b => Array.isArray(b) && b.length >= 2);
+    if (clean.length) localStorage.setItem(SUPERSETS_KEY, JSON.stringify(clean));
+    else localStorage.removeItem(SUPERSETS_KEY);
+}
+function clearSupersets() { localStorage.removeItem(SUPERSETS_KEY); _supersetLinkPending = null; }
+function bracketOf(name) { return readSupersets().find(b => b.includes(name)) || null; }
+// Merge a and b (and any brackets already containing either) into one bracket.
+function linkSuperset(a, b) {
+    if (!a || !b || a === b) return;
+    const merged = [];
+    const seen = new Set();
+    const add = x => { if (!seen.has(x)) { seen.add(x); merged.push(x); } };
+    add(a); add(b);
+    const rest = readSupersets().filter(br => {
+        if (br.some(x => seen.has(x))) { br.forEach(add); return false; }
+        return true;
+    });
+    rest.push(merged);
+    writeSupersets(rest);
+}
+function unlinkSuperset(name) { writeSupersets(readSupersets().filter(b => !b.includes(name))); }
+
+// Two-tap link gesture: first tap arms an exercise, second tap on another links.
+async function tapSupersetLink(el) {
+    const name = el?.dataset?.exercise;
+    if (!name) return;
+    if (_supersetLinkPending === name) { _supersetLinkPending = null; }
+    else if (_supersetLinkPending) {
+        linkSuperset(_supersetLinkPending, name);
+        _supersetLinkPending = null;
+        showSnackbar('Superset linked', { duration: 2500 });
+    } else {
+        _supersetLinkPending = name;
+        showSnackbar('Tap another exercise to superset it', { duration: 2500 });
+    }
+    haptic(8);
+    await refreshSessionCard();
+}
+async function unlinkSupersetFromCard(el) {
+    const name = el?.dataset?.exercise;
+    if (!name) return;
+    unlinkSuperset(name);
+    haptic(8);
+    await refreshSessionCard();
+}
+
 function openExerciseMenu(el) {
     const name = el?.dataset?.exercise;
     if (!name || !activeSession) return;
@@ -7391,6 +7475,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
         releaseScreenWakeLock();
         // v9.18: discard the suggested-queue alongside the empty session.
         clearSuggestedQueue();
+        clearSupersets();
         _collapsedExercises.clear();
         await refreshSessionCard();
         updateWorkoutTabUI();
@@ -7420,6 +7505,7 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     // v9.18: suggested-queue is session-scoped — clear on end so the next
     // workout doesn't inherit the last recommendation's chips.
     clearSuggestedQueue();
+    clearSupersets();
     _collapsedExercises.clear();
     if (wasRecommended) incrementRecBumpCount();
     await refreshSessionCard();
@@ -7809,6 +7895,9 @@ async function renderSessionSets(container, sets) {
     }
 
     let html = '';
+    // v11 — build each exercise's card into a map first, then assemble so
+    // superset-bracketed exercises can render together under one header.
+    const cardMap = new Map();
     for (const { exercise, exSets } of sortedGroups) {
         const lib = exerciseLibrary.find(ex => ex.name === exercise);
         const muscle = lib?.muscle || muscleOf(exercise) || 'core';
@@ -7847,7 +7936,15 @@ async function renderSessionSets(container, sets) {
         const headMeta = (collapsed && topSet)
             ? `${setText(topSet)} · ${countLabel}`
             : countLabel;
-        html += `
+        // v11 — link chip: non-bracketed exercises get a two-tap link button
+        // (armed state highlighted); bracketed ones are unlinked at the block
+        // header, so no per-card link button.
+        const inBracket = !!bracketOf(exercise);
+        const linkBtn = inBracket ? '' :
+            `<button type="button" class="aw-ex-link${_supersetLinkPending === exercise ? ' is-pending' : ''}" data-action="tapSupersetLink" data-exercise="${exName}" aria-label="Superset ${exTitle} with another exercise" title="Superset">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6"/><path d="M10 8H8a4 4 0 0 0 0 8h2"/><path d="M14 8h2a4 4 0 0 1 0 8h-2"/></svg>
+            </button>`;
+        cardMap.set(exercise, `
             <div class="aw-ex-card${collapsed ? ' is-collapsed' : ''}">
                 <div class="aw-ex-head">
                     <button type="button" class="aw-ex-toggle" data-action="toggleExerciseCollapse" data-exercise="${exName}" aria-expanded="${collapsed ? 'false' : 'true'}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${exTitle}">
@@ -7856,10 +7953,36 @@ async function renderSessionSets(container, sets) {
                         <span class="aw-ex-count tnum">${escapeHtml(headMeta)}</span>
                         <svg class="aw-ex-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
+                    ${linkBtn}
                     <button type="button" class="aw-ex-add" data-action="openQuickAdd" data-exercise="${exName}" aria-label="Add a set of ${exTitle}">+</button>
                 </div>
                 ${collapsed ? '' : rows}
-            </div>`;
+            </div>`);
+    }
+
+    // Assemble: bracketed exercises render together under a SUPERSET header
+    // with a left rail; singles render on their own. Bracket order follows
+    // the bracket's stored member order; the block sits at its first member's
+    // position in the rotation-sorted list.
+    const rendered = new Set();
+    for (const { exercise } of sortedGroups) {
+        if (rendered.has(exercise)) continue;
+        const br = bracketOf(exercise);
+        const members = br ? br.filter(e => cardMap.has(e)) : [exercise];
+        if (members.length >= 2) {
+            members.forEach(e => rendered.add(e));
+            html += `
+                <div class="aw-superset">
+                    <div class="aw-superset-head">
+                        <span class="aw-superset-label">Superset · ${members.length} exercises</span>
+                        <button type="button" class="aw-superset-unlink" data-action="unlinkSupersetFromCard" data-exercise="${escapeHtml(members[0])}">Unlink</button>
+                    </div>
+                    <div class="aw-superset-body">${members.map(e => cardMap.get(e)).join('')}</div>
+                </div>`;
+        } else {
+            rendered.add(exercise);
+            html += cardMap.get(exercise);
+        }
     }
 
     // Planned (template / recommended) exercises with no logged sets yet —
