@@ -1206,12 +1206,12 @@ function acknowledgeVersionLanding() {
 const WHATS_NEW = {
     '11.0': {
         items: [
-            'Cardio, planks, and bodyweight now track properly — runs log distance + time, planks log a hold, pull-ups log reps. Each shows the right thing: "3 mi · 24:00", "1:30 hold", "12 reps".',
-            'Log them by voice too: "treadmill 3 miles in 24 minutes", "plank 90 seconds", "pull ups 12".',
-            'New Cardio group with 11 exercises (run, row, bike, swim, jump rope…), plus a stopwatch and mi/km/m units for timed work.',
-            'Records has a new Cardio lens (furthest distance + best pace); History shows a weekly cardio summary, and Home adds a Cardio card.',
-            'The exercise picker is now browsable — Recent, your templates, and collapsible muscle groups — not one giant list.',
-            'Your weight-lifting numbers are untouched: cardio and holds never count toward lb volume or weight PRs.',
+            'Cardio, planks, and bodyweight now track the right way. Runs log distance + time, planks log a hold, pull-ups log reps — shown as "3 mi · 24:00", "1:30 hold", "12 reps" instead of a fake weight × reps.',
+            'Log it all by voice: "treadmill 3 miles in 24 minutes", "plank 90 seconds", "pull ups 25 for 8". Timed work gets a stopwatch and mi/km/m units, and there’s a new Cardio group (run, row, bike, swim, jump rope…).',
+            'Cardio shows up everywhere — a Cardio lens in Records (furthest distance, best pace, and race Best Times), a weekly cardio summary in History, and a Cardio card on Home. Every record type gets a shareable PR card.',
+            'Supersets: link two lifts by saying "superset bench and row" or tapping the link icon — the rest timer waits until you finish the last one.',
+            'The exercise picker is browsable now — Recent, your templates, and collapsible muscle groups instead of one long list.',
+            'Your lifting numbers are untouched. Cardio and holds never count toward pound-volume or weight PRs, so the strength stats you already have stay exactly the same.',
         ],
     },
     '10.10': {
