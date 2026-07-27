@@ -3036,6 +3036,63 @@ const _localISO = (dt) => {
 };
 const _capWord = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// v11 — continuous-mode nudge: once ever, after the 3rd logged set of a
+// session, offer to keep the mic listening. Flag in localStorage.
+const CONT_PROMPT_KEY = 'ironContPromptSeen';
+async function maybeShowContinuousNudge() {
+    const card = $('continuous-nudge');
+    if (!card) return;
+    if (!activeSession || workoutMode || localStorage.getItem(CONT_PROMPT_KEY)) { card.hidden = true; return; }
+    const work = (await getActiveWorkouts()).filter(w => w.sessionId === activeSession.id && !w.warmup);
+    card.hidden = work.length < 3;
+}
+function enableContinuousFromNudge() {
+    setWorkoutMode(true);
+    localStorage.setItem(CONT_PROMPT_KEY, '1');
+    const card = $('continuous-nudge'); if (card) card.hidden = true;
+    showSnackbar('Continuous mic on — it keeps listening between sets', { duration: 3000 });
+    haptic(10);
+}
+function dismissContinuousNudge() {
+    localStorage.setItem(CONT_PROMPT_KEY, '1');
+    const card = $('continuous-nudge'); if (card) card.hidden = true;
+    haptic(6);
+}
+
+// v11 — stalled-progress nudge: a load exercise with 3+ sessions since its
+// last best. Dismissible per-exercise so it doesn't nag once acknowledged.
+async function renderStalledNudge() {
+    const card = $('stalled-nudge');
+    if (!card) return;
+    const work = await getActiveWorkSets();
+    const byEx = {};
+    for (const w of work) (byEx[w.exercise] ||= []).push(w);
+    const dismissed = localStorage.getItem('ironStalledDismissed') || '';
+    let bestName = null, bestSince = 0;
+    for (const [name, sets] of Object.entries(byEx)) {
+        if (trackFor(name) !== 'load') continue;
+        const byDate = {};
+        sets.forEach(w => { byDate[w.date] = Math.max(byDate[w.date] || 0, w.oneRM || 0); });
+        const dates = Object.keys(byDate).sort();
+        if (dates.length < 3) continue;
+        let best = -Infinity, since = 0;
+        dates.forEach(d => { const v = byDate[d]; if (v > best) { best = v; since = 0; } else since++; });
+        if (since >= 3 && since > bestSince) { bestSince = since; bestName = name; }
+    }
+    if (!bestName || bestName === dismissed) { card.hidden = true; return; }
+    card.hidden = false;
+    card.dataset.exercise = bestName;
+    $('stalled-eyebrow').textContent = `Stalled · ${bestSince} sessions`;
+    $('stalled-title').textContent = titleCase(bestName);
+    $('stalled-sub').textContent = 'No new best in a while — try +5 lb or one more rep next time.';
+}
+function dismissStalledNudge() {
+    const card = $('stalled-nudge');
+    if (card?.dataset.exercise) localStorage.setItem('ironStalledDismissed', card.dataset.exercise);
+    if (card) card.hidden = true;
+    haptic(6);
+}
+
 async function renderHome() {
     if (!$('load-weekly')) return;   // not on the Home DOM
     const work = await getActiveWorkSets();
@@ -3114,6 +3171,8 @@ async function renderHome() {
             $('cardio-lifetime-sub').textContent = nS(lt.sessions.size);
         }
     }
+
+    await renderStalledNudge();
 
     // --- Resume strip vs idle (Start CTA + Suggested) -------------------
     const resume = $('home-resume');
@@ -3984,6 +4043,8 @@ function initActionDispatcher() {
         toggleExPickerMuscle,
         // v11: supersets — two-tap link + unlink on the active-workout cards.
         tapSupersetLink, unlinkSupersetFromCard,
+        // v11: nudges — continuous-mic prompt + stalled-progress card.
+        enableContinuousFromNudge, dismissContinuousNudge, dismissStalledNudge,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker, onQuickAddPace };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
@@ -7759,6 +7820,7 @@ async function refreshSessionCard() {
         document.body.classList.remove('session-running');
         sessionSets.style.display = 'none';
         if (workoutIdle) workoutIdle.style.display = '';
+        const cn = $('continuous-nudge'); if (cn) cn.hidden = true;
         await renderWorkoutFocus();   // hides the focus card too
         return;
     }
@@ -7782,6 +7844,7 @@ async function refreshSessionCard() {
     $('session-card-vol').textContent = loadDisp(totalVol);
 
     await renderSessionSets(sessionSets, setsInSession);
+    await maybeShowContinuousNudge();
 }
 
 // v9.50 — the Active Workout command bar. Mirrors the voice pipeline: parse

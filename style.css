@@ -2969,6 +2969,25 @@ button.aw-ex-head {
 .aw-ex-add:active { background: var(--surface-2); }
 .aw-ex-plus { color: var(--acc); font-size: 19px; font-weight: 700; line-height: 1; margin-left: 4px; flex: 0 0 auto; }
 
+/* v11 — nudge cards (continuous-mic prompt, stalled-progress). */
+.nudge-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; margin-bottom: 12px;
+  border-radius: 16px; border: 1px solid rgba(255,193,7,0.34);
+  background: rgba(255,193,7,0.07);
+}
+.nudge-icon { flex: 0 0 auto; width: 28px; height: 28px; color: var(--acc); }
+.nudge-icon svg { width: 100%; height: 100%; }
+.nudge-body { flex: 1; min-width: 0; }
+.nudge-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--acc); }
+.nudge-title { font-size: 15px; font-weight: 700; color: var(--label); margin-top: 2px; }
+.nudge-sub { font-size: 13px; font-weight: 500; color: var(--label-secondary); margin-top: 3px; }
+.nudge-actions { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+.nudge-btn { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--hairline); background: none; color: var(--label-secondary); font-size: 13px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+.nudge-btn-primary { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
+.nudge-card-stalled { border-color: rgba(255,152,0,0.34); background: rgba(255,152,0,0.07); }
+.nudge-card-stalled .nudge-eyebrow { color: var(--orange); }
+
 /* v11 — superset link chip on each card + bracket wrapper. */
 .aw-ex-link {
   flex: 0 0 auto; width: 40px; align-self: stretch;

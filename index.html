@@ -830,6 +830,19 @@
                 </div>
             </div>
 
+            <!-- v11 — stalled-progress nudge: an exercise with 3+ sessions
+                 without a new best. Dismissible. -->
+            <div id="stalled-nudge" class="nudge-card nudge-card-stalled" hidden>
+                <div class="nudge-body">
+                    <div class="nudge-eyebrow" id="stalled-eyebrow">Stalled</div>
+                    <div class="nudge-title" id="stalled-title"></div>
+                    <div class="nudge-sub" id="stalled-sub"></div>
+                </div>
+                <div class="nudge-actions">
+                    <button type="button" class="nudge-btn" data-action="dismissStalledNudge">Got it</button>
+                </div>
+            </div>
+
             <!-- Start CTA + Suggested — hidden while a session is running. -->
             <div id="home-idle">
                 <button type="button" class="home-start-btn" data-action="openStartSheet">
@@ -929,6 +942,22 @@
                 <span class="aw-rest-time tnum" id="timer-text">1:30</span>
                 <span class="aw-rest-skip">Skip</span>
             </button>
+
+            <!-- v11 — continuous-mode nudge: shown once ever after the 3rd
+                 logged set of a session. -->
+            <div id="continuous-nudge" class="nudge-card" hidden>
+                <div class="nudge-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                </div>
+                <div class="nudge-body">
+                    <div class="nudge-eyebrow">Three sets in</div>
+                    <div class="nudge-title">Keep the mic listening between sets?</div>
+                </div>
+                <div class="nudge-actions">
+                    <button type="button" class="nudge-btn nudge-btn-primary" data-action="enableContinuousFromNudge">Turn it on</button>
+                    <button type="button" class="nudge-btn" data-action="dismissContinuousNudge">Not now</button>
+                </div>
+            </div>
 
             <!-- Active set list — exercise cards with set rows + the trailing
                  "+ Add exercise" button, all populated by renderSessionSets()
