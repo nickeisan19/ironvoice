@@ -193,19 +193,62 @@
                 <span class="qa-head-name" id="quick-add-name">—</span>
             </div>
             <div class="qa-meta" id="quick-add-prev"></div>
-            <div class="qa-eyebrow">Weight (lb)</div>
-            <div class="qa-flank">
-                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="-5" aria-label="Weight minus 5">−5</button>
-                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
-                <input type="number" id="quick-add-w" class="qa-fval" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll" aria-label="Weight">
-                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
-                <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
+            <!-- v11 — a running stopwatch for hold/endurance. Steppers remain for
+                 after-the-fact correction; the clock writes into #quick-add-sec. -->
+            <div class="qa-stopwatch" id="quick-add-stopwatch" hidden>
+                <span class="qa-sw-clock tnum" id="quick-add-sw-clock">0:00</span>
+                <div class="qa-sw-btns">
+                    <button type="button" class="qa-sw-reset" data-action="resetQuickAddStopwatch">Reset</button>
+                    <button type="button" class="qa-sw-toggle" id="quick-add-sw-toggle" data-action="toggleQuickAddStopwatch">Start</button>
+                </div>
             </div>
-            <div class="qa-eyebrow">Reps</div>
-            <div class="qa-flank">
-                <button type="button" class="qa-fbtn qa-fbtn-wide" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
-                <input type="number" id="quick-add-r" class="qa-fval" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll" aria-label="Reps">
-                <button type="button" class="qa-fbtn qa-fbtn-wide" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
+            <!-- Weight (load) / Added weight (reps, hold) -->
+            <div id="qa-weight-group">
+                <div class="qa-eyebrow" id="qa-weight-label">Weight (lb)</div>
+                <div class="qa-flank">
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="-5" aria-label="Weight minus 5">−5</button>
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="-2.5" aria-label="Weight minus 2.5">−2.5</button>
+                    <input type="number" id="quick-add-w" class="qa-fval" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll" aria-label="Weight">
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="2.5" aria-label="Weight plus 2.5">+2.5</button>
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-target="w" data-step="5" aria-label="Weight plus 5">+5</button>
+                </div>
+            </div>
+            <!-- Reps (load, reps) -->
+            <div id="qa-reps-group">
+                <div class="qa-eyebrow">Reps</div>
+                <div class="qa-flank">
+                    <button type="button" class="qa-fbtn qa-fbtn-wide" data-action="bumpQuickAdd" data-target="r" data-step="-1" aria-label="Reps minus 1">−</button>
+                    <input type="number" id="quick-add-r" class="qa-fval" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" placeholder="0" data-on-focus="selectAll" aria-label="Reps">
+                    <button type="button" class="qa-fbtn qa-fbtn-wide" data-action="bumpQuickAdd" data-target="r" data-step="1" aria-label="Reps plus 1">+</button>
+                </div>
+            </div>
+            <!-- Duration in seconds (hold, endurance) -->
+            <div id="qa-dur-group" hidden>
+                <div class="qa-eyebrow" id="qa-dur-label">Hold time (s)</div>
+                <div class="qa-flank">
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-sec" data-step="-15" aria-label="Duration minus 15 seconds">−15</button>
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-sec" data-step="-5" aria-label="Duration minus 5 seconds">−5</button>
+                    <input type="number" id="quick-add-sec" class="qa-fval" inputmode="numeric" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll" data-on-input="onQuickAddPace" aria-label="Duration in seconds">
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-sec" data-step="5" aria-label="Duration plus 5 seconds">+5</button>
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-sec" data-step="15" aria-label="Duration plus 15 seconds">+15</button>
+                </div>
+            </div>
+            <!-- Distance + units (endurance) -->
+            <div id="qa-dist-group" hidden>
+                <div class="qa-eyebrow">Distance</div>
+                <div class="qa-flank">
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-dist" data-step="-1" aria-label="Distance minus 1">−1</button>
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-dist" data-step="-0.25" aria-label="Distance minus 0.25">−.25</button>
+                    <input type="number" id="quick-add-dist" class="qa-fval" inputmode="decimal" pattern="[0-9]*" enterkeyhint="next" placeholder="0" data-on-focus="selectAll" data-on-input="onQuickAddPace" aria-label="Distance">
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-dist" data-step="0.25" aria-label="Distance plus 0.25">+.25</button>
+                    <button type="button" class="qa-fbtn" data-action="bumpQuickAdd" data-input="quick-add-dist" data-step="1" aria-label="Distance plus 1">+1</button>
+                </div>
+                <div class="qa-unit-chips" id="quick-add-units" role="tablist" aria-label="Distance unit">
+                    <button type="button" class="qa-unit-chip" role="tab" data-action="setQuickAddUnit" data-unit="mi">mi</button>
+                    <button type="button" class="qa-unit-chip" role="tab" data-action="setQuickAddUnit" data-unit="km">km</button>
+                    <button type="button" class="qa-unit-chip" role="tab" data-action="setQuickAddUnit" data-unit="m">m</button>
+                </div>
+                <div class="qa-pace tnum" id="quick-add-pace"></div>
             </div>
             <button type="button" class="row-toggle qa-warmup" id="quick-add-warmup-row" data-action="toggleQuickAddWarmup" aria-pressed="false">
                 <span class="row-toggle-label">Warmup</span>

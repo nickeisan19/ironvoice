@@ -588,6 +588,35 @@ function fmtDur(sec) {
 }
 const distDisp = d => (Math.round((d || 0) * 100) / 100) + '';
 
+// One stored set → the two-part value shown in a pill / row. Type-aware:
+//   load       225 × 5
+//   reps       12 reps        (or  +25 × 8  when an added weight is present)
+//   hold       1:30 hold      (or  +25 lb   sub when weighted)
+//   endurance  3 mi · 24:00   (distance main, time sub; time-only when no dist)
+// Distance is shown in the unit it was logged in (s.du); Records normalises.
+function setParts(s) {
+    const t = trackOf(s);
+    const w = Number(s.weight) || 0;
+    if (t === 'hold') return { main: fmtDur(s.sec), sub: w ? ('+' + fmtW(w) + ' ' + unitLabel()) : 'hold' };
+    if (t === 'endurance') {
+        const d = s.dist ? (distDisp(s.dist) + ' ' + (s.du || 'mi')) : null;
+        if (d) return { main: d, sub: s.sec ? fmtDur(s.sec) : '' };
+        return { main: fmtDur(s.sec), sub: 'time' };
+    }
+    if (t === 'reps') return w ? { main: '+' + fmtW(w), sub: '× ' + s.reps } : { main: String(s.reps), sub: 'reps' };
+    return { main: String(fmtW(w)), sub: '× ' + s.reps };
+}
+// Compact one-line form for summaries (headers, LAST row, set-action sheet).
+function setText(s) { const p = setParts(s); return p.sub ? (p.main + ' ' + p.sub) : p.main; }
+
+// Metric lifters think in km; everyone else in miles. Ties to the weight unit.
+const cardioUnit = () => (displayUnit === 'kg' ? 'km' : 'mi');
+// Convert a distance in unit `u` (mi/km/m) to the user's cardio display unit.
+function toCardioUnit(v, u) {
+    const km = u === 'km' ? v : (u === 'm' ? v / 1000 : v * 1.609344);
+    return cardioUnit() === 'km' ? km : km / 1.609344;
+}
+
 // Sort longest-first so "incline press" wins over "incline".
 // Mutated (not reassigned) by rebuildMatchOrder() when custom exercises load.
 const matchOrder = [];
@@ -1790,6 +1819,18 @@ async function selectExercise(name) {
     $('ex-search').value = titleCase(name);
     $('ex-dropdown').classList.remove('active');
     $('ex-search')?.setAttribute('aria-expanded', 'false');
+
+    // v11 — the inline manual-entry form is weight × reps only. reps/hold/
+    // endurance exercises need the typed sheet (duration, distance, stopwatch),
+    // so hand them straight to the quick-add overlay, which lays out the right
+    // fields. Reset the search so the inline form returns to idle.
+    if (trackFor(name) !== 'load') {
+        $('ex-search').value = '';
+        selectedExercise = '';
+        $('manual-entry')?.classList.remove('is-expanded');
+        openQuickAdd({ dataset: { exercise: name } });
+        return;
+    }
 
     // v9.30 — reveal the manual-entry detail (prev hint, steppers, Add)
     // once an exercise is chosen. Idle state shows only the search input.
@@ -3734,8 +3775,10 @@ function initActionDispatcher() {
         selectProfilePanel,
         // v9.50: custom Spoken-voice picker sheet (replaces native select).
         openVoicePicker, closeVoicePicker,
+        // v11: typed quick-add — distance-unit chips + hold/endurance stopwatch.
+        setQuickAddUnit, toggleQuickAddStopwatch, resetQuickAddStopwatch,
     };
-    const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker };
+    const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker, onQuickAddPace };
     // v9.21 — selectAll: focus handler that highlights any prefilled value
     // in a number input so a single tap lets the user type the replacement
     // instead of having to long-press to select. Applied via
@@ -5977,6 +6020,103 @@ let _quickAddEditId = null;
 // separate path (toggleWarmupFromSetAction) so it doesn't share this state.
 let _quickAddWarmup = false;
 let _setActionId = null;
+// v11 — typed quick-add state. Track drives which field groups show; distUnit
+// is the chosen distance unit for endurance; the stopwatch writes seconds into
+// #quick-add-sec while running.
+let _quickAddTrack = 'load';
+let _quickAddDistUnit = 'mi';
+let _qaSwRunning = false;
+let _qaSwStart = 0;
+let _qaSwHandle = null;
+
+// Show only the field groups relevant to the tracking type, relabel the
+// weight/duration eyebrows, and reveal the stopwatch for timed work.
+function applyQuickAddLayout(track, exercise) {
+    _quickAddTrack = track;
+    const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
+    const isLoad = track === 'load', isReps = track === 'reps',
+          isHold = track === 'hold', isEnd = track === 'endurance';
+    show('qa-weight-group', isLoad || isReps || isHold);
+    show('qa-reps-group', isLoad || isReps);
+    show('qa-dur-group', isHold || isEnd);
+    show('qa-dist-group', isEnd && distanceCapable(exercise));
+    show('quick-add-stopwatch', isHold || isEnd);
+    // Weight is required for load, optional ("Added weight") for reps/hold.
+    const wLabel = $('qa-weight-label');
+    if (wLabel) wLabel.textContent = isLoad ? `Weight (${unitLabel()})` : `Added weight (${unitLabel()}) · optional`;
+    const dLabel = $('qa-dur-label');
+    if (dLabel) dLabel.textContent = isHold ? 'Hold time (s)' : 'Duration (s)';
+    resetQuickAddStopwatch();
+    syncQuickAddUnitChips();
+    onQuickAddPace();
+}
+
+function syncQuickAddUnitChips() {
+    document.querySelectorAll('#quick-add-units .qa-unit-chip').forEach(c => {
+        const on = c.dataset.unit === _quickAddDistUnit;
+        c.classList.toggle('is-active', on);
+        c.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+}
+
+function setQuickAddUnit(el) {
+    if (!el?.dataset?.unit) return;
+    _quickAddDistUnit = el.dataset.unit;
+    syncQuickAddUnitChips();
+    onQuickAddPace();
+    haptic(6);
+}
+
+// Live derived pace for endurance: time ÷ distance, shown in the logged unit.
+function onQuickAddPace() {
+    const el = $('quick-add-pace');
+    if (!el) return;
+    if (_quickAddTrack !== 'endurance') { el.textContent = ''; return; }
+    const sec = parseFloat(($('quick-add-sec') || {}).value);
+    const dist = parseFloat(($('quick-add-dist') || {}).value);
+    if (isFinite(sec) && sec > 0 && isFinite(dist) && dist > 0) {
+        el.textContent = `${fmtDur(sec / dist)} / ${_quickAddDistUnit}`;
+    } else {
+        el.textContent = '';
+    }
+}
+
+function paintQuickAddStopwatch() {
+    const clock = $('quick-add-sw-clock');
+    if (clock) clock.textContent = fmtDur(parseFloat(($('quick-add-sec') || {}).value) || 0);
+    const btn = $('quick-add-sw-toggle');
+    if (btn) { btn.textContent = _qaSwRunning ? 'Stop' : 'Start'; btn.classList.toggle('is-running', _qaSwRunning); }
+    const wrap = $('quick-add-stopwatch');
+    if (wrap) wrap.classList.toggle('is-running', _qaSwRunning);
+}
+
+function stopQuickAddStopwatch() {
+    _qaSwRunning = false;
+    if (_qaSwHandle) { clearInterval(_qaSwHandle); _qaSwHandle = null; }
+    paintQuickAddStopwatch();
+}
+
+function toggleQuickAddStopwatch() {
+    if (_qaSwRunning) { stopQuickAddStopwatch(); haptic(10); return; }
+    _qaSwRunning = true;
+    // Resume from whatever's already in the field so Stop→Start continues.
+    const base = parseFloat(($('quick-add-sec') || {}).value) || 0;
+    _qaSwStart = Date.now() - base * 1000;
+    _qaSwHandle = setInterval(() => {
+        const secField = $('quick-add-sec');
+        if (!secField) return;
+        secField.value = String(Math.max(0, Math.round((Date.now() - _qaSwStart) / 1000)));
+        paintQuickAddStopwatch();
+        onQuickAddPace();
+    }, 250);
+    paintQuickAddStopwatch();
+    haptic(12);
+}
+
+function resetQuickAddStopwatch() {
+    stopQuickAddStopwatch();
+    paintQuickAddStopwatch();
+}
 
 async function openQuickAdd(el) {
     const exercise = el?.dataset?.exercise;
@@ -6014,21 +6154,37 @@ async function openQuickAdd(el) {
         if (prev) source = 'prior';
     }
 
+    // v11 — resolve the tracking type and lay out the matching fields. A prior
+    // set's own type wins (so a re-log of a run stays a run); otherwise the
+    // catalog resolver decides.
+    const track = trackOf(prev) !== 'load' ? trackOf(prev) : trackFor(exercise, muscle);
+    _quickAddDistUnit = (prev && prev.du) || cardioUnit();
+    applyQuickAddLayout(track, exercise);
+
     // Inputs operate in the display unit; the stored weight is lb.
-    $('quick-add-w').value = prev ? String(wDisp(prev.weight)) : '';
-    $('quick-add-r').value = prev ? String(prev.reps) : '';
-    // Meta line: "Last 155 × 5 · max 181 lb 1RM" (design).
-    const pr = await getCurrentPR(exercise);
-    const maxPart = pr && pr.max1RM ? ` · max ${fmtW(pr.max1RM)} ${unitLabel()} 1RM` : '';
-    $('quick-add-prev').textContent = prev
-        ? `Last ${fmtW(prev.weight)} × ${prev.reps}${maxPart}`
-        : (maxPart ? `No previous sets${maxPart}` : 'No previous sets yet');
+    $('quick-add-w').value = prev && prev.weight ? String(wDisp(prev.weight)) : '';
+    $('quick-add-r').value = prev && prev.reps ? String(prev.reps) : '';
+    $('quick-add-sec').value = prev && prev.sec ? String(prev.sec) : '';
+    $('quick-add-dist').value = prev && prev.dist ? String(prev.dist) : '';
+    onQuickAddPace();
+    // Meta line: type-appropriate best. "Last 155 × 5 · max 181 lb 1RM" for
+    // load; typed sets just echo the last effort.
+    let metaLine;
+    if (track === 'load') {
+        const pr = await getCurrentPR(exercise);
+        const maxPart = pr && pr.max1RM ? ` · max ${fmtW(pr.max1RM)} ${unitLabel()} 1RM` : '';
+        metaLine = prev ? `Last ${fmtW(prev.weight)} × ${prev.reps}${maxPart}`
+            : (maxPart ? `No previous sets${maxPart}` : 'No previous sets yet');
+    } else {
+        metaLine = prev ? `Last ${setText(prev)}` : 'No previous sets yet';
+    }
+    $('quick-add-prev').textContent = metaLine;
 
     $('quick-add-overlay').classList.add('active');
     setTimeout(() => {
-        const el = $('quick-add-w');
-        el.focus({ preventScroll: true });
-        selectInputContents(el);
+        // Focus the first relevant field (weight for load/reps, duration for timed).
+        const first = (track === 'hold' || track === 'endurance') ? $('quick-add-sec') : $('quick-add-w');
+        if (first) { first.focus({ preventScroll: true }); selectInputContents(first); }
     }, 350);
 }
 
@@ -6066,6 +6222,8 @@ function closeQuickAdd() {
     _quickAddExercise = null;
     _quickAddEditId = null;
     _quickAddWarmup = false;
+    stopQuickAddStopwatch();
+    _quickAddTrack = 'load';
 }
 
 // v9.26 — paint the quick-add warmup toggle row to match _quickAddWarmup.
@@ -6086,23 +6244,47 @@ function toggleQuickAddWarmup() {
 
 async function saveQuickAdd() {
     const exercise = _quickAddExercise;
-    // The input is in the display unit; convert to stored lb.
-    const wIn = parseFloat($('quick-add-w').value);
-    const r = parseInt($('quick-add-r').value, 10);
-    if (!exercise || isNaN(wIn) || isNaN(r) || wIn <= 0 || r <= 0) {
-        haptic([20, 50, 20]);
-        return;
-    }
-    const w = Math.round(toLb(wIn) * 10) / 10;
+    if (!exercise) { haptic([20, 50, 20]); return; }
+    const track = _quickAddTrack;
     const warmup = _quickAddWarmup;
+    stopQuickAddStopwatch();
+
+    // Read whichever fields the current type uses. Weight is in the display
+    // unit → stored lb. sec/dist are raw. Validation is per type: a run
+    // needs time or distance, a hold needs time, reps needs a count, load
+    // needs both.
+    const wIn  = parseFloat($('quick-add-w').value);
+    const r    = parseInt($('quick-add-r').value, 10);
+    const sec  = parseInt($('quick-add-sec').value, 10);
+    const dist = parseFloat($('quick-add-dist').value);
+    const w = isFinite(wIn) && wIn > 0 ? Math.round(toLb(wIn) * 10) / 10 : 0;
+
+    let opts, wArg, rArg;
+    if (track === 'reps') {
+        if (!(r > 0)) { haptic([20, 50, 20]); return; }
+        wArg = w; rArg = r; opts = { warmup, t: 'reps' };
+    } else if (track === 'hold') {
+        if (!(sec > 0)) { haptic([20, 50, 20]); return; }
+        wArg = w; rArg = 0; opts = { warmup, t: 'hold', sec };
+    } else if (track === 'endurance') {
+        const hasDist = distanceCapable(exercise) && isFinite(dist) && dist > 0;
+        if (!(sec > 0) && !hasDist) { haptic([20, 50, 20]); return; }
+        wArg = 0; rArg = 0;
+        opts = { warmup, t: 'endurance', sec: sec > 0 ? sec : 0 };
+        if (hasDist) { opts.dist = dist; opts.du = _quickAddDistUnit; }
+    } else {
+        if (!(w > 0) || !(r > 0)) { haptic([20, 50, 20]); return; }
+        wArg = w; rArg = r; opts = { warmup };
+    }
+
     if (_quickAddEditId != null) {
         const id = _quickAddEditId;
         closeQuickAdd();
-        await updateEntry(id, w, r, { warmup });
+        await updateEntry(id, wArg, rArg, opts);
         haptic(15);
         return;
     }
-    const entry = buildEntry(exercise, w, r, { warmup });
+    const entry = buildEntry(exercise, wArg, rArg, opts);
     closeQuickAdd();
     await saveAndSyncUI(entry);
     haptic(15);
@@ -6126,16 +6308,22 @@ async function openEditSet(id) {
     const tagEl = $('quick-add-muscle');
     if (tagEl) tagEl.style.background = muscleColor[muscle] || '#888';
 
-    $('quick-add-w').value = String(wDisp(entry.weight));
-    $('quick-add-r').value = String(entry.reps);
+    // v11 — edit in the set's own type (a run edits as a run).
+    const track = trackOf(entry);
+    _quickAddDistUnit = entry.du || cardioUnit();
+    applyQuickAddLayout(track, entry.exercise);
+    $('quick-add-w').value = entry.weight ? String(wDisp(entry.weight)) : '';
+    $('quick-add-r').value = entry.reps ? String(entry.reps) : '';
+    $('quick-add-sec').value = entry.sec ? String(entry.sec) : '';
+    $('quick-add-dist').value = entry.dist ? String(entry.dist) : '';
+    onQuickAddPace();
     $('quick-add-prev').textContent =
         `Logged ${new Date(entry.id).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
     $('quick-add-overlay').classList.add('active');
     setTimeout(() => {
-        const el = $('quick-add-w');
-        el.focus({ preventScroll: true });
-        selectInputContents(el);
+        const first = (track === 'hold' || track === 'endurance') ? $('quick-add-sec') : $('quick-add-w');
+        if (first) { first.focus({ preventScroll: true }); selectInputContents(first); }
     }, 350);
 }
 
@@ -6143,13 +6331,24 @@ async function openEditSet(id) {
 // re-render fan-out so PR badges, charts, and the active session card
 // reflect the new value immediately. PR is recomputed (not just compared)
 // because an edit can move the PR up OR down.
-async function updateEntry(id, weight, reps, { warmup } = {}) {
+async function updateEntry(id, weight, reps, { warmup, t, sec, dist, du } = {}) {
     try {
         const entry = await performDB('workouts', 'get', id);
         if (!entry || entry.deleted) return;
-        entry.weight = weight;
-        entry.reps = reps;
-        entry.oneRM = epley(weight, reps);
+        // v11 — an edit can change the tracking type's fields. `t` defaults to
+        // the entry's existing type when the caller omits it (warmup-only
+        // toggles from the set-action sheet), so a run stays a run.
+        const track = t || trackOf(entry);
+        entry.weight = Number(weight) || 0;
+        entry.reps = Number(reps) || 0;
+        entry.oneRM = track === 'load' ? epley(entry.weight, entry.reps) : 0;
+        if (track === 'load') { delete entry.t; delete entry.sec; delete entry.dist; delete entry.du; }
+        else {
+            entry.t = track;
+            if (sec != null) entry.sec = Number(sec) || 0;
+            if (dist != null) entry.dist = Number(dist) || 0; else if (track !== 'endurance') delete entry.dist;
+            if (du) entry.du = du;
+        }
         // v9.26 — when the caller passes warmup, write it; otherwise keep
         // the existing flag. Toggling warmup forces a PR recompute below
         // because the set may be entering or leaving the PR candidate pool.
@@ -6186,10 +6385,27 @@ async function openSetAction(el) {
     const muscleEl = $('set-action-muscle');
     if (muscleEl) muscleEl.style.background = muscleColor[muscle] || '#888';
     $('set-action-name').textContent = titleCase(entry.exercise);
-    $('set-action-weight').textContent = String(fmtW(entry.weight));
-    $('set-action-reps').textContent = `${entry.reps} reps`;
-    $('set-action-onerm').textContent =
-        `est 1RM ${Number.isFinite(entry.oneRM) ? fmtW(entry.oneRM) : '—'} ${unitLabel()}`;
+    // v11 — type-aware summary. Load keeps "225 × 5 · est 1RM"; typed sets show
+    // their own value with a type-appropriate secondary line.
+    const track = trackOf(entry);
+    const parts = setParts(entry);
+    const xEl = $('set-action-x');
+    if (track === 'load') {
+        $('set-action-weight').textContent = String(fmtW(entry.weight));
+        if (xEl) xEl.style.display = '';
+        $('set-action-reps').textContent = `${entry.reps} reps`;
+        $('set-action-onerm').textContent =
+            `est 1RM ${Number.isFinite(entry.oneRM) ? fmtW(entry.oneRM) : '—'} ${unitLabel()}`;
+    } else {
+        $('set-action-weight').textContent = parts.main;
+        if (xEl) xEl.style.display = 'none';
+        $('set-action-reps').textContent = parts.sub || '';
+        let sub = '';
+        if (track === 'endurance' && entry.dist && entry.sec) sub = `${fmtDur(entry.sec / entry.dist)} / ${entry.du || 'mi'} pace`;
+        else if (track === 'hold') sub = 'hold';
+        else if (track === 'reps') sub = entry.weight ? `+${fmtW(entry.weight)} ${unitLabel()} added` : 'bodyweight';
+        $('set-action-onerm').textContent = sub;
+    }
 
     // Compute "Set N of M" within (sessionId, exercise). Untagged sets fall
     // back to the day's bucket so the meta line still gives useful context.
@@ -7324,14 +7540,18 @@ async function getPrevExerciseSets(exercise, excludingSessionId) {
 // CLAUDE.md "Row-form pill layout" for the rationale.
 function renderSetPill(s, prev, opts = {}) {
     const { isPR = false, setLabel = '?', extraClass = '' } = opts;
-    const prevText = prev
-        ? `${escapeHtml(fmtW(prev.weight))} × ${escapeHtml(String(prev.reps))}`
-        : '—';
+    const prevText = prev ? escapeHtml(setText(prev)) : '—';
     const setHtml = s.warmup
         ? '<span class="warmup-tag">W</span>'
         : escapeHtml(setLabel);
     const prTag = isPR ? '<span class="pill-pr-tag">PR</span>' : '';
-    const aria = `${s.warmup ? 'Warmup. ' : ''}Set ${fmtW(s.weight)} ${unitLabel()} for ${s.reps} reps. Tap to edit or delete.`;
+    // v11 — type-aware value. main is the headline (weight / reps / duration /
+    // distance); sub carries the "× reps" or time qualifier.
+    const p = setParts(s);
+    const mainHtml = p.sub
+        ? `${escapeHtml(p.main)} <span class="pill-x">${escapeHtml(p.sub)}</span>`
+        : escapeHtml(p.main);
+    const aria = `${s.warmup ? 'Warmup. ' : ''}${setText(s)}. Tap to edit or delete.`;
     const classes = [
         'session-set-pill', 'history-pill',
         s.warmup ? 'is-warmup' : '',
@@ -7341,7 +7561,7 @@ function renderSetPill(s, prev, opts = {}) {
     return `<button type="button" class="${classes}" data-action="openSetAction" data-id="${s.id}" aria-label="${escapeHtml(aria)}">
         <span class="pill-col-set">${setHtml}</span>
         <span class="pill-col-prev">${prevText}</span>
-        <span class="pill-col-main">${escapeHtml(fmtW(s.weight))} <span class="pill-x">×</span> ${escapeHtml(String(s.reps))}${prTag}</span>
+        <span class="pill-col-main">${mainHtml}${prTag}</span>
     </button>`;
 }
 
@@ -7414,9 +7634,13 @@ async function renderSessionSets(container, sets) {
             const label = s.warmup ? 'W' : String(++workIdx);
             const tag = isPR ? '<span class="aw-tag aw-tag-pr">PR</span>'
                 : s.warmup ? '<span class="aw-tag aw-tag-warm">WARM</span>' : '';
-            return `<button type="button" class="aw-set-row" data-action="openSetAction" data-id="${s.id}" aria-label="Set ${fmtW(s.weight)} ${unitLabel()} for ${s.reps} reps. Tap to edit or delete.">
+            const p = setParts(s);
+            const valHtml = p.sub
+                ? `${escapeHtml(p.main)} <span class="aw-set-x">${escapeHtml(p.sub)}</span>`
+                : escapeHtml(p.main);
+            return `<button type="button" class="aw-set-row" data-action="openSetAction" data-id="${s.id}" aria-label="${escapeHtml(setText(s))}. Tap to edit or delete.">
                 <span class="aw-set-idx tnum">${label}</span>
-                <span class="aw-set-val tnum">${escapeHtml(fmtW(s.weight))} <span class="aw-set-x">× ${escapeHtml(String(s.reps))}</span></span>
+                <span class="aw-set-val tnum">${valHtml}</span>
                 ${tag}
                 <svg class="aw-set-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>`;
@@ -7431,7 +7655,7 @@ async function renderSessionSets(container, sets) {
             ? workSets.reduce((a, b) => (b.weight > a.weight ? b : a))
             : orderedSets[orderedSets.length - 1];
         const headMeta = (collapsed && topSet)
-            ? `${fmtW(topSet.weight)} × ${topSet.reps} · ${countLabel}`
+            ? `${setText(topSet)} · ${countLabel}`
             : countLabel;
         html += `
             <div class="aw-ex-card${collapsed ? ' is-collapsed' : ''}">

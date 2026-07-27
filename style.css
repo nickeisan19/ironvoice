@@ -754,6 +754,30 @@ input { font-family: inherit; -webkit-appearance: none; appearance: none; touch-
 .qa-add { flex: 1; height: 54px; border-radius: 14px; background: var(--acc); border: none; color: var(--acc-ink); font-size: 15px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .qa-add:active { background: #e6ad00; }
 
+/* v11 — typed quick-add: hold/endurance stopwatch, distance-unit chips, pace. */
+.qa-stopwatch {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 14px; margin-bottom: 18px;
+  border-radius: 14px; border: 1px solid var(--hairline-strong); background: var(--surface-1);
+}
+.qa-stopwatch.is-running { border-color: var(--green); }
+.qa-sw-clock { font-size: 38px; font-weight: 800; color: var(--label); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.qa-stopwatch.is-running .qa-sw-clock { color: var(--green); }
+.qa-sw-btns { display: flex; gap: 8px; }
+.qa-sw-reset { padding: 0 16px; height: 44px; border-radius: 12px; background: transparent; border: 1px solid var(--hairline); color: var(--label-secondary); font-size: 14px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.qa-sw-toggle { padding: 0 22px; height: 44px; border-radius: 12px; background: var(--acc); border: none; color: var(--acc-ink); font-size: 15px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.qa-sw-toggle:active { transform: scale(0.96); }
+.qa-sw-toggle.is-running { background: var(--red); color: #fff; }
+.qa-unit-chips { display: flex; gap: 8px; margin-bottom: 12px; }
+.qa-unit-chip {
+  flex: 1; height: 40px; border-radius: 10px;
+  background: var(--surface-3); border: 1px solid var(--hairline);
+  color: var(--label-secondary); font-size: 14px; font-weight: 700; text-transform: lowercase;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.qa-unit-chip.is-active { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.qa-pace { min-height: 20px; margin-bottom: 12px; font-size: 13.5px; font-weight: 700; color: var(--label-secondary); font-variant-numeric: tabular-nums; }
+
 /* Native select dressed to match other rows */
 .row-select {
   display: flex; align-items: center; justify-content: space-between;
