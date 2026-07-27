@@ -3055,6 +3055,33 @@ async function renderHome() {
     $('load-lifetime-sub').textContent =
         `${work.length.toLocaleString('en-US')} sets`;
 
+    // --- Cardio card (v11) — only when endurance sets exist. Distance is
+    // normalised to the user's cardio unit; distance-less cardio (jump rope)
+    // falls back to total time.
+    const cardioCard = $('home-cardio-card');
+    if (cardioCard) {
+        const endur = work.filter(w => trackOf(w) === 'endurance');
+        if (!endur.length) {
+            cardioCard.hidden = true;
+        } else {
+            cardioCard.hidden = false;
+            const sum = arr => arr.reduce((a, w) => {
+                if (w.dist) a.dist += toCardioUnit(w.dist, w.du || 'mi');
+                if (w.sec) a.sec += w.sec;
+                a.sessions.add(w.sessionId || ('u' + w.date));
+                return a;
+            }, { dist: 0, sec: 0, sessions: new Set() });
+            const wk = sum(endur.filter(w => w.date >= mondayIso));
+            const lt = sum(endur);
+            const cu = cardioUnit();
+            const nS = n => `${n} session${n === 1 ? '' : 's'}`;
+            $('cardio-weekly').textContent = wk.dist > 0 ? `${distDisp(wk.dist)} ${cu}` : fmtDur(wk.sec);
+            $('cardio-weekly-sub').textContent = `${formatDurationCompact(wk.sec * 1000)} · ${nS(wk.sessions.size)}`;
+            $('cardio-lifetime').textContent = lt.dist > 0 ? `${distDisp(lt.dist)} ${cu}` : fmtDur(lt.sec);
+            $('cardio-lifetime-sub').textContent = nS(lt.sessions.size);
+        }
+    }
+
     // --- Resume strip vs idle (Start CTA + Suggested) -------------------
     const resume = $('home-resume');
     const idle = $('home-idle');
