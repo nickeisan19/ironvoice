@@ -1201,6 +1201,16 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '11.0': {
+        items: [
+            'Cardio, planks, and bodyweight now track properly — runs log distance + time, planks log a hold, pull-ups log reps. Each shows the right thing: "3 mi · 24:00", "1:30 hold", "12 reps".',
+            'Log them by voice too: "treadmill 3 miles in 24 minutes", "plank 90 seconds", "pull ups 12".',
+            'New Cardio group with 11 exercises (run, row, bike, swim, jump rope…), plus a stopwatch and mi/km/m units for timed work.',
+            'Records has a new Cardio lens (furthest distance + best pace); History shows a weekly cardio summary, and Home adds a Cardio card.',
+            'The exercise picker is now browsable — Recent, your templates, and collapsible muscle groups — not one giant list.',
+            'Your weight-lifting numbers are untouched: cardio and holds never count toward lb volume or weight PRs.',
+        ],
+    },
     '10.10': {
         items: [
             'Hundreds of new exercises — the library jumped from a couple dozen to 458, covering every muscle group plus dumbbell, machine, and single-arm/single-leg variants.',
@@ -5104,17 +5114,25 @@ async function exportHealthCSV() {
         await infoSheet({ title: 'No data to export', body: 'Log at least one set, then try again.' });
         return;
     }
-    // Schema compatible with Health Auto Export "Workout" CSV import
-    const lines = ['Date,Exercise,Muscle Group,Weight (lb),Reps,Estimated 1RM (lb),Volume (lb)'];
+    // v11 — one row per set, type-aware: Type / Duration / Distance / Unit /
+    // Warmup / PR columns so cardio, holds and bodyweight export cleanly.
+    const prMap = Object.fromEntries((await performDB('prs', 'getAll')).map(p => [p.exercise, p.achievedAt]));
+    const lines = ['Date,Exercise,Muscle Group,Type,Weight (lb),Reps,Duration (s),Distance,Unit,Estimated 1RM (lb),Volume (lb),Warmup,PR'];
     data.sort((a, b) => a.id - b.id).forEach(w => {
         lines.push([
             new Date(w.id).toISOString(),
             `"${w.exercise}"`,
             muscleOf(w.exercise),
-            w.weight,
-            w.reps,
-            Math.round(w.oneRM),
+            trackOf(w),
+            w.weight || 0,
+            w.reps || 0,
+            w.sec || 0,
+            w.dist || 0,
+            w.du || '',
+            Math.round(w.oneRM || 0),
             Math.round(setVolume(w)),
+            w.warmup ? 'yes' : '',
+            prMap[w.exercise] === w.id ? 'yes' : '',
         ].join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
