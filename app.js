@@ -3133,33 +3133,111 @@ async function logVoiceSheet() {
 }
 
 // --- Exercise picker ---------------------------------------------------------
+// v11 — one muscle group open at a time in the picker's browse mode.
+let _exPickerOpenMuscle = null;
+
 function openExPicker() {
     const input = $('ex-picker-input');
     if (input) input.value = '';
+    _exPickerOpenMuscle = null;
     renderExPicker('');
     $('ex-picker-overlay')?.classList.add('active');
     setTimeout(() => $('ex-picker-input')?.focus(), 350);
 }
 function closeExPicker() { $('ex-picker-overlay')?.classList.remove('active'); _exPickerForTemplate = false; }
 async function filterExPicker(el) { await renderExPicker(el?.value || ''); }
+
+function toggleExPickerMuscle(el) {
+    const m = el?.dataset?.muscle;
+    if (!m) return;
+    _exPickerOpenMuscle = (_exPickerOpenMuscle === m) ? null : m;
+    renderExPicker('');
+    haptic(6);
+}
+
+const exPickerRowHtml = c =>
+    `<button type="button" class="ex-picker-row" data-action="pickExercise" data-exercise="${escapeHtml(c.name)}">
+        <span class="muscle-tag" style="background:${escapeHtml(muscleColor[c.muscle] || '#888')}"></span>
+        <span class="ex-picker-name">${escapeHtml(titleCase(c.name))}</span>
+        <span class="ex-picker-plus" aria-hidden="true">+</span>
+    </button>`;
+
+// v11 — sectioned browse (Recent → In your templates → collapsible muscle
+// groups incl. Cardio). Search flattens to a single ranked list. The catalogue
+// is 470 deep — a flat list is unusable, so browse is grouped and one muscle
+// opens at a time.
 async function renderExPicker(query) {
     const list = $('ex-picker-list');
     if (!list) return;
     const q = (query || '').trim().toLowerCase();
     const cat = await buildExerciseCatalog();
-    const rows = cat
-        .filter(c => !q || c.name.toLowerCase().includes(q))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    if (!rows.length) {
-        list.innerHTML = `<div class="ex-picker-empty">No exercises match${q ? ` “${escapeHtml(query)}”` : ''}.</div>`;
+    const byName = new Map(cat.map(c => [c.name, c]));
+
+    // ---- Search mode: flat, frequency-then-alpha ranked ------------------
+    if (q) {
+        const freq = await getExerciseFrequency();
+        const rows = cat
+            .filter(c => c.name.toLowerCase().includes(q)
+                || (exerciseLibrary.find(e => e.name === c.name)?.synonyms || []).some(s => s.includes(q)))
+            .sort((a, b) => (freq.get(b.name) || 0) - (freq.get(a.name) || 0) || a.name.localeCompare(b.name));
+        list.innerHTML = (rows.length
+            ? rows.map(exPickerRowHtml).join('')
+            : `<div class="ex-picker-empty">No exercises match “${escapeHtml(query)}”.</div>`)
+            + `<button type="button" class="ex-picker-create" data-action="newCustomExercise">
+                 <span class="ex-picker-create-plus" aria-hidden="true">+</span> Add “${escapeHtml(query.trim())}” to the database
+               </button>`;
         return;
     }
-    list.innerHTML = rows.map(c =>
-        `<button type="button" class="ex-picker-row" data-action="pickExercise" data-exercise="${escapeHtml(c.name)}">
-            <span class="muscle-tag" style="background:${escapeHtml(muscleColor[c.muscle] || '#888')}"></span>
-            <span class="ex-picker-name">${escapeHtml(titleCase(c.name))}</span>
-            <span class="ex-picker-plus" aria-hidden="true">+</span>
-        </button>`).join('');
+
+    // ---- Browse mode -----------------------------------------------------
+    const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
+    // RECENT — last 8 distinct exercises by most recent set.
+    const seen = new Set(), recent = [];
+    for (const w of all.sort((a, b) => b.id - a.id)) {
+        if (seen.has(w.exercise) || !byName.has(w.exercise)) continue;
+        seen.add(w.exercise); recent.push(byName.get(w.exercise));
+        if (recent.length >= 8) break;
+    }
+    // IN YOUR TEMPLATES — distinct exercises across saved templates (first 6).
+    const templates = (await performDB('templates', 'getAll')).filter(t => !t.deleted);
+    const tSeen = new Set(), tExs = [];
+    for (const t of templates) for (const e of (t.exercises || [])) {
+        const nm = e.name || e;
+        if (tSeen.has(nm) || !byName.has(nm)) continue;
+        tSeen.add(nm); tExs.push(byName.get(nm));
+    }
+
+    let html = '';
+    const section = (label, rows) => rows.length
+        ? `<div class="ex-picker-section-head">${label}<span class="ex-picker-count">${rows.length}</span></div>${rows.map(exPickerRowHtml).join('')}`
+        : '';
+    if (recent.length) html += section('Recent', recent);
+    if (tExs.length) html += section('In your templates', tExs.slice(0, 6));
+
+    // ALL EXERCISES — collapsible muscle groups (one open at a time).
+    html += `<div class="ex-picker-section-head">All exercises</div>`;
+    for (const m of MUSCLES) {
+        const rows = cat.filter(c => c.muscle === m).sort((a, b) => a.name.localeCompare(b.name));
+        if (!rows.length) continue;
+        const open = _exPickerOpenMuscle === m;
+        html += `<button type="button" class="ex-picker-group${open ? ' is-open' : ''}" data-action="toggleExPickerMuscle" data-muscle="${m}" aria-expanded="${open ? 'true' : 'false'}">
+            <span class="muscle-tag" style="background:${escapeHtml(muscleColor[m] || '#888')}"></span>
+            <span class="ex-picker-group-name">${escapeHtml(mLabel(m))}</span>
+            <span class="ex-picker-count">${rows.length}</span>
+            <svg class="ex-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>`;
+        if (open) html += `<div class="ex-picker-group-body">${rows.map(exPickerRowHtml).join('')}</div>`;
+    }
+    html += `<button type="button" class="ex-picker-create" data-action="newCustomExercise">
+        <span class="ex-picker-create-plus" aria-hidden="true">+</span> Add an exercise to the database
+    </button>`;
+    list.innerHTML = html;
+}
+
+// Display label for a muscle id (e.g. "forearm" → "Forearms").
+function mLabel(id) {
+    const map = { forearm: 'Forearms', cardio: 'Cardio' };
+    return map[id] || titleCase(id);
 }
 async function pickExercise(el) {
     const name = el?.dataset.exercise;
@@ -3777,6 +3855,8 @@ function initActionDispatcher() {
         openVoicePicker, closeVoicePicker,
         // v11: typed quick-add — distance-unit chips + hold/endurance stopwatch.
         setQuickAddUnit, toggleQuickAddStopwatch, resetQuickAddStopwatch,
+        // v11: sectioned exercise picker — collapsible muscle groups.
+        toggleExPickerMuscle,
     };
     const INPUT_ACTIONS = { filterExercises, filterSwapExercises, filterCommunity, filterRecords, filterExPicker, onQuickAddPace };
     // v9.21 — selectAll: focus handler that highlights any prefilled value

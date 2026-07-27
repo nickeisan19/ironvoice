@@ -3833,6 +3833,38 @@ button.aw-ex-head {
 .ex-picker-plus { color: var(--acc); font-size: 20px; font-weight: 700; line-height: 1; }
 .ex-picker-empty { padding: 30px 16px; text-align: center; font-size: 14px; color: var(--label-tertiary); }
 
+/* v11 — sectioned browse: section heads, collapsible muscle groups, create row. */
+.ex-picker-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 1;
+  padding: 12px 4px 6px; margin-top: 4px;
+  background: var(--surface-2);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--label-tertiary); border-bottom: 1px solid var(--hairline);
+}
+.ex-picker-count { font-size: 12px; font-weight: 700; color: var(--label-tertiary); font-variant-numeric: tabular-nums; }
+.ex-picker-group {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 14px 4px; border: none; border-bottom: 1px solid var(--hairline);
+  background: none; cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.ex-picker-group .muscle-tag { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.ex-picker-group-name { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--label); }
+.ex-picker-chevron { width: 18px; height: 18px; color: var(--label-tertiary); transition: transform 0.2s ease; }
+.ex-picker-group.is-open .ex-picker-chevron { transform: rotate(90deg); }
+.ex-picker-group-body { padding-left: 10px; }
+.ex-picker-group-body .ex-picker-row { padding-left: 14px; }
+.ex-picker-create {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 16px 4px; margin-top: 4px;
+  border: 1px dashed var(--hairline-strong); border-radius: 12px;
+  background: none; cursor: pointer; text-align: left;
+  font-size: 14px; font-weight: 600; color: var(--label-secondary);
+  -webkit-tap-highlight-color: transparent;
+}
+.ex-picker-create-plus { color: var(--acc); font-size: 18px; font-weight: 700; }
+
 .pf-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .pf-title { font-size: 20px; font-weight: 800; color: var(--label); }
 .pf-clear { background: none; border: none; color: var(--acc); font-size: 14px; font-weight: 700; cursor: pointer; }
