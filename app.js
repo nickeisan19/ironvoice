@@ -1491,12 +1491,22 @@ function initSegmented() {
         haptic(8);
     });
 
-    // Item 13: Custom-exercise muscle picker
+    // Item 13: Custom-exercise muscle picker. v11 — picking the Cardio muscle
+    // auto-selects the Distance & time (endurance) tracking type, since cardio
+    // is always logged that way.
     $('custom-muscle-segment')?.addEventListener('click', e => {
         const btn = e.target.closest('button[data-val]');
         if (!btn || !editingCustomExercise) return;
         setSegmentedActive($('custom-muscle-segment'), b => b === btn);
         editingCustomExercise.muscle = btn.dataset.val;
+        if (btn.dataset.val === 'cardio') setCustomTrack('endurance');
+        haptic(8);
+    });
+    // v11 — custom-exercise tracking-type picker ("How is it logged?").
+    $('custom-track-segment')?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn || !editingCustomExercise) return;
+        setCustomTrack(btn.dataset.val);
         haptic(8);
     });
 
@@ -1506,14 +1516,35 @@ function initSegmented() {
         if (!btn) return;
         setSegmentedActive($('community-add-muscle'), b => b === btn);
         _communityAddMuscle = btn.dataset.val;
+        if (btn.dataset.val === 'cardio') { _communityAddTrack = 'endurance'; setSegmentedActive($('community-add-track'), b => b.dataset.val === 'endurance'); }
+        haptic(8);
+    });
+    $('community-add-track')?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn) return;
+        setSegmentedActive($('community-add-track'), b => b === btn);
+        _communityAddTrack = btn.dataset.val;
         haptic(8);
     });
     $('community-edit-muscle')?.addEventListener('click', e => {
         const btn = e.target.closest('button[data-val]');
         if (!btn) return;
         setSegmentedActive($('community-edit-muscle'), b => b === btn);
+        if (btn.dataset.val === 'cardio') setSegmentedActive($('community-edit-track'), b => b.dataset.val === 'endurance');
         haptic(8);
     });
+    $('community-edit-track')?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-val]');
+        if (!btn) return;
+        setSegmentedActive($('community-edit-track'), b => b === btn);
+        haptic(8);
+    });
+}
+
+// v11 — set the custom editor's tracking type in state + UI together.
+function setCustomTrack(track) {
+    if (editingCustomExercise) editingCustomExercise.track = track;
+    setSegmentedActive($('custom-track-segment'), b => b.dataset.val === track);
 }
 
 // ============================================================================
@@ -1676,11 +1707,13 @@ async function loadCustomExercisesIntoLibrary() {
                 name: c.name,
                 muscle: c.muscle || 'arms',
                 synonyms: Array.isArray(c.synonyms) ? c.synonyms : [],
+                track: c.track,   // v11 — explicit tracking type (undefined → trackFor resolves)
                 custom: true,
             });
         } else if (existing.custom) {
-            // keep muscle assignment in sync if user edited
+            // keep muscle + track assignment in sync if user edited
             existing.muscle = c.muscle || existing.muscle;
+            if (c.track) existing.track = c.track;
         } else {
             // Built-in catalog now owns this name — auto-clean the dup.
             await tombstoneCustomOnPromotion(c);
@@ -5090,6 +5123,7 @@ function selectProfilePanel(arg) {
     // add-form's muscle pill defaults to the current selection.
     if (panel === 'community') {
         setSegmentedActive($('community-add-muscle'), b => b.dataset.val === _communityAddMuscle);
+        setSegmentedActive($('community-add-track'), b => b.dataset.val === _communityAddTrack);
         renderCommunityTabList();
     }
 }
@@ -5604,18 +5638,22 @@ function renderSubmissionChip(status) {
 }
 
 function newCustomExercise() {
-    editingCustomExercise = { name: '', muscle: 'chest', synonyms: [], modifiedAt: Date.now() };
+    editingCustomExercise = { name: '', muscle: 'chest', synonyms: [], track: 'load', modifiedAt: Date.now() };
     $('custom-name').value = '';
     $('custom-name').disabled = false;
     $('custom-delete-wrap').style.display = 'none';
     $('custom-submit-wrap').style.display = 'none';   // v9.42: submit gated on save
     setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === 'chest');
+    setSegmentedActive($('custom-track-segment'), b => b.dataset.val === 'load');
     $('custom-overlay').classList.add('active');
     setTimeout(() => $('custom-name').focus(), 350);
 }
 
 function editCustomExercise(c) {
     editingCustomExercise = { ...c };
+    // v11 — default the track chip from the stored value, or resolve it from
+    // name/muscle for customs saved before the type picker existed.
+    editingCustomExercise.track = c.track || trackFor(c.name, c.muscle);
     $('custom-name').value = titleCase(c.name);
     // Renames would orphan journal entries pointing at the old name.
     // Allow muscle re-tagging only.
@@ -5623,6 +5661,7 @@ function editCustomExercise(c) {
     $('custom-delete-wrap').style.display = '';
     $('custom-submit-wrap').style.display = '';
     setSegmentedActive($('custom-muscle-segment'), b => b.dataset.val === c.muscle);
+    setSegmentedActive($('custom-track-segment'), b => b.dataset.val === editingCustomExercise.track);
     $('custom-overlay').classList.add('active');
 }
 
@@ -5661,12 +5700,14 @@ async function saveCustomExercise() {
     markUnsynced();   // v8
 
     // Mutate the in-memory library so search/voice immediately picks it up.
+    // v11 — carry the explicit tracking type so trackFor() honors it right away.
     let lib = exerciseLibrary.find(ex => ex.name === name);
     if (!lib) {
-        lib = { name, muscle: editingCustomExercise.muscle, synonyms: [], custom: true };
+        lib = { name, muscle: editingCustomExercise.muscle, synonyms: [], track: editingCustomExercise.track, custom: true };
         exerciseLibrary.push(lib);
     } else if (lib.custom) {
         lib.muscle = editingCustomExercise.muscle;
+        lib.track = editingCustomExercise.track;
     }
     rebuildMatchOrder();
 
@@ -5813,6 +5854,7 @@ async function ensureCommunityCatalog({ force = false } = {}) {
 // catalog (no review). Submit form + catalog list + edit sheet.
 // ============================================================================
 let _communityAddMuscle = 'chest';
+let _communityAddTrack = 'load';   // v11 — tracking type for the add-community form
 let _communityEdit = null;   // { originalName } while the edit sheet is open
 
 // Shared POST helper for the community write actions. Returns the parsed
@@ -5862,7 +5904,7 @@ async function submitCommunity() {
     const btn = $('community-add-btn');
     btn?.classList.add('is-busy');
     const res = await postCommunityWrite('addCommunityExercise', {
-        exercise: { name, muscle: _communityAddMuscle, synonyms: [name] },
+        exercise: { name, muscle: _communityAddMuscle, synonyms: [name], track: _communityAddTrack },
     });
     btn?.classList.remove('is-busy');
     if (!res) { showSnackbar("Couldn't reach the community catalog"); return; }
@@ -5886,6 +5928,8 @@ function editCommunity(el) {
     _communityEdit = { originalName: item.name };
     if ($('community-edit-name')) $('community-edit-name').value = titleCase(item.name);
     setSegmentedActive($('community-edit-muscle'), b => b.dataset.val === item.muscle);
+    const etrack = item.track || trackFor(item.name, item.muscle);
+    setSegmentedActive($('community-edit-track'), b => b.dataset.val === etrack);
     $('community-edit-overlay')?.classList.add('active');
 }
 
@@ -5900,11 +5944,12 @@ async function saveCommunityEdit() {
     if (nameRaw.length < 2) { await infoSheet({ title: 'Name too short', body: 'Give the exercise a name.' }); return; }
     const name = nameRaw.toLowerCase();
     const muscle = $('community-edit-muscle')?.querySelector('button.active')?.dataset.val || 'chest';
+    const track = $('community-edit-track')?.querySelector('button.active')?.dataset.val || 'load';
     const btn = $('community-edit-overlay')?.querySelector('.community-save-btn');
     btn?.classList.add('is-busy');
     const res = await postCommunityWrite('editCommunityExercise', {
         originalName: _communityEdit.originalName,
-        exercise: { name, muscle, synonyms: [name] },
+        exercise: { name, muscle, synonyms: [name], track },
     });
     btn?.classList.remove('is-busy');
     if (!res) { showSnackbar("Couldn't reach the community catalog"); return; }
@@ -6102,6 +6147,7 @@ async function importCommunityExercise(el) {
         name: entry.name,
         muscle: entry.muscle || 'arms',
         synonyms: Array.isArray(entry.synonyms) ? entry.synonyms : [],
+        track: entry.track,   // v11 — carry the community entry's tracking type
         modifiedAt: Date.now(),
     };
     await performDB('customExercises', 'put', record);
