@@ -3202,9 +3202,13 @@ async function renderHome() {
             const lt = sum(endur);
             const cu = cardioUnit();
             const nS = n => `${n} session${n === 1 ? '' : 's'}`;
-            $('cardio-weekly').textContent = wk.dist > 0 ? `${distDisp(wk.dist)} ${cu}` : fmtDur(wk.sec);
+            // dist headline when there's distance; time when it's time-only
+            // cardio; an explicit "0 <unit>" when the period has no cardio at
+            // all (so a skipped week reads as zero, not a "0:00" timer).
+            const cardioVal = c => c.dist > 0 ? `${distDisp(c.dist)} ${cu}` : (c.sec > 0 ? fmtDur(c.sec) : `0 ${cu}`);
+            $('cardio-weekly').textContent = cardioVal(wk);
             $('cardio-weekly-sub').textContent = `${formatDurationCompact(wk.sec * 1000)} · ${nS(wk.sessions.size)}`;
-            $('cardio-lifetime').textContent = lt.dist > 0 ? `${distDisp(lt.dist)} ${cu}` : fmtDur(lt.sec);
+            $('cardio-lifetime').textContent = cardioVal(lt);
             $('cardio-lifetime-sub').textContent = nS(lt.sessions.size);
         }
     }
