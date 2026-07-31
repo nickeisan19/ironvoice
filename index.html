@@ -1059,6 +1059,15 @@
                 </div>
             </div>
 
+            <!-- v11 (item 4) — floating run-clock bar: shown while a timed set's
+                 stopwatch runs and the entry sheet is closed. Pinned above the
+                 command bar (never scrolls); tap to reopen entry. -->
+            <button type="button" id="run-clock-bar" class="run-bar" data-action="reopenRunClock" hidden>
+                <span class="run-bar-dot" aria-hidden="true"></span>
+                <span class="run-bar-name" id="run-clock-name">Timed set</span>
+                <span class="run-bar-time tnum" id="run-clock-time">0:00</span>
+            </button>
+
             <!-- Fixed bottom bar (v9.51) — permanent "+ Add exercise" next to
                  the voice mic, replacing the old say-or-type command field.
                  Shows only while a session is running (.aw-active-only). -->

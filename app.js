@@ -4096,6 +4096,8 @@ function initActionDispatcher() {
         openVoicePicker, closeVoicePicker,
         // v11: typed quick-add — distance-unit chips + hold/endurance stopwatch.
         setQuickAddUnit, toggleQuickAddStopwatch, resetQuickAddStopwatch,
+        // v11 (item 4): tap the floating run-clock bar to reopen entry.
+        reopenRunClock,
         // v11: sectioned exercise picker — collapsible muscle groups.
         toggleExPickerMuscle,
         // v11: supersets — two-tap link + unlink on the active-workout cards.
@@ -6544,6 +6546,19 @@ let _quickAddDistUnit = 'mi';
 let _qaSwRunning = false;
 let _qaSwStart = 0;
 let _qaSwHandle = null;
+// v11 (item 4) — which exercise owns the run clock that's still ticking. Set
+// when a timed entry sheet closes with the stopwatch running; lets the floating
+// bar reopen entry and lets openQuickAdd adopt the live clock instead of
+// resetting it.
+let _runClockExercise = null;
+
+// v11 (item 4) — the entry-sheet distance unit persists as a user preference,
+// independent of any prior set's logged unit. Falls back to the weight-unit's
+// natural distance unit (mi/km) for a fresh install.
+function savedDistUnit() {
+    const u = _prefs.distUnit;
+    return (u === 'mi' || u === 'km' || u === 'm') ? u : cardioUnit();
+}
 
 // Show only the field groups relevant to the tracking type, relabel the
 // weight/duration eyebrows, and reveal the stopwatch for timed work.
@@ -6578,6 +6593,7 @@ function syncQuickAddUnitChips() {
 function setQuickAddUnit(el) {
     if (!el?.dataset?.unit) return;
     _quickAddDistUnit = el.dataset.unit;
+    _prefs.distUnit = _quickAddDistUnit; persistPrefs();   // v11 (item 4) — unit persists
     syncQuickAddUnitChips();
     onQuickAddPace();
     haptic(6);
@@ -6612,10 +6628,12 @@ function stopQuickAddStopwatch() {
     paintQuickAddStopwatch();
 }
 
-function toggleQuickAddStopwatch() {
-    if (_qaSwRunning) { stopQuickAddStopwatch(); haptic(10); return; }
+// Start (or resume) the stopwatch from whatever's already in the field, so
+// Stop→Start — and adopting a clock that kept running while the sheet was
+// closed — both continue seamlessly.
+function startQuickAddStopwatch() {
+    if (_qaSwRunning) return;
     _qaSwRunning = true;
-    // Resume from whatever's already in the field so Stop→Start continues.
     const base = parseFloat(($('quick-add-sec') || {}).value) || 0;
     _qaSwStart = Date.now() - base * 1000;
     _qaSwHandle = setInterval(() => {
@@ -6624,14 +6642,52 @@ function toggleQuickAddStopwatch() {
         secField.value = String(Math.max(0, Math.round((Date.now() - _qaSwStart) / 1000)));
         paintQuickAddStopwatch();
         onQuickAddPace();
+        paintRunClockBar();   // keep the floating bar live while the sheet is closed
     }, 250);
     paintQuickAddStopwatch();
+}
+
+function toggleQuickAddStopwatch() {
+    if (_qaSwRunning) { stopQuickAddStopwatch(); haptic(10); return; }
+    startQuickAddStopwatch();
     haptic(12);
 }
 
 function resetQuickAddStopwatch() {
     stopQuickAddStopwatch();
     paintQuickAddStopwatch();
+}
+
+// v11 (item 4) — floating run-clock bar. While a timed set's stopwatch runs and
+// the entry sheet is closed, this bar floats over the Workout screen (same slot
+// as the rest bar) showing the exercise + live clock; tapping it reopens entry.
+function paintRunClockBar() {
+    const clock = $('run-clock-time');
+    if (clock) clock.textContent = fmtDur(parseFloat(($('quick-add-sec') || {}).value) || 0);
+}
+function showRunClockBar() {
+    const bar = $('run-clock-bar');
+    if (!bar) return;
+    const nameEl = $('run-clock-name');
+    if (nameEl) nameEl.textContent = titleCase(_runClockExercise || 'Timed set');
+    paintRunClockBar();
+    bar.hidden = false;
+    bar.classList.add('active');
+}
+function hideRunClockBar() {
+    const bar = $('run-clock-bar');
+    if (bar) { bar.classList.remove('active'); bar.hidden = true; }
+}
+// Tear the run clock down completely — stop ticking, zero the field, drop the
+// bar. Called on log (saveQuickAdd) and on End Workout so nothing carries over.
+function clearRunClock() {
+    stopQuickAddStopwatch();
+    _runClockExercise = null;
+    const sec = $('quick-add-sec'); if (sec) sec.value = '';
+    hideRunClockBar();
+}
+function reopenRunClock() {
+    if (_runClockExercise) openQuickAdd({ dataset: { exercise: _runClockExercise } });
 }
 
 async function openQuickAdd(el) {
@@ -6674,14 +6730,33 @@ async function openQuickAdd(el) {
     // set's own type wins (so a re-log of a run stays a run); otherwise the
     // catalog resolver decides.
     const track = trackOf(prev) !== 'load' ? trackOf(prev) : trackFor(exercise, muscle);
-    _quickAddDistUnit = (prev && prev.du) || cardioUnit();
+    // v11 (item 4) — if the run clock for THIS exercise is still ticking (we're
+    // reopening from the floating bar), adopt its live seconds; otherwise the
+    // timed fields reset. Capture before applyQuickAddLayout resets the SW.
+    const adopting = _qaSwRunning && _runClockExercise === exercise;
+    const runningSec = adopting ? (parseFloat(($('quick-add-sec') || {}).value) || 0) : 0;
+    // The distance unit persists as a user preference (item 4), independent of
+    // the prior set's logged unit.
+    _quickAddDistUnit = savedDistUnit();
     applyQuickAddLayout(track, exercise);
 
     // Inputs operate in the display unit; the stored weight is lb.
     $('quick-add-w').value = prev && prev.weight ? String(wDisp(prev.weight)) : '';
     $('quick-add-r').value = prev && prev.reps ? String(prev.reps) : '';
-    $('quick-add-sec').value = prev && prev.sec ? String(prev.sec) : '';
-    $('quick-add-dist').value = prev && prev.dist ? String(prev.dist) : '';
+    // v11 (item 4) — timed fields never carry over between runs: weight/reps
+    // still prefill above, but the stopwatch, duration and distance reset to
+    // zero so re-opening entry reads 0:00 / 0 with the button on "Start". When
+    // adopting a running clock, restore its live seconds and keep it ticking.
+    if (adopting) {
+        _runClockExercise = exercise;
+        hideRunClockBar();
+        $('quick-add-sec').value = String(Math.round(runningSec));
+        startQuickAddStopwatch();
+    } else {
+        _runClockExercise = null;
+        $('quick-add-sec').value = '';
+        $('quick-add-dist').value = '';
+    }
     onQuickAddPace();
     // Meta line: type-appropriate best. "Last 155 × 5 · max 181 lb 1RM" for
     // load; typed sets just echo the last effort.
@@ -6735,10 +6810,19 @@ function bumpQuickAdd(el) {
 
 function closeQuickAdd() {
     $('quick-add-overlay').classList.remove('active');
+    // v11 (item 4) — a still-running timed clock survives the close and floats
+    // as a bar over the Workout screen; tapping it reopens entry. Every other
+    // close (load/reps sets, an already-stopped clock, or a just-logged run
+    // where saveQuickAdd already stopped the SW) tears the stopwatch down.
+    if (_qaSwRunning && (_quickAddTrack === 'hold' || _quickAddTrack === 'endurance') && _quickAddExercise) {
+        _runClockExercise = _quickAddExercise;
+        showRunClockBar();
+    } else {
+        clearRunClock();
+    }
     _quickAddExercise = null;
     _quickAddEditId = null;
     _quickAddWarmup = false;
-    stopQuickAddStopwatch();
     _quickAddTrack = 'load';
 }
 
@@ -7863,6 +7947,9 @@ async function endWorkoutSession({ atTimestamp = Date.now(), silent = false } = 
     // Without this, the orange "rest" pill keeps ticking after End and
     // competes with the post-end snackbar for attention.
     clearRestTimer();
+    // v11 (item 4) — ending a workout also stops and zeroes the run clock, so a
+    // timed set's stopwatch can't keep ticking over Home after the session ends.
+    clearRunClock();
     const session = activeSession;
     session.endedAt = atTimestamp;
     session.durationMs = atTimestamp - session.startedAt;

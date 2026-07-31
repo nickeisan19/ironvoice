@@ -2890,6 +2890,46 @@ body:not(.session-running) .aw-active-only { display: none !important; }
 #rest-timer.aw-rest.complete .aw-rest-label,
 #rest-timer.aw-rest.complete .aw-rest-time { color: var(--green); }
 
+/* v11 (item 4) — floating run-clock bar: green treatment, pinned above the
+   command bar in the same slot as the rest bar. Shown only when a timed set's
+   stopwatch is running and the entry sheet is closed. */
+.run-bar {
+  display: none;
+  position: fixed; left: 22px; right: 22px;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  z-index: 96;
+  align-items: center; gap: 10px;
+  width: auto;
+  padding: 11px 14px;
+  border-radius: 14px; overflow: hidden;
+  background: rgba(0, 230, 118, 0.09);
+  border: 1px solid rgba(0, 230, 118, 0.34);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  animation: rest-bar-in 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.run-bar.active { display: flex; }
+.run-bar-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--green); box-shadow: 0 0 10px var(--green);
+  animation: rest-bar-pulse 1.6s ease-in-out infinite;
+}
+.run-bar-name {
+  flex: 1; min-width: 0; text-align: left;
+  font-size: 13px; font-weight: 700; color: var(--label);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.run-bar-time { font-size: 23px; font-weight: 800; letter-spacing: -0.02em; color: var(--green); }
+
+/* Shared by the run-clock bar (item 4) and the rest bar (item 5). */
+@keyframes rest-bar-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes rest-bar-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.82); }
+}
+
 /* v9.51 — fixed bottom bar: permanent "+ Add exercise" next to the voice
    mic, replacing the old say-or-type command field. */
 .aw-cmdbar {
