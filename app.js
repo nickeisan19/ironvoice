@@ -722,6 +722,10 @@ let restCompleteTimeout = null;
 // the synthetic tab-bar tap-through that a closing start-sheet can hand to the
 // Home tab, which would immediately minimize a session created milliseconds ago.
 let _justStartedAt = 0;
+// v11 (item 3) — name of the exercise just added via the "Add an exercise"
+// sheet / community import. renderExPicker() pins it to the head of Recent so
+// it's the first row rather than buried in a collapsed muscle group.
+let _justAddedExercise = null;
 let theme = _prefs.theme || 'dark';
 let workoutMode = !!_prefs.voiceWorkoutMode;
 
@@ -3375,7 +3379,7 @@ function openExPicker() {
     $('ex-picker-overlay')?.classList.add('active');
     setTimeout(() => $('ex-picker-input')?.focus(), 350);
 }
-function closeExPicker() { $('ex-picker-overlay')?.classList.remove('active'); _exPickerForTemplate = false; }
+function closeExPicker() { $('ex-picker-overlay')?.classList.remove('active'); _exPickerForTemplate = false; _justAddedExercise = null; }
 async function filterExPicker(el) { await renderExPicker(el?.value || ''); }
 
 function toggleExPickerMuscle(el) {
@@ -3424,6 +3428,12 @@ async function renderExPicker(query) {
     const all = (await performDB('workouts', 'getAll')).filter(w => !w.deleted);
     // RECENT — last 8 distinct exercises by most recent set.
     const seen = new Set(), recent = [];
+    // v11 (item 3) — a just-added exercise pins to the head of Recent so it's
+    // the first row the user sees, never buried in a collapsed muscle group.
+    if (_justAddedExercise && byName.has(_justAddedExercise)) {
+        seen.add(_justAddedExercise);
+        recent.push(byName.get(_justAddedExercise));
+    }
     for (const w of all.sort((a, b) => b.id - a.id)) {
         if (seen.has(w.exercise) || !byName.has(w.exercise)) continue;
         seen.add(w.exercise); recent.push(byName.get(w.exercise));
@@ -5736,7 +5746,45 @@ async function saveCustomExercise() {
     await renderCustomsList();
     await renderAll();   // re-render journal + chart with new muscle assignment
     haptic(15);
+    // v11 (item 3) — a brand-new exercise should be usable immediately, not
+    // require closing out and hunting for it in a collapsed muscle group.
+    // Editing an existing custom keeps the v9.47 return-to-hub behavior.
+    if (isNew) { await useNewExercise(name); return; }
     maybeReturnToExercisesHub();   // v9.47
+}
+
+// v11 (item 3) — drop a just-added exercise straight into the user's flow:
+//   • building a template → append it to the template and re-render the editor
+//   • a workout is running → open set entry for it (prefilled per tracking type)
+//   • idle → reopen the exercise picker with it pinned to the head of Recent,
+//     so tapping it starts a workout and opens set entry.
+// Toast either way, and pin it to Recent (_justAddedExercise) so it's the first
+// row the next time the picker opens.
+async function useNewExercise(name) {
+    markFrequencyDirty();
+    _justAddedExercise = name;
+
+    if (_exPickerForTemplate && editingTemplate) {
+        if (!editingTemplate.exercises.some(e => (e.name || e) === name)) {
+            editingTemplate.exercises.push({ name });
+            await renderTemplateEditor();
+        }
+        closeExPicker();   // resets _exPickerForTemplate + _justAddedExercise
+        showSnackbar(`Added · ${titleCase(name)}`);
+        return;
+    }
+
+    if (activeSession) {
+        closeExPicker();
+        showSnackbar(`Added · ${titleCase(name)}`);
+        await openQuickAdd({ dataset: { exercise: name } });
+        return;
+    }
+
+    // Idle — land in the picker (not back in the hub) with the new lift on top.
+    _returnToExercisesHub = false;
+    showSnackbar(`Added · ${titleCase(name)}`);
+    openExPicker();
 }
 
 async function deleteCustomExercise() {
@@ -6176,6 +6224,10 @@ async function importCommunityExercise(el) {
     exerciseLibrary.push({ ...record, custom: true });
     rebuildMatchOrder();
     markFrequencyDirty();
+    // v11 (item 3) — pin to Recent so it's the top row next time the picker
+    // opens. Browse stays open (users often import several in a row), so this
+    // is the lighter touch than the custom-editor's useNewExercise() funnel.
+    _justAddedExercise = entry.name;
 
     // v9.48: invalidate the "previously had" cache for this name so the
     // row flips to "Added" immediately, not "Re-add" again.
