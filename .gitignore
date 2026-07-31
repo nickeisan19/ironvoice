@@ -131,3 +131,6 @@ _tmp*
 
 .dev.vars*
 !.dev.vars.example
+
+# design handoff bundles (reference only, not shipped)
+design_handoff_*/

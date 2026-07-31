@@ -718,6 +718,10 @@ let editingTemplate = null;
 let restDuration = Number.isFinite(_prefs.restDefault) ? _prefs.restDefault : 90;
 let restTimerHandle = null;
 let restCompleteTimeout = null;
+// v11 (item 1) — timestamp of the most recent session start. Used to swallow
+// the synthetic tab-bar tap-through that a closing start-sheet can hand to the
+// Home tab, which would immediately minimize a session created milliseconds ago.
+let _justStartedAt = 0;
 let theme = _prefs.theme || 'dark';
 let workoutMode = !!_prefs.voiceWorkoutMode;
 
@@ -2588,7 +2592,9 @@ async function executeIntent(intent) {
             if (activeSession) {
                 speak("Workout already in progress.");
             } else {
-                await startWorkoutSession();
+                // v11 (item 1) — land on the Workout screen, not just start a
+                // background session. enterWorkout() = showScreen + start-if-idle.
+                await enterWorkout();
                 speak("Workout started.");
             }
             break;
@@ -4106,6 +4112,16 @@ function initActionDispatcher() {
         // v6: tab bar buttons that switch screens.
         const tabTarget = e.target.closest('[data-screen-target]');
         if (tabTarget) {
+            // v11 (item 1) — swallow the synthetic tap-through that a closing
+            // start-sheet hands to the tab bar (typically the Home tab), which
+            // would minimize a session created milliseconds ago. Scoped to real
+            // .tab-btn buttons; the Workout screen's minimize control is NOT a
+            // .tab-btn, so back/minimize stays responsive.
+            if (activeSession
+                && tabTarget.classList.contains('tab-btn')
+                && Date.now() - _justStartedAt < 800) {
+                return;
+            }
             showScreen(tabTarget.dataset.screenTarget);
             return;
         }
@@ -7740,6 +7756,7 @@ async function startWorkoutSession({ silent = false } = {}) {
         durationMs: 0,
         modifiedAt: id,
     };
+    _justStartedAt = Date.now();   // v11 (item 1) — arm the tab-bar tap-through guard
     localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(activeSession));
     await performDB('sessions', 'put', activeSession);
     markUnsynced();   // v8
@@ -9262,8 +9279,11 @@ async function maybePromptStartOnLaunch() {
     });
     throttlePrompts();   // either way, don't re-ask for 6h
     if (ok) {
-        await startWorkoutSession();
-        showSnackbar('Workout started', { duration: 2500 });
+        // v11 (item 1) — the launch reminder previously started a session but
+        // left the user on Home behind a "Resume workout" pill. Route through
+        // enterWorkout() so every session-creating path lands on the Workout
+        // screen on the first tap.
+        await enterWorkout();
     }
 }
 
