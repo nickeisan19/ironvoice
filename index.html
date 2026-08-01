@@ -967,16 +967,6 @@
                 <div class="aw-total-cell" id="session-card-time-cell" hidden><div class="aw-total-label">Time</div><div class="aw-total-value tnum" id="session-card-timed">0:00</div></div>
             </div>
 
-            <!-- RESTING pill — shown only while a rest countdown is active
-                 (.active toggled by startRestTimer). IDs preserved so the
-                 timer functions keep working. -->
-            <button type="button" id="rest-timer" class="aw-rest" data-action="dismissTimer" aria-label="Dismiss rest timer">
-                <span class="aw-rest-dot" aria-hidden="true"></span>
-                <span class="aw-rest-label">Resting</span>
-                <span class="aw-rest-time tnum" id="timer-text">1:30</span>
-                <span class="aw-rest-skip">Skip</span>
-            </button>
-
             <!-- v11 — continuous-mode nudge: shown once ever after the 3rd
                  logged set of a session. -->
             <div id="continuous-nudge" class="nudge-card" hidden>
@@ -1056,6 +1046,21 @@
                 <div class="section-label" style="margin-top:22px">Last workout</div>
                 <div id="last-workout-card" class="last-workout-card">
                     <div class="last-workout-empty">No workouts yet — tap Start to begin.</div>
+                </div>
+            </div>
+
+            <!-- v11 (item 5) — rest bar: pinned above the command bar (never
+                 scrolls), shown while a rest countdown runs. Progress rail
+                 drains; +30s extends, Skip clears. IDs preserved so the timer
+                 functions keep working. -->
+            <div id="rest-timer" class="rest-bar" hidden>
+                <div class="rest-bar-rail"><div class="rest-bar-rail-fill" id="rest-bar-fill"></div></div>
+                <div class="rest-bar-row">
+                    <span class="rest-bar-dot" aria-hidden="true"></span>
+                    <span class="rest-bar-eyebrow">Resting</span>
+                    <span class="rest-bar-time tnum" id="timer-text">1:30</span>
+                    <button type="button" class="rest-bar-add" data-action="addRest30">+30s</button>
+                    <button type="button" class="rest-bar-skip" data-action="dismissTimer">Skip</button>
                 </div>
             </div>
 

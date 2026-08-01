@@ -1212,6 +1212,15 @@ function acknowledgeVersionLanding() {
 // user has already acknowledged); a version without an entry quietly
 // updates the key and lets the v9.10 snackbar carry the signal instead.
 const WHATS_NEW = {
+    '11.1': {
+        items: [
+            'Rest timer is now a pinned bar at the bottom of the workout — it stays put while you scroll your sets, with a draining progress bar, a +30s button, and Skip.',
+            'Starting a workout always drops you straight into it — no more getting left on Home behind a "Resume" pill.',
+            'Add an exercise mid-workout and it opens for logging right away; add one when idle and it jumps to the top of the picker, ready to use.',
+            'Runs and timed sets reset cleanly between efforts — the stopwatch, distance, and duration start fresh each time (your weight and reps still prefill).',
+            'A running cardio clock now floats above the workout so you can log other sets without losing it — tap it to jump back in.',
+        ],
+    },
     '11.0': {
         items: [
             'Cardio, planks, and bodyweight now track the right way. Runs log distance + time, planks log a hold, pull-ups log reps — shown as "3 mi · 24:00", "1:30 hold", "12 reps" instead of a fake weight × reps.',
@@ -2054,9 +2063,12 @@ async function saveAndSyncUI(entry) {
         await renderSuggestedQueue();
         // v11 — in a superset, rest fires only after the last exercise in the
         // bracket, so back-to-back exercises don't each trigger a rest timer.
+        // v11 (item 5) — rest fires after a logged WORK set only: skipped for
+        // warmups, and for mid-superset sets (rest fires after the bracket's
+        // last exercise, so back-to-back exercises don't each start a timer).
         const br = bracketOf(entry.exercise);
         const restsNow = !br || br[br.length - 1] === entry.exercise;
-        if (restDuration > 0 && restsNow) startRestTimer(restDuration);
+        if (restDuration > 0 && restsNow && !entry.warmup) startRestTimer(restDuration);
     } catch (err) {
         console.error('Save failed:', err);
         setStatus('Save failed', 'error');
@@ -4098,6 +4110,8 @@ function initActionDispatcher() {
         setQuickAddUnit, toggleQuickAddStopwatch, resetQuickAddStopwatch,
         // v11 (item 4): tap the floating run-clock bar to reopen entry.
         reopenRunClock,
+        // v11 (item 5): pinned rest bar +30s control (Skip reuses dismissTimer).
+        addRest30,
         // v11: sectioned exercise picker — collapsible muscle groups.
         toggleExPickerMuscle,
         // v11: supersets — two-tap link + unlink on the active-workout cards.
@@ -5026,35 +5040,70 @@ async function recomputePR(exercise) {
 // Rest timer
 // ============================================================================
 
-function startRestTimer(seconds) {
-    if (restTimerHandle) clearInterval(restTimerHandle);
-    if (restCompleteTimeout) clearTimeout(restCompleteTimeout);
-    const pill = $('rest-timer');
+// v11 (item 5) — the rest timer is a deadline (_restEndsAt), not a decrementing
+// counter, so +30s just moves the deadline. _restTotalSec drives the rail width
+// (percent of the interval remaining); +30s grows it too so the fill jumps back
+// up proportionally rather than snapping.
+let _restEndsAt = 0;
+let _restTotalSec = 0;
+
+function paintRestBar() {
+    const remainingMs = Math.max(0, _restEndsAt - Date.now());
+    const remaining = Math.ceil(remainingMs / 1000);
     const text = $('timer-text');
-    let remaining = seconds;
+    if (text) text.textContent = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
+    const fill = $('rest-bar-fill');
+    if (fill && _restTotalSec > 0) {
+        const pct = Math.max(0, Math.min(100, (remainingMs / (_restTotalSec * 1000)) * 100));
+        fill.style.width = pct + '%';
+    }
+    return remainingMs;
+}
 
-    pill.classList.remove('complete');
-    pill.classList.add('active');
-
-    const update = () => {
-        const m = Math.floor(remaining / 60);
-        const s = remaining % 60;
-        text.textContent = `${m}:${String(s).padStart(2, '0')}`;
-    };
-    update();
-
+// One tick loop, reused by start and by +30s (which may need to resume ticking
+// after the brief "complete" hold).
+function armRestInterval() {
+    if (restTimerHandle) clearInterval(restTimerHandle);
     restTimerHandle = setInterval(() => {
-        remaining--;
-        update();
-        if (remaining <= 0) {
+        if (paintRestBar() <= 0) {
             clearInterval(restTimerHandle);
             restTimerHandle = null;
-            pill.classList.add('complete');
-            text.textContent = "Go";
+            const bar = $('rest-timer');
+            if (bar) bar.classList.add('complete');
             haptic([60, 80, 60, 80, 120]);
-            restCompleteTimeout = setTimeout(() => pill.classList.remove('active'), 4000);
+            showSnackbar('Rest complete', { duration: 2200 });
+            // On expiry the bar clears itself after a short beat.
+            restCompleteTimeout = setTimeout(() => clearRestTimer(), 800);
         }
-    }, 1000);
+    }, 250);
+}
+
+function startRestTimer(seconds) {
+    if (restCompleteTimeout) { clearTimeout(restCompleteTimeout); restCompleteTimeout = null; }
+    const bar = $('rest-timer');
+    if (!bar) return;
+    _restTotalSec = seconds;
+    _restEndsAt = Date.now() + seconds * 1000;
+    bar.classList.remove('complete');
+    bar.classList.add('active');
+    bar.hidden = false;
+    document.body.classList.add('resting');   // extra scroll clearance for the pinned bar
+    paintRestBar();
+    armRestInterval();
+}
+
+// +30s — extend the deadline; if the countdown had already completed, extend
+// from now so the bar refills and resumes.
+function addRest30() {
+    const bar = $('rest-timer');
+    if (!bar || !bar.classList.contains('active')) return;
+    if (restCompleteTimeout) { clearTimeout(restCompleteTimeout); restCompleteTimeout = null; }
+    _restEndsAt = Math.max(_restEndsAt, Date.now()) + 30000;
+    _restTotalSec += 30;
+    bar.classList.remove('complete');
+    paintRestBar();
+    armRestInterval();
+    haptic(10);
 }
 
 // v9.7 — extracted so endWorkoutSession can reuse the timer cleanup
@@ -5062,10 +5111,13 @@ function startRestTimer(seconds) {
 function clearRestTimer() {
     if (restTimerHandle) { clearInterval(restTimerHandle); restTimerHandle = null; }
     if (restCompleteTimeout) { clearTimeout(restCompleteTimeout); restCompleteTimeout = null; }
-    const pill = $('rest-timer');
-    if (pill) {
-        pill.classList.remove('active');
-        pill.classList.remove('complete');
+    _restEndsAt = 0; _restTotalSec = 0;
+    document.body.classList.remove('resting');
+    const bar = $('rest-timer');
+    if (bar) {
+        bar.classList.remove('active');
+        bar.classList.remove('complete');
+        bar.hidden = true;
     }
 }
 

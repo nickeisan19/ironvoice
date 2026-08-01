@@ -2857,38 +2857,54 @@ body:not(.session-running) .aw-active-only { display: none !important; }
 .aw-total-value { font-size: 19px; font-weight: 800; color: var(--label); margin-top: 2px; }
 
 
-/* RESTING pill — green, shown only while a rest countdown is active. */
-#rest-timer.aw-rest {
+/* v11 (item 5) — rest bar: pinned above the command bar (never scrolls with the
+   exercise list), shown while a rest countdown runs. Progress rail drains left
+   over the interval; +30s extends it, Skip clears it. */
+.rest-bar {
   display: none;
-  width: 100%;
-  align-items: center; gap: 12px;
-  margin: 0 0 12px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  background: rgba(0, 230, 118, 0.08);
-  border: 1px solid rgba(0, 230, 118, 0.32);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  position: fixed; left: 22px; right: 22px;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  z-index: 96;
+  border-radius: 14px; overflow: hidden;
+  background: rgba(0, 230, 118, 0.09);
+  border: 1px solid rgba(0, 230, 118, 0.34);
+  animation: rest-bar-in 0.34s cubic-bezier(0.32, 0.72, 0, 1);
 }
-#rest-timer.aw-rest.active { display: flex; }
-.aw-rest-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--green); box-shadow: 0 0 10px var(--green); flex: 0 0 auto;
+.rest-bar.active { display: block; }
+.rest-bar-rail { height: 3px; background: rgba(0, 230, 118, 0.16); }
+.rest-bar-rail-fill { height: 100%; width: 100%; background: var(--green); transition: width 1s linear; }
+.rest-bar-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 14px; }
+.rest-bar-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--green); box-shadow: 0 0 10px var(--green);
+  animation: rest-bar-pulse 1.6s ease-in-out infinite;
 }
-.aw-rest-label {
+.rest-bar-eyebrow {
   flex: 1; text-align: left;
-  font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--green);
-  text-transform: uppercase;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--green);
 }
-.aw-rest-time { font-size: 17px; font-weight: 800; color: var(--green); }
-.aw-rest-skip {
-  padding: 5px 12px; border-radius: 8px;
+.rest-bar-time {
+  font-size: 23px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--green); font-variant-numeric: tabular-nums;
+}
+.rest-bar-add {
+  height: 36px; min-width: 56px; border-radius: 10px; flex: 0 0 auto;
   background: transparent; border: 1px solid rgba(0, 230, 118, 0.4);
-  color: var(--green); font-size: 12.5px; font-weight: 700;
+  color: var(--green); font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-/* Countdown-complete "Go" state keeps the green family. */
-#rest-timer.aw-rest.complete .aw-rest-label,
-#rest-timer.aw-rest.complete .aw-rest-time { color: var(--green); }
+.rest-bar-add:active { background: rgba(0, 230, 118, 0.12); }
+.rest-bar-skip {
+  height: 36px; min-width: 52px; border-radius: 10px; flex: 0 0 auto;
+  background: transparent; border: none;
+  color: var(--green); font-size: 13px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.rest-bar-skip:active { background: rgba(0, 230, 118, 0.08); }
+/* Extra scroll clearance so the pinned rest bar never covers the last set. */
+body.resting .workout-screen { padding-bottom: calc(164px + env(safe-area-inset-bottom)); }
 
 /* v11 (item 4) — floating run-clock bar: green treatment, pinned above the
    command bar in the same slot as the rest bar. Shown only when a timed set's
