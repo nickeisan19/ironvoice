@@ -2064,11 +2064,14 @@ async function saveAndSyncUI(entry) {
         // v11 — in a superset, rest fires only after the last exercise in the
         // bracket, so back-to-back exercises don't each trigger a rest timer.
         // v11 (item 5) — rest fires after a logged WORK set only: skipped for
-        // warmups, and for mid-superset sets (rest fires after the bracket's
-        // last exercise, so back-to-back exercises don't each start a timer).
+        // warmups, for mid-superset sets (rest fires after the bracket's last
+        // exercise, so back-to-back exercises don't each start a timer), and for
+        // endurance/cardio sets (a run is the effort itself — you don't rest-time
+        // between logging it and the next thing).
         const br = bracketOf(entry.exercise);
         const restsNow = !br || br[br.length - 1] === entry.exercise;
-        if (restDuration > 0 && restsNow && !entry.warmup) startRestTimer(restDuration);
+        const isCardio = trackOf(entry) === 'endurance';
+        if (restDuration > 0 && restsNow && !entry.warmup && !isCardio) startRestTimer(restDuration);
     } catch (err) {
         console.error('Save failed:', err);
         setStatus('Save failed', 'error');
